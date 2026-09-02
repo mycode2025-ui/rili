@@ -72,14 +72,16 @@ fn sync_subscription_inner(
         let repeat_rule = event.repeat_rule.to_string();
         db::upsert_subscribed_event(
             conn,
-            subscription.id,
-            subscription.calendar_id,
-            &uid,
-            &event.title,
-            event.date,
-            event.time.as_deref(),
-            &event.note,
-            &repeat_rule,
+            db::SubscribedEvent {
+                subscription_id: subscription.id,
+                calendar_id: subscription.calendar_id,
+                external_uid: &uid,
+                title: &event.title,
+                date: event.date,
+                time: event.time.as_deref(),
+                note: &event.note,
+                repeat_rule: &repeat_rule,
+            },
         )?;
         imported += 1;
     }

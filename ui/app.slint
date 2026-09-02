@@ -539,7 +539,7 @@ export component AppWindow inherits Window {
                     }
                     // V4: the navigation group starts 12px below the primary action.
                     Rectangle { height: Theme.space-3; }
-                    today-nav := NavButton { label: "今天"; icon: Icons.today; badge: "6"; selected: view-mode == 2 || view-mode == 3; clicked => { root.set-view-mode(2); } }
+                    today-nav := NavButton { label: "今天"; icon: Icons.today; badge: "6"; selected: view-mode == 2 || view-mode == 3; clicked => { root.goto-today(); root.set-view-mode(2); } }
                     calendar-nav := NavButton { label: "日历"; icon: Icons.calendar; selected: view-mode == 0 || view-mode == 1 || view-mode == 5; clicked => { root.set-view-mode(0); } }
                     course-nav := NavButton { label: "课程表"; icon: Icons.grid; selected: view-mode == 12; clicked => { root.set-view-mode(12); } }
                     NavButton { label: "待办"; icon: Icons.check; selected: view-mode == 4; clicked => { root.set-view-mode(4); } }

@@ -2,6 +2,7 @@
 //! 日柱干支用公开的"日期差"算法自行计算，并用两个可查证的参考日期校验过：
 //! - 2024-01-01 = 甲子日
 //! - 2000-01-01 = 戊午日
+//!
 //! （来源：多个黄历网站一致记载，交叉验证过算法正确性，而不是凭一个未经验证的基准日直接假设。）
 //!
 //! 刻意不包含"宜/忌""吉凶时辰"等内容：这类信息来自各家黄历的择日经验规则，
@@ -19,7 +20,7 @@ const EARTHLY_BRANCHES: [&str; 12] = [
 /// 加上偏移量 54 后再取模，换算出的天干/地支索引与已知的 2000-01-01、2024-01-01 两个
 /// 参考日期完全吻合。
 pub fn day_ganzhi(date: NaiveDate) -> String {
-    let reference = NaiveDate::from_ymd_opt(2000, 1, 1).expect("固定参照日期");
+    let reference = NaiveDate::from_ymd_opt(2000, 1, 1).unwrap_or(NaiveDate::MIN);
     let diff_days = (date - reference).num_days() + 54;
     let stem = HEAVENLY_STEMS[diff_days.rem_euclid(10) as usize];
     let branch = EARTHLY_BRANCHES[diff_days.rem_euclid(12) as usize];

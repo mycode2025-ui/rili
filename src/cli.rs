@@ -557,7 +557,10 @@ fn emit<T: Serialize + std::fmt::Debug>(json_mode: bool, result: Result<T>) {
                     data: Some(&data),
                     error: None,
                 };
-                println!("{}", serde_json::to_string_pretty(&env).unwrap());
+                match serde_json::to_string_pretty(&env) {
+                    Ok(output) => println!("{output}"),
+                    Err(error) => eprintln!("序列化 JSON 输出失败: {error}"),
+                }
             } else {
                 println!("{data:#?}");
             }
@@ -569,7 +572,10 @@ fn emit<T: Serialize + std::fmt::Debug>(json_mode: bool, result: Result<T>) {
                     data: None,
                     error: Some(e.to_string()),
                 };
-                println!("{}", serde_json::to_string_pretty(&env).unwrap());
+                match serde_json::to_string_pretty(&env) {
+                    Ok(output) => println!("{output}"),
+                    Err(error) => eprintln!("序列化 JSON 错误信息失败: {error}"),
+                }
             } else {
                 eprintln!("错误: {e}");
             }
@@ -579,7 +585,9 @@ fn emit<T: Serialize + std::fmt::Debug>(json_mode: bool, result: Result<T>) {
 }
 
 pub fn run(cli: Cli) -> Result<()> {
-    let command = cli.command.expect("run() 只应在存在子命令时调用");
+    let command = cli
+        .command
+        .context("缺少命令；桌面模式不应进入 CLI 执行器")?;
     let mut conn = db::open()?;
 
     match command {
@@ -616,14 +624,16 @@ pub fn run(cli: Cli) -> Result<()> {
                         .unwrap_or(db::default_event_reminder(&conn)?);
                     db::create_event(
                         &conn,
-                        &title,
-                        parse_date(&date)?,
-                        time.as_deref(),
-                        &note,
-                        &repeat,
-                        &reminder,
-                        &category,
-                        calendar_id,
+                        db::NewEvent {
+                            title: &title,
+                            date: parse_date(&date)?,
+                            time: time.as_deref(),
+                            note: &note,
+                            repeat_rule: &repeat,
+                            reminder_offsets: &reminder,
+                            category: &category,
+                            calendar_id,
+                        },
                     )
                 })();
                 emit(cli.json, r);
@@ -645,15 +655,17 @@ pub fn run(cli: Cli) -> Result<()> {
                     db::update_event(
                         &conn,
                         id,
-                        title.as_deref(),
-                        date,
-                        time.as_deref().map(Some),
-                        note.as_deref(),
-                        repeat.as_deref(),
-                        reminder.as_deref(),
-                        category.as_deref(),
-                        calendar_id,
-                        duration_minutes,
+                        db::EventUpdate {
+                            title: title.as_deref(),
+                            date,
+                            time: time.as_deref().map(Some),
+                            note: note.as_deref(),
+                            repeat_rule: repeat.as_deref(),
+                            reminder_offsets: reminder.as_deref(),
+                            category: category.as_deref(),
+                            calendar_id,
+                            duration_minutes,
+                        },
                     )
                 })();
                 emit(cli.json, r);
@@ -938,16 +950,22 @@ pub fn run(cli: Cli) -> Result<()> {
                     let default_reminder = db::default_event_reminder(&conn)?;
                     let mut created = 0;
                     for ev in &imported {
+                        if ev.cancelled {
+                            continue;
+                        }
+                        let repeat_rule = ev.repeat_rule.to_string();
                         db::create_event(
                             &conn,
-                            &ev.title,
-                            ev.date,
-                            ev.time.as_deref(),
-                            &ev.note,
-                            &ev.repeat_rule.to_string(),
-                            &default_reminder,
-                            "event",
-                            calendar_id,
+                            db::NewEvent {
+                                title: &ev.title,
+                                date: ev.date,
+                                time: ev.time.as_deref(),
+                                note: &ev.note,
+                                repeat_rule: &repeat_rule,
+                                reminder_offsets: &default_reminder,
+                                category: "event",
+                                calendar_id,
+                            },
                         )?;
                         created += 1;
                     }
@@ -1003,7 +1021,10 @@ pub fn run(cli: Cli) -> Result<()> {
                         if holidays::is_makeup_workday(d) {
                             out.push(json!({ "date": d.to_string(), "name": "调休上班" }));
                         }
-                        d = d.succ_opt().expect("日期溢出");
+                        let Some(next) = d.succ_opt() else {
+                            break;
+                        };
+                        d = next;
                     }
                     Ok(out)
                 })();
@@ -1027,7 +1048,7 @@ pub fn run(cli: Cli) -> Result<()> {
             CalendarAction::Workdays { date, n } => {
                 let r = (|| -> Result<_> {
                     let d = parse_date(&date)?;
-                    let result = date_calc::add_workdays(d, n);
+                    let result = date_calc::add_workdays(d, n)?;
                     Ok(json!({ "date": d.to_string(), "n": n, "result": result.to_string() }))
                 })();
                 emit(cli.json, r);
@@ -1035,7 +1056,7 @@ pub fn run(cli: Cli) -> Result<()> {
             CalendarAction::Shift { date, days } => {
                 let r = (|| -> Result<_> {
                     let d = parse_date(&date)?;
-                    let result = date_calc::add_calendar_days(d, days);
+                    let result = date_calc::add_calendar_days(d, days)?;
                     Ok(json!({ "date": d.to_string(), "days": days, "result": result.to_string() }))
                 })();
                 emit(cli.json, r);

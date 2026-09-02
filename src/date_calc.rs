@@ -2,6 +2,7 @@
 //! 工作日判断复用 `holidays::work_state`（周末/法定节假日不算工作日，调休上班日算工作日）。
 
 use crate::holidays::{self, WorkState};
+use anyhow::{Context, Result};
 use chrono::NaiveDate;
 use serde::Serialize;
 
@@ -41,7 +42,10 @@ fn count_workdays_between(start: NaiveDate, end: NaiveDate) -> i64 {
         if is_workday(d) {
             count += 1;
         }
-        d = d.succ_opt().expect("日期上溢");
+        let Some(next) = d.succ_opt() else {
+            break;
+        };
+        d = next;
     }
     count
 }
@@ -54,28 +58,42 @@ fn is_workday(date: NaiveDate) -> bool {
 }
 
 /// 从 `start` 起，往后数 `n` 个自然日（n 可为负，表示往前）。
-pub fn add_calendar_days(start: NaiveDate, n: i64) -> NaiveDate {
-    start + chrono::Duration::days(n)
+pub fn add_calendar_days(start: NaiveDate, n: i64) -> Result<NaiveDate> {
+    start
+        .checked_add_signed(chrono::Duration::days(n))
+        .context("日期推算超出支持范围")
 }
 
 /// 从 `start` 起（不含当天），往后数 `n` 个工作日，返回第 n 个工作日当天的日期（n 必须 >= 1）。
 /// 若 n 为负，则往前数（返回第 |n| 个工作日之前的日期）。
-pub fn add_workdays(start: NaiveDate, n: i64) -> NaiveDate {
+pub fn add_workdays(start: NaiveDate, n: i64) -> Result<NaiveDate> {
     if n == 0 {
-        return start;
+        return Ok(start);
     }
     let step = if n > 0 { 1 } else { -1 };
     let mut remaining = n.abs();
     let mut d = start;
     while remaining > 0 {
         d = if step > 0 {
-            d.succ_opt().expect("日期上溢")
+            d.succ_opt().context("日期推算超出支持范围")?
         } else {
-            d.pred_opt().expect("日期下溢")
+            d.pred_opt().context("日期推算超出支持范围")?
         };
         if is_workday(d) {
             remaining -= 1;
         }
     }
-    d
+    Ok(d)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn date_arithmetic_reports_supported_range_overflow() {
+        assert!(add_calendar_days(NaiveDate::MAX, 1).is_err());
+        assert!(add_workdays(NaiveDate::MAX, 1).is_err());
+        assert!(add_workdays(NaiveDate::MIN, -1).is_err());
+    }
 }

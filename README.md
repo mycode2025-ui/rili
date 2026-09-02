@@ -26,6 +26,7 @@
 - 日期计算器（CLI + GUI 工具页）：两个日期间的自然日/工作日间隔，从某天起推算 N 个自然日/工作日后是哪天
 - 个性化设置：3 套原创配色主题（默认蓝/暖阳橙/森野绿）、一周起始日、是否显示周数，均持久化保存
 - 系统托盘图标：右键菜单可"显示主窗口 / 打开-关闭桌面挂件 / 退出"
+- 任务栏时钟入口：保留 Windows 原生时钟显示，单击任务栏时钟后在对应任务栏上沿打开固定快速面板
 - 桌面挂件：无边框、置顶、**深色主题**的小窗口，常驻桌面显示实时时钟（每秒刷新）+ 完整日期 + 天气 + 迷你月历 +
   今日彩色日程 / 待办 + 最近便签，可独立于主窗口开关
 - 数据全部保存在本机 SQLite（`%LOCALAPPDATA%/rili/rili/data/rili.db`），不上传云端
@@ -38,7 +39,6 @@
 
 ## 尚未实现（需要外部账号/服务，或技术风险过高，特意搁置）
 
-- 任务栏时钟接管（需要 Win32 Shell 窗口 Hook，技术风险和维护成本最高）
 - 多端云同步账号体系、跨设备/微信分享日程（需要自建后端）
 - RSS 资讯（需要接入第三方 API；天气已接入 Open-Meteo 并带超时和缓存）
 - AI 文本转待办、截图/语音/划词识别日程（需要接入大模型 API）
@@ -57,6 +57,19 @@ cargo build --release
 .\target\release\rili.exe          # 启动 GUI
 .\target\release\rili.exe calendar today --json   # CLI 模式
 ```
+
+## 测试与发布
+
+```powershell
+cargo fmt --all -- --check
+cargo check --all-targets -j 1
+cargo clippy --all-targets -j 1 -- -D warnings
+cargo test --lib -j 1
+```
+
+核心逻辑编译为独立库目标，GUI 二进制不生成庞大的测试链接目标，适合在内存有限的机器和 CI 中验证。
+推送 `v*` 标签会通过 GitHub Actions 构建 Windows 版本，并把 `TimeHub.exe` 发布到 GitHub Releases；
+二进制不再提交进源码仓库。
 
 ## CLI 示例
 

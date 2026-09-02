@@ -49,7 +49,7 @@ fn tick() -> Result<()> {
             .time
             .as_deref()
             .and_then(|t| NaiveTime::parse_from_str(t, "%H:%M").ok())
-            .unwrap_or_else(|| NaiveTime::from_hms_opt(9, 0, 0).unwrap());
+            .unwrap_or_else(|| NaiveTime::from_hms_opt(9, 0, 0).unwrap_or(NaiveTime::MIN));
         let event_datetime = occ_date.and_time(event_time);
 
         for offset in offsets {
@@ -107,4 +107,17 @@ fn try_toast(title: &str, body: &str) -> Result<()> {
 #[cfg(not(windows))]
 fn try_toast(_title: &str, _body: &str) -> Result<()> {
     anyhow::bail!("当前平台暂不支持系统通知")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reminder_offset_labels_are_stable() {
+        assert_eq!(format_offset(0), "现在开始");
+        assert_eq!(format_offset(10), "10 分钟后开始");
+        assert_eq!(format_offset(60), "1 小时后开始");
+        assert_eq!(format_offset(1440), "1 天后开始");
+    }
 }

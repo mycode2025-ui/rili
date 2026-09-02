@@ -7,7 +7,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
 pub fn open() -> Result<Connection> {
-    let conn = Connection::open(crate::app_paths::db_path()).context("打开数据库失败")?;
+    let conn = Connection::open(crate::app_paths::db_path()?).context("打开数据库失败")?;
     conn.execute_batch(
         r#"
         PRAGMA foreign_keys = ON;
@@ -482,22 +482,15 @@ pub fn set_subscription_result(
     Ok(())
 }
 
-pub fn upsert_subscribed_event(
-    conn: &Connection,
-    subscription_id: i64,
-    calendar_id: i64,
-    external_uid: &str,
-    title: &str,
-    date: NaiveDate,
-    time: Option<&str>,
-    note: &str,
-    repeat_rule: &str,
-) -> Result<()> {
-    anyhow::ensure!(!external_uid.trim().is_empty(), "订阅事件缺少 UID");
+pub fn upsert_subscribed_event(conn: &Connection, subscribed: SubscribedEvent<'_>) -> Result<()> {
+    anyhow::ensure!(
+        !subscribed.external_uid.trim().is_empty(),
+        "订阅事件缺少 UID"
+    );
     let existing: Option<i64> = conn
         .query_row(
             "SELECT event_id FROM event_sources WHERE subscription_id = ?1 AND external_uid = ?2",
-            params![subscription_id, external_uid],
+            params![subscribed.subscription_id, subscribed.external_uid],
             |row| row.get(0),
         )
         .optional()?;
@@ -505,32 +498,39 @@ pub fn upsert_subscribed_event(
         update_event(
             conn,
             event_id,
-            Some(title),
-            Some(date),
-            Some(time),
-            Some(note),
-            Some(repeat_rule),
-            None,
-            Some("event"),
-            Some(calendar_id),
-            None,
+            EventUpdate {
+                title: Some(subscribed.title),
+                date: Some(subscribed.date),
+                time: Some(subscribed.time),
+                note: Some(subscribed.note),
+                repeat_rule: Some(subscribed.repeat_rule),
+                category: Some("event"),
+                calendar_id: Some(subscribed.calendar_id),
+                ..EventUpdate::default()
+            },
         )?;
     } else {
         let reminder = default_event_reminder(conn)?;
         let event = create_event(
             conn,
-            title,
-            date,
-            time,
-            note,
-            repeat_rule,
-            &reminder,
-            "event",
-            calendar_id,
+            NewEvent {
+                title: subscribed.title,
+                date: subscribed.date,
+                time: subscribed.time,
+                note: subscribed.note,
+                repeat_rule: subscribed.repeat_rule,
+                reminder_offsets: &reminder,
+                category: "event",
+                calendar_id: subscribed.calendar_id,
+            },
         )?;
         conn.execute(
             "INSERT INTO event_sources (event_id, subscription_id, external_uid) VALUES (?1, ?2, ?3)",
-            params![event.id, subscription_id, external_uid],
+            params![
+                event.id,
+                subscribed.subscription_id,
+                subscribed.external_uid
+            ],
         )?;
     }
     Ok(())
@@ -570,8 +570,7 @@ pub fn delete_subscription(conn: &Connection, id: i64) -> Result<usize> {
         let mut stmt =
             tx.prepare("SELECT event_id FROM event_sources WHERE subscription_id = ?1")?;
         let rows = stmt.query_map(params![id], |row| row.get(0))?;
-        let event_ids = rows.collect::<rusqlite::Result<Vec<_>>>()?;
-        event_ids
+        rows.collect::<rusqlite::Result<Vec<_>>>()?
     };
     tx.execute(
         "DELETE FROM event_sources WHERE subscription_id = ?1",
@@ -857,6 +856,47 @@ pub struct Event {
     pub updated_at: String,
 }
 
+/// 新建日程所需的完整字段。使用命名字段避免多个 `&str` / `Option<&str>`
+/// 在调用处因顺序相近而被误传。
+#[derive(Debug, Clone, Copy)]
+pub struct NewEvent<'a> {
+    pub title: &'a str,
+    pub date: NaiveDate,
+    pub time: Option<&'a str>,
+    pub note: &'a str,
+    pub repeat_rule: &'a str,
+    pub reminder_offsets: &'a str,
+    pub category: &'a str,
+    pub calendar_id: i64,
+}
+
+/// 日程的局部修改；`None` 表示保留原值，`Some(None)` 可明确清空时间。
+#[derive(Debug, Clone, Copy, Default)]
+pub struct EventUpdate<'a> {
+    pub title: Option<&'a str>,
+    pub date: Option<NaiveDate>,
+    pub time: Option<Option<&'a str>>,
+    pub note: Option<&'a str>,
+    pub repeat_rule: Option<&'a str>,
+    pub reminder_offsets: Option<&'a str>,
+    pub category: Option<&'a str>,
+    pub calendar_id: Option<i64>,
+    pub duration_minutes: Option<i64>,
+}
+
+/// 订阅日历中的一条远端事件镜像。
+#[derive(Debug, Clone, Copy)]
+pub struct SubscribedEvent<'a> {
+    pub subscription_id: i64,
+    pub calendar_id: i64,
+    pub external_uid: &'a str,
+    pub title: &'a str,
+    pub date: NaiveDate,
+    pub time: Option<&'a str>,
+    pub note: &'a str,
+    pub repeat_rule: &'a str,
+}
+
 fn row_to_event(row: &rusqlite::Row) -> rusqlite::Result<Event> {
     Ok(Event {
         id: row.get(0)?,
@@ -962,50 +1002,45 @@ pub fn get_event(conn: &Connection, id: i64) -> Result<Option<Event>> {
     Ok(rows.next().transpose()?)
 }
 
-pub fn create_event(
-    conn: &Connection,
-    title: &str,
-    date: NaiveDate,
-    time: Option<&str>,
-    note: &str,
-    repeat_rule: &str,
-    reminder_offsets: &str,
-    category: &str,
-    calendar_id: i64,
-) -> Result<Event> {
+pub fn create_event(conn: &Connection, event: NewEvent<'_>) -> Result<Event> {
     let ts = now();
     conn.execute(
         "INSERT INTO events (title, date, time, note, repeat_rule, reminder_offsets, category, calendar_id, created_at, updated_at) \
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9)",
-        params![title, date.to_string(), time, note, repeat_rule, reminder_offsets, category, calendar_id, ts],
+        params![
+            event.title,
+            event.date.to_string(),
+            event.time,
+            event.note,
+            event.repeat_rule,
+            event.reminder_offsets,
+            event.category,
+            event.calendar_id,
+            ts
+        ],
     )?;
     let id = conn.last_insert_rowid();
     get_event(conn, id)?.context("刚插入的日程读取失败")
 }
 
-pub fn update_event(
-    conn: &Connection,
-    id: i64,
-    title: Option<&str>,
-    date: Option<NaiveDate>,
-    time: Option<Option<&str>>,
-    note: Option<&str>,
-    repeat_rule: Option<&str>,
-    reminder_offsets: Option<&str>,
-    category: Option<&str>,
-    calendar_id: Option<i64>,
-    duration_minutes: Option<i64>,
-) -> Result<Event> {
+pub fn update_event(conn: &Connection, id: i64, changes: EventUpdate<'_>) -> Result<Event> {
     let existing = get_event(conn, id)?.context("日程不存在")?;
-    let new_title = title.unwrap_or(&existing.title);
-    let new_date = date.map(|d| d.to_string()).unwrap_or(existing.date.clone());
-    let new_time = time.unwrap_or(existing.time.as_deref());
-    let new_note = note.unwrap_or(&existing.note);
-    let new_repeat_rule = repeat_rule.unwrap_or(&existing.repeat_rule);
-    let new_reminder_offsets = reminder_offsets.unwrap_or(&existing.reminder_offsets);
-    let new_category = category.unwrap_or(&existing.category);
-    let new_calendar_id = calendar_id.unwrap_or(existing.calendar_id);
-    let new_duration_minutes = duration_minutes.unwrap_or(existing.duration_minutes);
+    let new_title = changes.title.unwrap_or(&existing.title);
+    let new_date = changes
+        .date
+        .map(|d| d.to_string())
+        .unwrap_or(existing.date.clone());
+    let new_time = changes.time.unwrap_or(existing.time.as_deref());
+    let new_note = changes.note.unwrap_or(&existing.note);
+    let new_repeat_rule = changes.repeat_rule.unwrap_or(&existing.repeat_rule);
+    let new_reminder_offsets = changes
+        .reminder_offsets
+        .unwrap_or(&existing.reminder_offsets);
+    let new_category = changes.category.unwrap_or(&existing.category);
+    let new_calendar_id = changes.calendar_id.unwrap_or(existing.calendar_id);
+    let new_duration_minutes = changes
+        .duration_minutes
+        .unwrap_or(existing.duration_minutes);
     conn.execute(
         "UPDATE events SET title = ?1, date = ?2, time = ?3, note = ?4, repeat_rule = ?5, \
          reminder_offsets = ?6, category = ?7, calendar_id = ?8, duration_minutes = ?9, updated_at = ?10 WHERE id = ?11",
@@ -1819,14 +1854,16 @@ mod tests {
         let conn = reminder_test_db();
         create_event(
             &conn,
-            "已有日程",
-            NaiveDate::from_ymd_opt(2026, 9, 2).unwrap(),
-            Some("09:00"),
-            "",
-            "none",
-            "",
-            "event",
-            1,
+            NewEvent {
+                title: "已有日程",
+                date: NaiveDate::from_ymd_opt(2026, 9, 2).unwrap(),
+                time: Some("09:00"),
+                note: "",
+                repeat_rule: "none",
+                reminder_offsets: "",
+                category: "event",
+                calendar_id: 1,
+            },
         )
         .unwrap();
 

@@ -4,6 +4,15 @@ version = "0.1.0"
 edition = "2021"
 description = "本地优先的桌面日历 / 待办 / 便签工具，使用 Rust + Slint 构建"
 
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "rili"
+path = "src/main.rs"
+test = false
+bench = false
+
 [dependencies]
 slint = { version = "1.17.1", default-features = false, features = ["std", "compat-1-2", "backend-winit", "unstable-winit-030", "renderer-software", "renderer-femtovg", "accessibility"] }
 rusqlite = { version = "0.40", features = ["bundled"] }
@@ -28,9 +37,10 @@ winresource = "0.1"
 
 [profile.release]
 opt-level = 3
-lto = false
-codegen-units = 8
+lto = "thin"
+codegen-units = 1
 strip = true
+panic = "abort"
 
 [profile.dev]
 debug = 0

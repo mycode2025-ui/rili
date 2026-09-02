@@ -130,7 +130,10 @@ pub fn occurrences_in_range(
                 if d >= start {
                     out.push(d);
                 }
-                d = d.succ_opt().expect("日期上溢");
+                let Some(next) = d.succ_opt() else {
+                    break;
+                };
+                d = next;
             }
         }
         RepeatRule::Weekly => {
@@ -159,7 +162,10 @@ pub fn occurrences_in_range(
                 {
                     out.push(d);
                 }
-                d = d.succ_opt().expect("日期上溢");
+                let Some(next) = d.succ_opt() else {
+                    break;
+                };
+                d = next;
             }
         }
         RepeatRule::Monthly => {

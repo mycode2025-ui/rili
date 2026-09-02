@@ -4,21 +4,7 @@
 //! 并把 UI 回调接回数据库读写；同时负责启动后台提醒线程和系统托盘图标。
 //! 命令行子命令入口见 `cli.rs`。
 
-mod almanac;
-mod app_paths;
-mod cli;
-mod date_calc;
-mod db;
-mod holidays;
-mod ics;
-mod integrations;
-mod lunar;
-mod natural;
-mod recurrence;
-mod reminders;
-mod share;
-mod sync;
-mod weather;
+mod windowing;
 
 slint::include_modules!();
 
@@ -35,6 +21,13 @@ use std::sync::atomic::{AtomicBool, AtomicI32, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder, TrayIconEvent};
+use windowing::{set_main_view_mode, show_and_focus_main_window};
+
+use rili::window_policy::navigation_refresh_needed;
+use rili::{
+    almanac, app_paths, cli, date_calc, db, holidays, integrations, lunar, natural, recurrence,
+    reminders, weather,
+};
 
 /// 新建分类日历时依次挑选的设计规范强调色循环。
 const CALENDAR_COLOR_CYCLE: [&str; 8] = [
@@ -584,36 +577,6 @@ fn sync_desktop_widgets(source: &WidgetWindow) {
     });
 }
 
-fn restore_main_window_maximized(ui: &AppWindow, was_maximized: bool) {
-    if was_maximized {
-        ui.window().set_maximized(true);
-    }
-}
-
-fn set_main_view_mode(ui: &AppWindow, mode: i32) {
-    let was_maximized = ui.window().is_maximized();
-    ui.set_view_mode(mode);
-    restore_main_window_maximized(ui, was_maximized);
-}
-
-fn show_and_focus_main_window(ui: &AppWindow) {
-    // Showing the main window must not silently turn a maximized window back
-    // into its preferred 1280x820 size. On Windows, calling
-    // `set_minimized(false)` unconditionally can perform a restore operation
-    // even when the window was not minimized (for example when opening Today
-    // from the quick panel or a desktop widget).
-    let keep_maximized = ui.window().is_maximized();
-    let was_minimized = ui.window().is_minimized();
-    let _ = ui.show();
-    if was_minimized {
-        ui.window().set_minimized(false);
-    }
-    restore_main_window_maximized(ui, keep_maximized);
-    let _ = ui
-        .window()
-        .with_winit_window(|native| native.focus_window());
-}
-
 fn open_full_event_editor(ui: &AppWindow, date: NaiveDate) {
     ui.set_editing_event_id(0);
     ui.set_editor_title("".into());
@@ -714,7 +677,7 @@ fn show_desktop_event_editor(
         let editor_weak = editor.as_weak();
         editor.on_prepare_time_picker(move |value| {
             let time = NaiveTime::parse_from_str(value.trim(), "%H:%M")
-                .unwrap_or_else(|_| NaiveTime::from_hms_opt(9, 0, 0).unwrap());
+                .unwrap_or_else(|_| NaiveTime::from_hms_opt(9, 0, 0).unwrap_or(NaiveTime::MIN));
             if let Some(editor) = editor_weak.upgrade() {
                 editor.set_picker_hour(time.hour() as i32);
                 editor.set_picker_minute(time.minute() as i32);
@@ -776,29 +739,26 @@ fn show_desktop_event_editor(
                         .unwrap_or(1);
                     db::create_event(
                         &s.conn,
-                        title,
-                        date,
-                        time.as_deref(),
-                        note.trim(),
-                        repeat,
-                        reminder.trim(),
-                        "event",
-                        calendar_id,
+                        db::NewEvent {
+                            title,
+                            date,
+                            time: time.as_deref(),
+                            note: note.trim(),
+                            repeat_rule: repeat,
+                            reminder_offsets: reminder.trim(),
+                            category: "event",
+                            calendar_id,
+                        },
                     )?;
                     let created_id = s.conn.last_insert_rowid();
                     if duration != 60 {
                         db::update_event(
                             &s.conn,
                             created_id,
-                            None,
-                            None,
-                            None,
-                            None,
-                            None,
-                            None,
-                            None,
-                            None,
-                            Some(duration.max(1) as i64),
+                            db::EventUpdate {
+                                duration_minutes: Some(duration.max(1) as i64),
+                                ..db::EventUpdate::default()
+                            },
                         )?;
                     }
                     Ok(())
@@ -1138,18 +1098,18 @@ fn position_quick_panel_at_rect(quick: &QuickPanelWindow, taskbar: TaskbarRect) 
     let panel_width = (460.0 * scale).round() as i32;
     let panel_height = (640.0 * scale).round() as i32;
     let gap = (8.0 * scale).round() as i32;
-    let (x, y) = match taskbar.edge {
-        0 => (taskbar.right + gap, taskbar.bottom - panel_height - gap),
-        1 => (taskbar.right - panel_width - gap, taskbar.bottom + gap),
-        2 => (
-            taskbar.left - panel_width - gap,
-            taskbar.bottom - panel_height - gap,
-        ),
-        _ => (
-            taskbar.right - panel_width - gap,
-            taskbar.top - panel_height - gap,
-        ),
-    };
+    let (x, y) = rili::window_policy::taskbar_panel_position(
+        rili::window_policy::ScreenRect {
+            left: taskbar.left,
+            top: taskbar.top,
+            right: taskbar.right,
+            bottom: taskbar.bottom,
+        },
+        taskbar.edge,
+        panel_width,
+        panel_height,
+        gap,
+    );
     quick
         .window()
         .set_position(slint::PhysicalPosition::new(x, y));
@@ -1291,8 +1251,7 @@ fn spawn_taskbar_clock_click_hook() {
         if code >= 0 && TASKBAR_CLOCK_HOOK_ENABLED.load(Ordering::Relaxed) {
             let data = unsafe { &*(l_param as *const MouseHookData) };
             let count = TASKBAR_CLOCK_RECT_COUNT.load(Ordering::Acquire);
-            for index in 0..count {
-                let rect = &TASKBAR_CLOCK_RECTS[index];
+            for (index, rect) in TASKBAR_CLOCK_RECTS.iter().enumerate().take(count) {
                 let inside = data.point.x >= rect.left.load(Ordering::Relaxed)
                     && data.point.x < rect.right.load(Ordering::Relaxed)
                     && data.point.y >= rect.top.load(Ordering::Relaxed)
@@ -2132,36 +2091,44 @@ fn run_gui() -> Result<()> {
                         set_main_view_mode(&ui, 6);
                         "已打开工具与集成配置".to_string()
                     }
-                    "open-data-folder" => {
-                        let db_path = app_paths::db_path();
-                        let directory = db_path.parent().unwrap_or(db_path.as_path());
-                        #[cfg(windows)]
-                        let result = std::process::Command::new("explorer.exe")
-                            .arg(directory)
-                            .spawn();
-                        #[cfg(not(windows))]
-                        let result: std::io::Result<std::process::Child> =
-                            Err(std::io::Error::new(
+                    "open-data-folder" => match app_paths::db_path() {
+                        Ok(db_path) => {
+                            let directory = db_path.parent().unwrap_or(db_path.as_path());
+                            #[cfg(windows)]
+                            let result = std::process::Command::new("explorer.exe")
+                                .arg(directory)
+                                .spawn();
+                            #[cfg(not(windows))]
+                            let result: std::io::Result<
+                                std::process::Child,
+                            > = Err(std::io::Error::new(
                                 std::io::ErrorKind::Unsupported,
                                 "当前平台尚未配置文件管理器",
                             ));
-                        match result {
-                            Ok(_) => "已打开数据目录".to_string(),
-                            Err(error) => format!("打开数据目录失败：{error}"),
+                            match result {
+                                Ok(_) => "已打开数据目录".to_string(),
+                                Err(error) => format!("打开数据目录失败：{error}"),
+                            }
                         }
-                    }
+                        Err(error) => format!("定位数据目录失败：{error}"),
+                    },
                     "backup" => {
                         let backup_name = format!(
                             "timehub-backup-{}.db",
                             Local::now().format("%Y%m%d-%H%M%S-%3f")
                         );
-                        let backup_path = app_paths::db_path().with_file_name(backup_name);
-                        let result = state
-                            .borrow()
-                            .conn
-                            .execute("VACUUM INTO ?1", [backup_path.to_string_lossy().as_ref()]);
-                        match result {
-                            Ok(_) => format!("备份已生成：{}", backup_path.display()),
+                        match app_paths::db_path() {
+                            Ok(path) => {
+                                let backup_path = path.with_file_name(backup_name);
+                                let result = state.borrow().conn.execute(
+                                    "VACUUM INTO ?1",
+                                    [backup_path.to_string_lossy().as_ref()],
+                                );
+                                match result {
+                                    Ok(_) => format!("备份已生成：{}", backup_path.display()),
+                                    Err(error) => format!("备份失败：{error}"),
+                                }
+                            }
                             Err(error) => format!("备份失败：{error}"),
                         }
                     }
@@ -2382,42 +2349,41 @@ fn run_gui() -> Result<()> {
                         db::update_event(
                             &state.borrow().conn,
                             id as i64,
-                            Some(title),
-                            Some(date),
-                            Some(time.as_deref()),
-                            Some(note.trim()),
-                            Some(repeat),
-                            Some(reminder.trim()),
-                            None,
-                            Some(calendar_id),
-                            Some(duration.max(1) as i64),
+                            db::EventUpdate {
+                                title: Some(title),
+                                date: Some(date),
+                                time: Some(time.as_deref()),
+                                note: Some(note.trim()),
+                                repeat_rule: Some(repeat),
+                                reminder_offsets: Some(reminder.trim()),
+                                calendar_id: Some(calendar_id),
+                                duration_minutes: Some(duration.max(1) as i64),
+                                ..db::EventUpdate::default()
+                            },
                         )?;
                     } else {
                         db::create_event(
                             &state.borrow().conn,
-                            title,
-                            date,
-                            time.as_deref(),
-                            note.trim(),
-                            repeat,
-                            reminder.trim(),
-                            "event",
-                            calendar_id,
+                            db::NewEvent {
+                                title,
+                                date,
+                                time: time.as_deref(),
+                                note: note.trim(),
+                                repeat_rule: repeat,
+                                reminder_offsets: reminder.trim(),
+                                category: "event",
+                                calendar_id,
+                            },
                         )?;
                         let created_id = state.borrow().conn.last_insert_rowid();
                         if duration != 60 {
                             db::update_event(
                                 &state.borrow().conn,
                                 created_id,
-                                None,
-                                None,
-                                None,
-                                None,
-                                None,
-                                None,
-                                None,
-                                None,
-                                Some(duration.max(1) as i64),
+                                db::EventUpdate {
+                                    duration_minutes: Some(duration.max(1) as i64),
+                                    ..db::EventUpdate::default()
+                                },
                             )?;
                         }
                     }
@@ -2462,8 +2428,11 @@ fn run_gui() -> Result<()> {
                 }
                 return;
             }
-            {
+            let needs_refresh = {
                 let mut s = state.borrow_mut();
+                let previous_mode = s.view_mode;
+                let previous_week_anchor = s.week_anchor;
+                let previous_timeline_anchor = s.timeline_anchor;
                 s.view_mode = mode;
                 // 切换周、日、三日视图时，都从当前选中日期开始，避免沿用旧锚点跳到其他年份。
                 if let Some(d) = NaiveDate::from_ymd_opt(s.year, s.month, s.selected_day) {
@@ -2474,10 +2443,15 @@ fn run_gui() -> Result<()> {
                         s.timeline_anchor = d;
                     }
                 }
-            }
+                let anchor_changed = previous_week_anchor != s.week_anchor
+                    || previous_timeline_anchor != s.timeline_anchor;
+                navigation_refresh_needed(previous_mode, mode, anchor_changed)
+            };
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
                 set_main_view_mode(&ui, mode);
-                refresh_all(&ui, &widget, &state);
+                if needs_refresh {
+                    refresh_all(&ui, &widget, &state);
+                }
             }
         });
     }
@@ -2502,7 +2476,7 @@ fn run_gui() -> Result<()> {
         let ui_weak = ui.as_weak();
         ui.on_prepare_picker_time(move |value| {
             let time = NaiveTime::parse_from_str(value.trim(), "%H:%M")
-                .unwrap_or_else(|_| NaiveTime::from_hms_opt(9, 0, 0).unwrap());
+                .unwrap_or_else(|_| NaiveTime::from_hms_opt(9, 0, 0).unwrap_or(NaiveTime::MIN));
             if let Some(ui) = ui_weak.upgrade() {
                 ui.set_picker_hour(time.hour() as i32);
                 ui.set_picker_minute(time.minute() as i32);
@@ -2586,9 +2560,19 @@ fn run_gui() -> Result<()> {
                         "none"
                     };
                     let s = state.borrow();
-                    if let Err(e) =
-                        db::create_event(&s.conn, &title, date, None, "", repeat, "", &category, 1)
-                    {
+                    if let Err(e) = db::create_event(
+                        &s.conn,
+                        db::NewEvent {
+                            title: &title,
+                            date,
+                            time: None,
+                            note: "",
+                            repeat_rule: repeat,
+                            reminder_offsets: "",
+                            category: &category,
+                            calendar_id: 1,
+                        },
+                    ) {
                         eprintln!("新增长期节点失败: {e}");
                         format!("添加失败：{e}")
                     } else {
@@ -2753,14 +2737,16 @@ fn run_gui() -> Result<()> {
                 let time = format!("{hh:02}:{mm:02}");
                 if let Err(e) = db::create_event(
                     &s.conn,
-                    "新日程",
-                    date,
-                    Some(&time),
-                    "",
-                    "none",
-                    &s.default_event_reminder,
-                    "event",
-                    1,
+                    db::NewEvent {
+                        title: "新日程",
+                        date,
+                        time: Some(&time),
+                        note: "",
+                        repeat_rule: "none",
+                        reminder_offsets: &s.default_event_reminder,
+                        category: "event",
+                        calendar_id: 1,
+                    },
                 ) {
                     eprintln!("新建日程失败: {e}");
                 }
@@ -2784,15 +2770,10 @@ fn run_gui() -> Result<()> {
                     if let Err(e) = db::update_event(
                         &s.conn,
                         event.id,
-                        None,
-                        None,
-                        Some(Some(&time)),
-                        None,
-                        None,
-                        None,
-                        None,
-                        None,
-                        None,
+                        db::EventUpdate {
+                            time: Some(Some(&time)),
+                            ..db::EventUpdate::default()
+                        },
                     ) {
                         eprintln!("拖拽移动日程失败: {e}");
                     }
@@ -2813,15 +2794,10 @@ fn run_gui() -> Result<()> {
                 if let Err(e) = db::update_event(
                     &s.conn,
                     event_id as i64,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    Some(new_duration_minutes as i64),
+                    db::EventUpdate {
+                        duration_minutes: Some(new_duration_minutes as i64),
+                        ..db::EventUpdate::default()
+                    },
                 ) {
                     eprintln!("拖拽调整时长失败: {e}");
                 }
@@ -2922,14 +2898,16 @@ fn run_gui() -> Result<()> {
                 };
                 db::create_event(
                     &state.borrow().conn,
-                    title.trim(),
-                    date,
-                    time.as_deref(),
-                    "",
-                    "none",
-                    reminder.trim(),
-                    "event",
-                    1,
+                    db::NewEvent {
+                        title: title.trim(),
+                        date,
+                        time: time.as_deref(),
+                        note: "",
+                        repeat_rule: "none",
+                        reminder_offsets: reminder.trim(),
+                        category: "event",
+                        calendar_id: 1,
+                    },
                 )?;
                 Ok(())
             })();
@@ -3343,7 +3321,19 @@ fn run_gui() -> Result<()> {
                     }
                     let date = parse_ui_date(date.as_str()).map_err(anyhow::Error::msg)?;
                     let s = state.borrow();
-                    db::create_event(&s.conn, title, date, None, "", "none", "", "countdown", 1)?;
+                    db::create_event(
+                        &s.conn,
+                        db::NewEvent {
+                            title,
+                            date,
+                            time: None,
+                            note: "",
+                            repeat_rule: "none",
+                            reminder_offsets: "",
+                            category: "countdown",
+                            calendar_id: 1,
+                        },
+                    )?;
                     Ok(())
                 })();
                 if let Some(window) = window_weak.upgrade() {
@@ -3386,14 +3376,16 @@ fn run_gui() -> Result<()> {
                     let s = state.borrow();
                     db::create_event(
                         &s.conn,
-                        title,
-                        date,
-                        Some(&normalized),
-                        "",
-                        "none",
-                        "0",
-                        "event",
-                        1,
+                        db::NewEvent {
+                            title,
+                            date,
+                            time: Some(&normalized),
+                            note: "",
+                            repeat_rule: "none",
+                            reminder_offsets: "0",
+                            category: "event",
+                            calendar_id: 1,
+                        },
                     )?;
                     Ok(())
                 })();
@@ -3906,10 +3898,9 @@ fn run_gui() -> Result<()> {
         quick_panel.on_select_day(move |day| {
             {
                 let mut s = state.borrow_mut();
-                if NaiveDate::from_ymd_opt(s.year, s.month, day as u32).is_some() {
+                if let Some(selected) = NaiveDate::from_ymd_opt(s.year, s.month, day as u32) {
                     s.selected_day = day as u32;
-                    s.timeline_anchor =
-                        NaiveDate::from_ymd_opt(s.year, s.month, s.selected_day).unwrap();
+                    s.timeline_anchor = selected;
                     s.view_mode = 2;
                 }
             }
@@ -4013,17 +4004,20 @@ fn run_gui() -> Result<()> {
                             } else {
                                 date_calc::add_workdays(start, n)
                             };
-                            format!(
-                                "从 {} {} {} 天：{}",
-                                start,
-                                if operation == "calendar" {
-                                    "起算自然日"
-                                } else {
-                                    "起算工作日"
-                                },
-                                n,
-                                date
-                            )
+                            match date {
+                                Ok(date) => format!(
+                                    "从 {} {} {} 天：{}",
+                                    start,
+                                    if operation == "calendar" {
+                                        "起算自然日"
+                                    } else {
+                                        "起算工作日"
+                                    },
+                                    n,
+                                    date
+                                ),
+                                Err(error) => error.to_string(),
+                            }
                         }
                         (Err(e), _) => e,
                         (_, Err(_)) => "推算天数必须是整数，例如 10 或 -3".to_string(),
@@ -4255,14 +4249,16 @@ fn run_gui() -> Result<()> {
                         };
                         if let Err(e) = db::create_event(
                             &s.conn,
-                            &title,
-                            date,
-                            None,
-                            "",
-                            repeat_rule,
-                            reminder_offsets.as_str(),
-                            category.as_str(),
-                            calendar_id as i64,
+                            db::NewEvent {
+                                title: &title,
+                                date,
+                                time: None,
+                                note: "",
+                                repeat_rule,
+                                reminder_offsets: reminder_offsets.as_str(),
+                                category: category.as_str(),
+                                calendar_id: calendar_id as i64,
+                            },
                         ) {
                             eprintln!("新建日程失败: {e}");
                         }
@@ -4567,7 +4563,7 @@ fn run_gui() -> Result<()> {
                 if let Some(ui) = ui_weak.upgrade() {
                     ui.set_current_minutes((now.hour() * 60 + now.minute()) as i32);
                     ui.set_current_time_text(now.format("%H:%M").to_string().into());
-                    if now.second() % 10 == 0 && ui.get_taskbar_clock_enabled() {
+                    if now.second().is_multiple_of(10) && ui.get_taskbar_clock_enabled() {
                         update_taskbar_clock_hit_rect();
                     }
                 }
@@ -4912,8 +4908,8 @@ fn category_badge(event: &db::Event, occurrence_date: NaiveDate) -> String {
 }
 
 fn event_meta_text(occ: &db::EventOccurrence) -> String {
-    let occurrence_date = NaiveDate::parse_from_str(&occ.occurrence_date, "%Y-%m-%d")
-        .unwrap_or_else(|_| NaiveDate::from_ymd_opt(1970, 1, 1).expect("固定回退日期"));
+    let occurrence_date =
+        NaiveDate::parse_from_str(&occ.occurrence_date, "%Y-%m-%d").unwrap_or(NaiveDate::MIN);
     let rule = recurrence::RepeatRule::parse(&occ.event.repeat_rule);
     let parts: Vec<String> = [
         category_badge(&occ.event, occurrence_date),
@@ -5177,14 +5173,22 @@ fn build_month_days(
     colors: &HashMap<i64, slint::Color>,
     today: NaiveDate,
 ) -> Vec<CalendarDay> {
-    let first_of_month = NaiveDate::from_ymd_opt(year, month, 1).expect("非法年月");
+    let Some(first_of_month) = NaiveDate::from_ymd_opt(year, month, 1) else {
+        return Vec::new();
+    };
     let leading = if week_starts_sunday {
         first_of_month.weekday().num_days_from_sunday()
     } else {
         first_of_month.weekday().num_days_from_monday()
     };
-    let grid_start = first_of_month - chrono::Duration::days(leading as i64);
-    let grid_end = grid_start + chrono::Duration::days(41);
+    let Some(grid_start) =
+        first_of_month.checked_sub_signed(chrono::Duration::days(leading as i64))
+    else {
+        return Vec::new();
+    };
+    let Some(grid_end) = grid_start.checked_add_signed(chrono::Duration::days(41)) else {
+        return Vec::new();
+    };
     let occurrences: Vec<db::EventOccurrence> =
         db::list_event_occurrences(conn, grid_start, grid_end)
             .unwrap_or_default()
@@ -5227,18 +5231,21 @@ fn build_month_days(
             event_tags: ModelRc::new(VecModel::from(tags)),
             extra_count: day_occs.len().saturating_sub(2) as i32,
         });
-        date += chrono::Duration::days(1);
+        let Some(next) = date.succ_opt() else {
+            break;
+        };
+        date = next;
     }
     days
 }
 
-fn month_end(year: i32, month: u32) -> NaiveDate {
+fn month_end(year: i32, month: u32) -> Option<NaiveDate> {
     let (next_year, next_month) = if month == 12 {
         (year + 1, 1)
     } else {
         (year, month + 1)
     };
-    NaiveDate::from_ymd_opt(next_year, next_month, 1).expect("非法年月") - chrono::Duration::days(1)
+    NaiveDate::from_ymd_opt(next_year, next_month, 1)?.pred_opt()
 }
 
 /// 重新计算当前月份网格 + 选中日详情 + 今日日程（挂件用），并写回两个窗口的 Slint 属性。
@@ -5324,20 +5331,22 @@ fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefCell<AppStat
             })
             .collect();
 
-        let first_of_month = NaiveDate::from_ymd_opt(year, month, 1).expect("非法年月");
+        let Some(first_of_month) = NaiveDate::from_ymd_opt(year, month, 1) else {
+            return;
+        };
         let leading = if week_starts_sunday {
             first_of_month.weekday().num_days_from_sunday()
         } else {
             first_of_month.weekday().num_days_from_monday()
         };
-        let mut grid_start = first_of_month;
-        for _ in 0..leading {
-            grid_start = grid_start.pred_opt().expect("日期下溢");
-        }
-        let mut grid_end = grid_start;
-        for _ in 0..41 {
-            grid_end = grid_end.succ_opt().expect("日期上溢");
-        }
+        let Some(grid_start) =
+            first_of_month.checked_sub_signed(chrono::Duration::days(leading as i64))
+        else {
+            return;
+        };
+        let Some(grid_end) = grid_start.checked_add_signed(chrono::Duration::days(41)) else {
+            return;
+        };
 
         // 只保留"可见"分类日历下的日程发生，隐藏的分类整体从所有视图消失。
         let occurrences_in_grid: Vec<db::EventOccurrence> =
@@ -5384,24 +5393,31 @@ fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefCell<AppStat
                 event_tags: ModelRc::new(VecModel::from(tags)),
                 extra_count,
             });
-            date = date.succ_opt().expect("日期上溢");
+            let Some(next) = date.succ_opt() else {
+                break;
+            };
+            date = next;
         }
 
-        let year_months: Vec<YearMonth> = (1..=12)
-            .map(|month| YearMonth {
-                month: month as i32,
-                title: format!("{}月", month).into(),
-                days: ModelRc::new(VecModel::from(build_month_days(
-                    conn,
-                    year,
-                    month,
-                    week_starts_sunday,
-                    &visible_ids,
-                    &colors,
-                    today,
-                ))),
-            })
-            .collect();
+        let year_months: Vec<YearMonth> = if s.view_mode == 5 {
+            (1..=12)
+                .map(|month| YearMonth {
+                    month: month as i32,
+                    title: format!("{}月", month).into(),
+                    days: ModelRc::new(VecModel::from(build_month_days(
+                        conn,
+                        year,
+                        month,
+                        week_starts_sunday,
+                        &visible_ids,
+                        &colors,
+                        today,
+                    ))),
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
 
         let selected_date =
             NaiveDate::from_ymd_opt(year, month, selected_day).unwrap_or(first_of_month);
@@ -5493,22 +5509,37 @@ fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefCell<AppStat
             .map(to_ui_habit)
             .collect();
 
-        let records: Vec<RecordItem> = db::list_special_events(conn)
-            .unwrap_or_default()
-            .into_iter()
-            .map(|event| to_ui_record(event, today))
-            .collect();
-        let shift_types: Vec<ShiftTypeItem> = db::list_shift_types(conn)
-            .unwrap_or_default()
-            .into_iter()
-            .map(to_ui_shift_type)
-            .collect();
-        let shift_assignments: Vec<ShiftAssignmentItem> =
-            db::list_shift_assignments(conn, first_of_month, month_end(year, month))
+        let records: Vec<RecordItem> = if s.view_mode == 8 {
+            db::list_special_events(conn)
                 .unwrap_or_default()
                 .into_iter()
-                .map(to_ui_shift_assignment)
-                .collect();
+                .map(|event| to_ui_record(event, today))
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let shift_types: Vec<ShiftTypeItem> = if s.view_mode == 9 {
+            db::list_shift_types(conn)
+                .unwrap_or_default()
+                .into_iter()
+                .map(to_ui_shift_type)
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let shift_assignments: Vec<ShiftAssignmentItem> = if s.view_mode == 9 {
+            db::list_shift_assignments(
+                conn,
+                first_of_month,
+                month_end(year, month).unwrap_or(first_of_month),
+            )
+            .unwrap_or_default()
+            .into_iter()
+            .map(to_ui_shift_assignment)
+            .collect()
+        } else {
+            Vec::new()
+        };
         let shift_start_date = s.shift_start_date.clone();
         let shift_end_date = s.shift_end_date.clone();
         let shift_sequence = s.shift_sequence.clone();
@@ -5571,7 +5602,10 @@ fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefCell<AppStat
                 is_makeup_workday: holidays::is_makeup_workday(wd),
                 events: ModelRc::new(VecModel::from(events)),
             });
-            wd = wd.succ_opt().expect("日期上溢");
+            let Some(next) = wd.succ_opt() else {
+                break;
+            };
+            wd = next;
         }
         let week_title = if week_start.month() == week_end.month() {
             format!(
@@ -5653,7 +5687,10 @@ fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefCell<AppStat
                 is_holiday: holidays::holiday_name(td).is_some(),
                 events: ModelRc::new(VecModel::from(events)),
             });
-            td = td.succ_opt().expect("日期上溢");
+            let Some(next) = td.succ_opt() else {
+                break;
+            };
+            td = next;
         }
         let timeline_title = if timeline_day_count == 1 {
             format!(
@@ -5681,21 +5718,29 @@ fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefCell<AppStat
             .unwrap_or_default();
 
         let search_query = s.search_query.clone();
-        let search_results: Vec<SearchItem> = db::search(conn, &search_query, 50)
-            .unwrap_or_default()
-            .into_iter()
-            .map(|hit| SearchItem {
-                id: hit.id as i32,
-                kind: hit.kind.into(),
-                title: hit.title.into(),
-                meta: hit.meta.into(),
-                date: hit.date.into(),
-            })
-            .collect();
+        let search_results: Vec<SearchItem> = if s.view_mode == 7 {
+            db::search(conn, &search_query, 50)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|hit| SearchItem {
+                    id: hit.id as i32,
+                    kind: hit.kind.into(),
+                    title: hit.title.into(),
+                    meta: hit.meta.into(),
+                    date: hit.date.into(),
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
 
         // -------- 待办看板 / 四象限：基于全部未完成待办（已完成的单独放进看板"已完成"列，
         // 不出现在四象限里——已经做完的事没有"重不重要/急不急"的意义）。
-        let all_todos = db::list_all_todos(conn).unwrap_or_default();
+        let all_todos = if s.view_mode == 4 {
+            db::list_all_todos(conn).unwrap_or_default()
+        } else {
+            Vec::new()
+        };
         let board_todo_items: Vec<TodoBoardItem> = all_todos
             .iter()
             .filter(|t| t.status == "todo")
@@ -5862,7 +5907,7 @@ fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefCell<AppStat
     ui.set_shift_result(shift_result.into());
     ui.set_calendar_year(year);
     ui.set_year_months(ModelRc::new(VecModel::from(year_months)));
-    {
+    if state.borrow().view_mode == 12 {
         let s = state.borrow();
         let courses = db::list_courses(&s.conn).unwrap_or_default();
         let active_count = courses
@@ -5891,7 +5936,7 @@ fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefCell<AppStat
             .into(),
         );
     }
-    {
+    if state.borrow().view_mode == 6 {
         let s = state.borrow();
         ui.set_calculator_start(s.calculator_start.clone().into());
         ui.set_calculator_end(s.calculator_end.clone().into());
@@ -6042,9 +6087,7 @@ fn update_tool_status(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefCell<
     let local = Local::now();
     let day_seconds = local.time().num_seconds_from_midnight() as f64;
     let days_in_year = if NaiveDate::from_ymd_opt(local.year(), 12, 31)
-        .unwrap()
-        .ordinal()
-        == 366
+        .is_some_and(|date| date.ordinal() == 366)
     {
         366.0
     } else {
@@ -6062,10 +6105,10 @@ fn update_tool_status(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefCell<
     let cities = [("北京", 8), ("东京", 9), ("伦敦", 0), ("纽约", -4)];
     let world = cities
         .iter()
-        .map(|(name, offset)| {
+        .filter_map(|(name, offset)| {
             let utc = chrono::Utc::now();
-            let zone = chrono::FixedOffset::east_opt(*offset * 3600).unwrap();
-            format!("{} {}", name, utc.with_timezone(&zone).format("%H:%M"))
+            chrono::FixedOffset::east_opt(*offset * 3600)
+                .map(|zone| format!("{} {}", name, utc.with_timezone(&zone).format("%H:%M")))
         })
         .collect::<Vec<_>>()
         .join("  ");

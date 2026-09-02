@@ -89,16 +89,22 @@ pub fn import_bundle(
     let default_reminder = db::default_event_reminder(conn)?;
     let mut count = 0;
     for event in events {
+        if event.cancelled {
+            continue;
+        }
+        let repeat_rule = event.repeat_rule.to_string();
         db::create_event(
             conn,
-            &event.title,
-            event.date,
-            event.time.as_deref(),
-            &event.note,
-            &event.repeat_rule.to_string(),
-            &default_reminder,
-            "event",
-            calendar_id,
+            db::NewEvent {
+                title: &event.title,
+                date: event.date,
+                time: event.time.as_deref(),
+                note: &event.note,
+                repeat_rule: &repeat_rule,
+                reminder_offsets: &default_reminder,
+                category: "event",
+                calendar_id,
+            },
         )?;
         count += 1;
     }

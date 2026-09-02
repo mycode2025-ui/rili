@@ -119,7 +119,7 @@ pub fn export_ics(calendar_name: &str, events: &[ExportEvent]) -> String {
         match ev.time {
             Some(t) => {
                 let time = NaiveTime::parse_from_str(t, "%H:%M")
-                    .unwrap_or_else(|_| NaiveTime::from_hms_opt(9, 0, 0).unwrap());
+                    .unwrap_or_else(|_| NaiveTime::from_hms_opt(9, 0, 0).unwrap_or(NaiveTime::MIN));
                 out.push_str(&format!(
                     "DTSTART:{}\r\n",
                     ev.date.and_time(time).format("%Y%m%dT%H%M%S")
@@ -246,11 +246,16 @@ pub fn parse_ics(content: &str) -> Result<Vec<ImportedEvent>> {
                     date = NaiveDate::parse_from_str(&digits[0..8], "%Y%m%d").ok();
                 }
                 if let Some(t_idx) = value.find('T') {
-                    let time_part = &value[t_idx + 1..];
-                    if time_part.len() >= 4 {
-                        let hh = &time_part[0..2];
-                        let mm = &time_part[2..4];
-                        time = Some(format!("{hh}:{mm}"));
+                    let digits: String = value[t_idx + 1..]
+                        .chars()
+                        .take_while(|c| c.is_ascii_digit())
+                        .take(4)
+                        .collect();
+                    if digits.len() == 4 {
+                        let candidate = format!("{}:{}", &digits[0..2], &digits[2..4]);
+                        if NaiveTime::parse_from_str(&candidate, "%H:%M").is_ok() {
+                            time = Some(candidate);
+                        }
                     }
                 }
             }
@@ -305,5 +310,34 @@ mod tests {
         assert!(events[0].cancelled);
         assert!(events[1].cancelled);
         assert!(!events[2].cancelled);
+    }
+
+    #[test]
+    fn malformed_or_non_ascii_time_never_panics() {
+        let content = concat!(
+            "BEGIN:VCALENDAR\r\n",
+            "BEGIN:VEVENT\r\nUID:bad-time\r\nDTSTART:20260903T上午九点\r\n",
+            "SUMMARY:中文时间\r\nEND:VEVENT\r\n",
+            "BEGIN:VEVENT\r\nUID:invalid-time\r\nDTSTART:20260904T996000\r\n",
+            "SUMMARY:越界时间\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+        );
+
+        let events = parse_ics(content).unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].time, None);
+        assert_eq!(events[1].time, None);
+    }
+
+    #[test]
+    fn unfolds_and_unescapes_common_ics_text() {
+        let content = concat!(
+            "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:folded\r\n",
+            "DTSTART;VALUE=DATE:20260905\r\n",
+            "SUMMARY:项目\\,周\r\n 会\r\n",
+            "DESCRIPTION:第一行\\n第二行\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+        );
+        let events = parse_ics(content).unwrap();
+        assert_eq!(events[0].title, "项目,周会");
+        assert_eq!(events[0].note, "第一行\n第二行");
     }
 }
