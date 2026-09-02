@@ -1,0 +1,249 @@
+import { Theme } from "theme.slint";
+import { Icons, SvgIcon } from "icons.slint";
+
+export { Theme }
+
+component DemoToolButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected: false;
+    in property <bool> dark-demo: false;
+    height: 30px;
+    border-radius: Theme.r-md;
+    border-width: 1px;
+    border-color: selected ? (dark-demo ? Theme.demo-dark-accent : Theme.demo-light-accent) : (dark-demo ? Theme.demo-dark-border : Theme.demo-light-border);
+    background: selected ? (dark-demo ? Theme.demo-dark-accent : Theme.demo-light-accent) : (dark-demo ? Theme.demo-dark-surface : Theme.demo-light-surface);
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        Text {
+            text: root.label;
+            color: selected ? (dark-demo ? Theme.demo-dark-on-accent : Theme.demo-light-on-accent) : (dark-demo ? Theme.demo-dark-text-2 : Theme.demo-light-text-2);
+            font-size: Theme.font-12;
+            font-weight: selected ? 600 : 400;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component DemoDay inherits Rectangle {
+    in property <int> day;
+    in property <int> index;
+    in property <bool> dark-demo;
+    property <bool> outside: index < 5 || index >= 36;
+    property <bool> weekend: Math.mod(index, 7) >= 5;
+    property <bool> today: index == 35;
+    property <bool> has-dot: index == 7 || index == 10 || index == 16 || index == 22;
+    property <color> dot-color:
+        index == 7 ? (dark-demo ? Theme.demo-dark-accent : Theme.demo-light-accent)
+        : index == 10 ? (dark-demo ? Theme.demo-dark-success : Theme.demo-light-success)
+        : index == 16 ? (dark-demo ? Theme.demo-dark-warning : Theme.demo-light-warning)
+        : index == 22 ? (dark-demo ? Theme.demo-dark-pink : Theme.demo-light-pink)
+        : transparent;
+    height: 34px;
+    border-radius: 7px;
+    border-width: 1px;
+    border-color: today ? (dark-demo ? Theme.demo-dark-accent : Theme.demo-light-accent) : (dark-demo ? Theme.demo-dark-cell-border : Theme.demo-light-cell-border);
+    background: today ? (dark-demo ? Theme.demo-dark-accent : Theme.demo-light-accent) : (dark-demo ? Theme.demo-dark-surface : Theme.demo-light-surface);
+    Text {
+        text: day;
+        color: today ? (dark-demo ? Theme.demo-dark-on-accent : Theme.demo-light-on-accent)
+            : outside ? (dark-demo ? Theme.demo-dark-disabled : Theme.demo-light-disabled)
+            : weekend ? (dark-demo ? Theme.demo-dark-weekend : Theme.demo-light-weekend)
+            : (dark-demo ? Theme.demo-dark-text-1 : Theme.demo-light-text-1);
+        font-size: Theme.font-11-5;
+        font-weight: today ? 700 : 400;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    if has-dot: Rectangle {
+        width: 4px;
+        height: 4px;
+        border-radius: 2px;
+        x: (parent.width - self.width) / 2;
+        y: parent.height - 6px;
+        background: dot-color;
+    }
+}
+
+component DemoEventChip inherits Rectangle {
+    in property <string> title;
+    in property <string> time;
+    in property <color> base-color;
+    in property <color> chip-color;
+    in property <color> title-color;
+    in property <bool> dark-demo;
+    height: 34px;
+    border-radius: 9px;
+    background: chip-color;
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: Theme.space-2;
+        Rectangle { width: 3px; height: 18px; border-radius: 2px; background: base-color; }
+        Text { text: root.title; color: title-color; font-size: Theme.font-12; font-weight: 600; horizontal-stretch: 1; vertical-alignment: center; }
+        Text { text: root.time; color: dark-demo ? Theme.demo-dark-text-2 : Theme.demo-light-text-2; font-size: Theme.font-11; vertical-alignment: center; }
+    }
+}
+
+component ThemeDemo inherits Rectangle {
+    in property <bool> dark-demo;
+    border-radius: Theme.r-lg;
+    border-width: 1px;
+    border-color: dark-demo ? Theme.demo-dark-border-subtle : Theme.demo-light-border-subtle;
+    background: dark-demo ? Theme.demo-dark-bg : Theme.demo-light-bg;
+    clip: true;
+    Rectangle {
+        x: 0px; y: 0px; width: parent.width; height: 34px;
+        background: dark-demo ? Theme.demo-dark-surface : Theme.demo-light-surface;
+        border-width: 1px;
+        border-color: dark-demo ? Theme.demo-dark-border-subtle : Theme.demo-light-border-subtle;
+        HorizontalLayout {
+            padding-left: 14px; padding-right: 14px; spacing: Theme.space-2;
+            cross-axis-alignment: center;
+            SvgIcon { source: dark-demo ? Icons.moon : Icons.sun; size: 14px; tint: dark-demo ? Theme.demo-dark-text-1 : Theme.demo-light-text-1; }
+            Text { text: dark-demo ? "深色主题 · Dark" : "浅色主题 · Light"; color: dark-demo ? Theme.demo-dark-text-1 : Theme.demo-light-text-1; font-size: Theme.font-12; font-weight: 600; vertical-alignment: center; horizontal-stretch: 1; }
+            Rectangle {
+                height: 20px; border-radius: Theme.pill-radius-20;
+                background: dark-demo ? Theme.demo-dark-accent-subtle : Theme.demo-light-accent-subtle;
+                HorizontalLayout { padding-left: Theme.space-2; padding-right: Theme.space-2;
+                    Text { text: dark-demo ? "跟随系统 / 手动" : "默认"; color: dark-demo ? Theme.demo-dark-accent : Theme.demo-light-accent; font-size: Theme.font-10; font-weight: 600; vertical-alignment: center; }
+                }
+            }
+        }
+    }
+    VerticalLayout {
+        x: 16px; y: 50px; width: parent.width - 32px; height: parent.height - 66px;
+        spacing: Theme.space-3;
+        HorizontalLayout {
+            height: 30px; spacing: Theme.space-2;
+            DemoToolButton { label: "月"; selected: true; dark-demo: root.dark-demo; }
+            DemoToolButton { label: "周"; dark-demo: root.dark-demo; }
+            DemoToolButton { label: "今天"; dark-demo: root.dark-demo; }
+            Rectangle { horizontal-stretch: 1; }
+            Rectangle {
+                width: 142px; height: 30px; border-radius: Theme.r-md; border-width: 1px;
+                border-color: dark-demo ? Theme.demo-dark-border : Theme.demo-light-border;
+                background: dark-demo ? Theme.demo-dark-surface : Theme.demo-light-surface;
+                HorizontalLayout { padding-left: Theme.space-2; padding-right: Theme.space-2; spacing: 6px; cross-axis-alignment: center;
+                    SvgIcon { source: Icons.search; size: 14px; tint: dark-demo ? Theme.demo-dark-text-3 : Theme.demo-light-text-3; }
+                    Text { text: "搜索日程…"; color: dark-demo ? Theme.demo-dark-text-3 : Theme.demo-light-text-3; font-size: Theme.font-12; vertical-alignment: center; }
+                }
+            }
+            Rectangle {
+                width: 30px; height: 30px; border-radius: Theme.r-md;
+                background: dark-demo ? Theme.demo-dark-accent : Theme.demo-light-accent;
+                SvgIcon { source: Icons.plus; size: 14px; tint: dark-demo ? Theme.demo-dark-on-accent : Theme.demo-light-on-accent; x: 8px; y: 8px; }
+            }
+        }
+        VerticalLayout {
+            spacing: 3px;
+            HorizontalLayout {
+                height: 20px; spacing: 3px;
+                for label[i] in ["一", "二", "三", "四", "五", "六", "日"]: Text {
+                    text: label;
+                    color: dark-demo ? Theme.demo-dark-text-3 : Theme.demo-light-text-3;
+                    font-size: Theme.font-10;
+                    horizontal-stretch: 1;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+            for week in 6: HorizontalLayout {
+                height: 34px; spacing: 3px;
+                for col in 7: DemoDay {
+                    horizontal-stretch: 1;
+                    index: week * 7 + col;
+                    day: [27, 28, 29, 30, 31, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 1, 2, 3, 4, 5, 6][week * 7 + col];
+                    dark-demo: root.dark-demo;
+                }
+            }
+        }
+        VerticalLayout {
+            spacing: Theme.space-2;
+            DemoEventChip {
+                title: "研发评审会"; time: "13:00–14:00"; dark-demo: root.dark-demo;
+                base-color: dark-demo ? Theme.demo-dark-accent : Theme.demo-light-accent;
+                chip-color: dark-demo ? Theme.demo-dark-blue-chip : Theme.demo-light-blue-chip;
+                title-color: dark-demo ? Theme.demo-dark-blue-text : Theme.demo-light-blue-text;
+            }
+            DemoEventChip {
+                title: "读书 30 分钟"; time: "19:30–20:30"; dark-demo: root.dark-demo;
+                base-color: dark-demo ? Theme.demo-dark-success : Theme.demo-light-success;
+                chip-color: dark-demo ? Theme.demo-dark-green-chip : Theme.demo-light-green-chip;
+                title-color: dark-demo ? Theme.demo-dark-green-text : Theme.demo-light-green-text;
+            }
+            DemoEventChip {
+                title: "女儿钢琴课"; time: "20:00–21:00"; dark-demo: root.dark-demo;
+                base-color: dark-demo ? Theme.demo-dark-danger : Theme.demo-light-danger;
+                chip-color: dark-demo ? Theme.demo-dark-red-chip : Theme.demo-light-red-chip;
+                title-color: dark-demo ? Theme.demo-dark-red-text : Theme.demo-light-red-text;
+            }
+        }
+    }
+}
+
+component TokenSwatch inherits Rectangle {
+    in property <color> swatch-color;
+    in property <string> value-text;
+    in property <string> token-name;
+    width: 110px;
+    height: 94px;
+    border-radius: 10px;
+    border-width: 1px;
+    border-color: Theme.palette-card-border;
+    background: Theme.palette-card-bg;
+    clip: true;
+    Rectangle { x: 0px; y: 0px; width: parent.width; height: 44px; background: root.swatch-color; border-width: 1px; border-color: Theme.palette-card-border; }
+    Text { x: 10px; y: 52px; width: parent.width - 20px; text: root.value-text; color: Theme.palette-card-title; font-size: Theme.font-12-5; font-weight: 700; }
+    Text { x: 10px; y: 72px; width: parent.width - 20px; text: root.token-name; color: Theme.palette-card-text; font-size: Theme.font-11; }
+}
+
+export component ThemeComparisonWindow inherits Window {
+    default-font-family: Theme.font-family;
+    icon: Icons.app-logo;
+    title: "主题对照";
+    width: 1280px;
+    height: 1050px;
+    background: Theme.bg-app;
+    Rectangle {
+        width: parent.width; height: parent.height; background: Theme.bg-app;
+        Text { x: 50px; y: 24px; text: "主题对照"; color: Theme.text-1; font-size: Theme.font-22; font-weight: 700; }
+        Text { x: 50px; y: 52px; text: "同一界面 · 亮 / 暗两套完整主题 · Token 级固定对照"; color: Theme.text-3; font-size: Theme.font-12; }
+        HorizontalLayout {
+            x: 50px; y: 84px; width: 1180px; height: 506px; spacing: Theme.space-5;
+            ThemeDemo { horizontal-stretch: 1; dark-demo: false; }
+            ThemeDemo { horizontal-stretch: 1; dark-demo: true; }
+        }
+        Text { x: 50px; y: 620px; text: "浅色主题 Token"; color: Theme.text-1; font-size: Theme.font-13; font-weight: 600; }
+        Text { x: 164px; y: 621px; text: "Light Palette · 主界面默认"; color: Theme.text-3; font-size: Theme.font-11; }
+        HorizontalLayout {
+            x: 50px; y: 650px; width: 1180px; height: 94px; spacing: Theme.space-2;
+            TokenSwatch { swatch-color: Theme.demo-light-bg; value-text: "#" + "F3F5F9"; token-name: "bg-app"; }
+            TokenSwatch { swatch-color: Theme.demo-light-surface; value-text: "#" + "FFFFFF"; token-name: "bg-surface"; }
+            TokenSwatch { swatch-color: Theme.demo-light-text-1; value-text: "#" + "1B1F2A"; token-name: "text-1"; }
+            TokenSwatch { swatch-color: Theme.demo-light-accent; value-text: "#" + "2E6BE6"; token-name: "accent"; }
+            TokenSwatch { swatch-color: Theme.demo-light-danger; value-text: "#" + "D93A49"; token-name: "danger"; }
+            TokenSwatch { swatch-color: Theme.demo-light-success; value-text: "#" + "0E9F6E"; token-name: "success"; }
+            TokenSwatch { swatch-color: Theme.demo-light-warning; value-text: "#" + "C77700"; token-name: "warning"; }
+            TokenSwatch { swatch-color: Theme.demo-light-purple; value-text: "#" + "7C4DFF"; token-name: "c-purple"; }
+            TokenSwatch { swatch-color: Theme.demo-light-pink; value-text: "#" + "DB2777"; token-name: "c-pink"; }
+            TokenSwatch { swatch-color: Theme.demo-light-cyan; value-text: "#" + "0891B2"; token-name: "c-cyan"; }
+        }
+        Text { x: 50px; y: 780px; text: "深色主题 Token"; color: Theme.text-1; font-size: Theme.font-13; font-weight: 600; }
+        Text { x: 164px; y: 781px; text: "Dark Palette · 跟随系统 / 手动"; color: Theme.text-3; font-size: Theme.font-11; }
+        HorizontalLayout {
+            x: 50px; y: 810px; width: 1180px; height: 94px; spacing: Theme.space-2;
+            TokenSwatch { swatch-color: Theme.demo-dark-bg; value-text: "#" + "14161C"; token-name: "bg-app"; }
+            TokenSwatch { swatch-color: Theme.demo-dark-surface; value-text: "#" + "1C1F27"; token-name: "bg-surface"; }
+            TokenSwatch { swatch-color: Theme.demo-dark-text-1; value-text: "#" + "E8EAF0"; token-name: "text-1"; }
+            TokenSwatch { swatch-color: Theme.demo-dark-accent; value-text: "#" + "6C9BFF"; token-name: "accent"; }
+            TokenSwatch { swatch-color: Theme.demo-dark-danger; value-text: "#" + "FF6B78"; token-name: "danger"; }
+            TokenSwatch { swatch-color: Theme.demo-dark-success; value-text: "#" + "4ADE9B"; token-name: "success"; }
+            TokenSwatch { swatch-color: Theme.demo-dark-warning; value-text: "#" + "E9A23B"; token-name: "warning"; }
+            TokenSwatch { swatch-color: Theme.demo-dark-purple; value-text: "#" + "A78BFA"; token-name: "c-purple"; }
+            TokenSwatch { swatch-color: Theme.demo-dark-pink; value-text: "#" + "F472B6"; token-name: "c-pink"; }
+            TokenSwatch { swatch-color: Theme.demo-dark-cyan; value-text: "#" + "22D3EE"; token-name: "c-cyan"; }
+        }
+        Text { x: 50px; y: 940px; text: "对照面板和色板使用固定 Token，不随当前应用主题改变。"; color: Theme.text-3; font-size: Theme.font-12; }
+    }
+}

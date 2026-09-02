@@ -1,0 +1,71 @@
+import { Theme } from "theme.slint";
+import { Icons, SvgIcon } from "icons.slint";
+import { NoteItem } from "side-panel.slint";
+
+component NoteAction inherits Rectangle {
+    in property <string> label;
+    in property <image> icon;
+    in property <bool> primary: false;
+    callback clicked <=> touch.clicked;
+    height: 32px; min-width: 82px; border-radius: Theme.r-md;
+    border-width: primary ? 0px : 1px; border-color: Theme.border-default;
+    background: primary ? Theme.accent : (touch.has-hover ? Theme.bg-hover : Theme.bg-surface);
+    touch := TouchArea { mouse-cursor: pointer; }
+    HorizontalLayout { padding-left: Theme.space-3; padding-right: Theme.space-3; spacing: Theme.space-2; cross-axis-alignment: center;
+        SvgIcon { source: root.icon; size: 14px; tint: primary ? Theme.on-accent : Theme.text-2; }
+        Text { text: root.label; color: primary ? Theme.on-accent : Theme.text-1; font-size: Theme.font-12; vertical-alignment: center; }
+    }
+}
+
+export component NotesView inherits Rectangle {
+    in property <[NoteItem]> notes;
+    callback add-note(string, string);
+    callback update-note(int, string, string);
+    callback delete-note(int);
+    in-out property <int> selected-id: 0;
+    in-out property <string> draft-title: "";
+    in-out property <string> draft-content: "";
+    background: Theme.bg-app;
+
+    HorizontalLayout {
+        width: parent.width; height: parent.height; padding: Theme.space-4; spacing: Theme.space-4;
+        Rectangle {
+            width: 330px; border-radius: Theme.r-lg; border-width: 1px; border-color: Theme.border-subtle; background: Theme.bg-surface;
+            VerticalLayout { padding: Theme.space-3; spacing: Theme.space-2;
+                Text { text: "全部便签  " + notes.length; color: Theme.text-1; font-size: Theme.font-15; font-weight: 700; }
+                for note in notes: Rectangle {
+                    height: 64px; border-radius: Theme.r-md; background: note-touch.has-hover || root.selected-id == note.id ? Theme.bg-selected : Theme.bg-surface-2;
+                    note-touch := TouchArea { mouse-cursor: pointer; clicked => { root.selected-id = note.id; root.draft-title = note.title; root.draft-content = note.content; } }
+                    VerticalLayout { padding: Theme.space-2; spacing: 2px;
+                        Text { text: note.title; color: Theme.text-1; font-size: Theme.font-13; font-weight: 600; overflow: elide; }
+                        Text { text: note.content; color: Theme.text-3; font-size: Theme.font-11; overflow: elide; }
+                    }
+                }
+                Rectangle { vertical-stretch: 1; }
+            }
+        }
+        Rectangle {
+            horizontal-stretch: 1; border-radius: Theme.r-lg; border-width: 1px; border-color: Theme.border-subtle; background: Theme.bg-surface;
+            VerticalLayout { padding: Theme.space-4; spacing: Theme.space-3;
+                Text { text: root.selected-id == 0 ? "新建便签" : "编辑便签"; color: Theme.text-1; font-size: Theme.font-15; font-weight: 700; }
+                Rectangle { height: 38px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface-2;
+                    TextInput { x: Theme.space-3; width: parent.width - Theme.space-6; height: parent.height; text <=> root.draft-title; color: Theme.text-1; font-size: Theme.font-13; vertical-alignment: center; }
+                }
+                Rectangle { vertical-stretch: 1; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface-2;
+                    TextInput { x: Theme.space-3; y: Theme.space-3; width: parent.width - Theme.space-6; height: parent.height - Theme.space-6; text <=> root.draft-content; color: Theme.text-1; font-size: Theme.font-13; wrap: word-wrap; }
+                }
+                HorizontalLayout { height: 32px; spacing: Theme.space-2;
+                    if root.selected-id != 0: NoteAction { label: "删除"; icon: Icons.close; clicked => { root.delete-note(root.selected-id); root.selected-id = 0; root.draft-title = ""; root.draft-content = ""; } }
+                    Rectangle { horizontal-stretch: 1; }
+                    NoteAction { label: "新便签"; icon: Icons.plus; clicked => { root.selected-id = 0; root.draft-title = ""; root.draft-content = ""; } }
+                    NoteAction { label: root.selected-id == 0 ? "添加" : "保存"; icon: Icons.check; primary: true; clicked => {
+                        if (root.draft-title != "") {
+                            if (root.selected-id == 0) { root.add-note(root.draft-title, root.draft-content); }
+                            else { root.update-note(root.selected-id, root.draft-title, root.draft-content); }
+                        }
+                    } }
+                }
+            }
+        }
+    }
+}

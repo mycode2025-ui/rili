@@ -1,0 +1,208 @@
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "design-system.slint";
+import { GhostButton, PrimaryButton, DangerGhostButton, Dropdown } from "widgets.slint";
+import { HabitItem } from "side-panel.slint";
+import { Icons, SvgIcon } from "icons.slint";
+import { TimeHubDatePickerPopup } from "date-time-picker.slint";
+
+component RecordInput inherits Rectangle {
+    in-out property <string> text;
+    in property <string> placeholder;
+    in property <image> icon;
+    in property <bool> show-icon: false;
+    callback accepted(string);
+    callback open-picker();
+    height: 34px;
+    border-radius: Theme.radius-md;
+    border-width: 1px;
+    border-color: input.has-focus ? Theme.accent : Theme.panel-border;
+    background: Theme.panel-bg;
+    Text {
+        visible: root.text == "";
+        x: root.show-icon ? 36px : 10px; width: parent.width - self.x - 10px; height: parent.height;
+        text: root.placeholder; color: Theme.text-muted; font-size: Theme.font-sm;
+        vertical-alignment: center; overflow: elide;
+    }
+    input := TextInput {
+        x: root.show-icon ? 36px : 10px; width: parent.width - self.x - 10px; height: parent.height;
+        text <=> root.text; color: Theme.text-primary; font-size: Theme.font-md;
+        vertical-alignment: center;
+        selection-foreground-color: Theme.on-accent; selection-background-color: Theme.accent;
+        accepted => { root.accepted(root.text); }
+    }
+    if root.show-icon: Rectangle {
+        x: 6px; y: 0px; width: 28px; height: parent.height;
+        SvgIcon { source: root.icon; size: 15px; tint: Theme.accent; x: 6px; y: (parent.height - self.height) / 2; }
+        TouchArea { mouse-cursor: pointer; clicked => { root.open-picker(); } }
+    }
+}
+
+export struct RecordItem {
+    id: int,
+    title: string,
+    category: string,
+    date-text: string,
+    meta-text: string,
+}
+
+export component RecordsView inherits Rectangle {
+    in property <[RecordItem]> records;
+    in property <[HabitItem]> habits;
+    callback add-record(string, string, string) -> string;
+    callback delete-record(int);
+    callback add-habit(string);
+    callback toggle-habit(int);
+    callback delete-habit(int);
+    in-out property <string> form-message: "";
+    in-out property <string> record-date: "";
+    in-out property <int> picker-year: 2026;
+    in-out property <int> picker-month: 9;
+    in-out property <int> picker-day: 1;
+    callback prepare-date-picker(string);
+    pure function pad-two(value: int) -> string { return value < 10 ? "0" + value : value; }
+    pure function format-date(year: int, month: int, day: int) -> string { return year + "-" + root.pad-two(month) + "-" + root.pad-two(day); }
+
+    background: Theme.panel-bg;
+    border-radius: Theme.radius-lg;
+    border-width: 1px;
+    border-color: Theme.panel-border;
+
+    VerticalLayout {
+        padding: Theme.gap-lg;
+        spacing: Theme.gap-md;
+        HorizontalLayout {
+            Text { text: "记录中心"; color: Theme.text-primary; font-size: Theme.font-xl; font-weight: 700; }
+            Rectangle { horizontal-stretch: 1; }
+            Text { text: "生日 · 纪念日 · 倒数日 · 习惯"; color: Theme.text-muted; font-size: Theme.font-sm; vertical-alignment: center; }
+        }
+        HorizontalLayout {
+            spacing: Theme.gap-md;
+            vertical-stretch: 1;
+
+            Rectangle {
+                horizontal-stretch: 3;
+                background: Theme.bg;
+                border-radius: Theme.radius-md;
+                border-width: 1px;
+                border-color: Theme.panel-border;
+                VerticalLayout {
+                    padding: Theme.gap-md;
+                    spacing: Theme.gap-sm;
+                    Text { text: "长期节点"; color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; }
+                    HorizontalLayout {
+                        spacing: Theme.gap-sm;
+                        record-title := RecordInput { placeholder: "名称，例如妈妈生日"; horizontal-stretch: 2; }
+                        record-date-input := RecordInput { text <=> root.record-date; placeholder: "日期 YYYY-MM-DD"; horizontal-stretch: 1; show-icon: true; icon: Icons.calendar; open-picker => { root.prepare-date-picker(root.record-date); date-picker.show(); } }
+                        record-category := Dropdown {
+                            model: ["生日", "纪念日", "倒数日"];
+                            current-index: 0;
+                            item-width: 84px;
+                            selected(i) => { record-category.current-index = i; }
+                        }
+                        PrimaryButton {
+                            text: "添加";
+                            clicked => {
+                                if (record-title.text != "" && root.record-date != "") {
+                                    root.form-message = add-record(record-title.text, root.record-date, ["birthday", "anniversary", "countdown"][record-category.current-index]);
+                                    if (root.form-message == "已添加") {
+                                        record-title.text = "";
+                                        root.record-date = "";
+                                    }
+                                } else {
+                                    root.form-message = "请填写名称和日期";
+                                }
+                            }
+                        }
+                    }
+                    Text { text: "生日和纪念日会按年重复；倒数日按设置日期计算剩余天数。"; color: Theme.text-muted; font-size: Theme.font-sm; }
+                    Text { visible: root.form-message != ""; text: root.form-message; color: root.form-message == "已添加" ? Theme.success : Theme.danger; font-size: Theme.font-sm; }
+                    ScrollView {
+                        vertical-stretch: 1;
+                        VerticalLayout {
+                            spacing: Theme.gap-sm;
+                            for record in records: Rectangle {
+                                min-height: 66px;
+                                background: Theme.panel-bg;
+                                border-radius: Theme.radius-sm;
+                                HorizontalLayout {
+                                    padding: Theme.gap-sm;
+                                    spacing: Theme.gap-md;
+                                    Rectangle {
+                                        width: 5px;
+                                        border-radius: 2px;
+                                        background: record.category == "生日" ? Theme.c-pink : record.category == "纪念日" ? Theme.c-orange : Theme.accent;
+                                    }
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        Text { text: record.title; color: Theme.text-primary; font-size: Theme.font-md; overflow: elide; }
+                                        Text { text: record.category + "  ·  " + record.date-text; color: Theme.text-secondary; font-size: Theme.font-sm; overflow: elide; }
+                                        Text { text: record.meta-text; color: Theme.text-muted; font-size: Theme.font-sm; overflow: elide; }
+                                    }
+                                    DangerGhostButton { text: "删除"; clicked => { delete-record(record.id); } }
+                                }
+                            }
+                            if records.length == 0: Text {
+                                text: "还没有长期节点，在上方添加一个吧";
+                                color: Theme.text-muted;
+                                font-size: Theme.font-md;
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                horizontal-stretch: 2;
+                background: Theme.bg;
+                border-radius: Theme.radius-md;
+                border-width: 1px;
+                border-color: Theme.panel-border;
+                VerticalLayout {
+                    padding: Theme.gap-md;
+                    spacing: Theme.gap-sm;
+                    Text { text: "习惯追踪"; color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; }
+                    habit-input := RecordInput {
+                        placeholder: "新建习惯，回车添加";
+                        accepted(text) => { if (text != "") { add-habit(text); habit-input.text = ""; } }
+                    }
+                    ScrollView {
+                        vertical-stretch: 1;
+                        VerticalLayout {
+                            spacing: Theme.gap-sm;
+                            for habit in habits: Rectangle {
+                                min-height: 58px;
+                                background: Theme.panel-bg;
+                                border-radius: Theme.radius-sm;
+                                HorizontalLayout {
+                                    padding: Theme.gap-sm;
+                                    spacing: Theme.gap-sm;
+                                    GhostButton { text: habit.done-today ? "已打卡" : "打卡"; selected: habit.done-today; clicked => { toggle-habit(habit.id); } }
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        Text { text: habit.title; color: Theme.text-primary; overflow: elide; }
+                                        Text { text: "连续 " + habit.streak + " 天"; color: Theme.text-muted; font-size: Theme.font-sm; }
+                                    }
+                                    DangerGhostButton { text: "删除"; clicked => { delete-habit(habit.id); } }
+                                }
+                            }
+                            if habits.length == 0: Text {
+                                text: "还没有习惯，先建立一个小目标";
+                                color: Theme.text-muted;
+                                font-size: Theme.font-md;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    date-picker := TimeHubDatePickerPopup {
+        x: record-date-input.absolute-position.x - root.absolute-position.x;
+        y: record-date-input.absolute-position.y - root.absolute-position.y + record-date-input.height + 4px;
+        title: "选择记录日期";
+        year <=> root.picker-year; month <=> root.picker-month; day <=> root.picker-day;
+        accepted(year, month, day) => {
+            root.record-date = root.format-date(year, month, day);
+        }
+    }
+}

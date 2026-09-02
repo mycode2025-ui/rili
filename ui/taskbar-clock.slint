@@ -1,0 +1,56 @@
+import { Theme } from "theme.slint";
+
+// Windows 任务栏时钟增强使用独立 Overlay，不修改 Explorer，也不注入私有 Shell API。
+// 位置与原生顶置样式由 Rust/Win32 适配层按任务栏矩形设置。
+export component TaskbarClockWindow inherits Window {
+    default-font-family: Theme.font-family;
+    title: "TimeHub 任务栏时钟";
+    width: 112px;
+    height: 40px;
+    no-frame: true;
+    background: Theme.demo-dark-surface;
+
+    in property <string> time-text: "00:00";
+    in property <string> date-text: "";
+    in property <string> weather-text: "";
+    callback open-panel();
+
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        background: touch.has-hover ? Theme.demo-dark-hover : Theme.demo-dark-surface;
+        border-width: 1px;
+        border-color: Theme.demo-dark-border;
+        border-radius: Theme.r-sm;
+        accessible-role: button;
+        accessible-label: "TimeHub 任务栏时钟，单击打开快速面板";
+
+        VerticalLayout {
+            padding-left: Theme.space-2;
+            padding-right: Theme.space-2;
+            padding-top: Theme.space-1;
+            padding-bottom: Theme.space-1;
+            spacing: 0px;
+            Text {
+                text: root.time-text;
+                color: Theme.demo-dark-text-1;
+                font-size: Theme.font-13;
+                font-weight: 600;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+            Text {
+                text: root.date-text + (root.weather-text == "" ? "" : " · " + root.weather-text);
+                color: Theme.demo-dark-text-3;
+                font-size: Theme.font-10;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+        touch := TouchArea {
+            mouse-cursor: pointer;
+            clicked => { root.open-panel(); }
+        }
+    }
+}

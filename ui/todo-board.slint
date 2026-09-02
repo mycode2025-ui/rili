@@ -1,0 +1,211 @@
+import { Theme } from "theme.slint";
+import { Icons, SvgIcon } from "icons.slint";
+
+export struct TodoBoardItem {
+    id: int,
+    title: string,
+    due-text: string,
+    is-urgent: bool,
+    status: string,
+}
+
+component TaskCheck inherits Rectangle {
+    in property <bool> checked;
+    width: 16px; height: 16px; border-radius: 5px;
+    border-width: checked ? 0px : 1.5px;
+    border-color: Theme.border-strong;
+    background: checked ? Theme.accent : transparent;
+    if checked: SvgIcon { source: Icons.check; size: 11px; tint: Theme.on-accent; x: 2.5px; y: 2.5px; }
+}
+
+component BoardTask inherits Rectangle {
+    in property <TodoBoardItem> item;
+    in property <color> accent;
+    callback toggle();
+    min-height: 38px;
+    border-radius: Theme.r-md;
+    border-width: 1px;
+    border-color: touch.has-hover ? Theme.border-default : Theme.border-subtle;
+    background: Theme.bg-surface;
+    drop-shadow-color: touch.has-hover ? Theme.shadow-2-color-a : transparent;
+    drop-shadow-blur: touch.has-hover ? Theme.shadow-2-blur-a : 0px;
+    touch := TouchArea { mouse-cursor: pointer; clicked => { toggle(); } }
+    HorizontalLayout {
+        padding-left: 10px; padding-right: 10px; spacing: Theme.space-2;
+        cross-axis-alignment: center;
+        TaskCheck { checked: item.status == "done"; }
+        Text {
+            text: item.title;
+            color: item.status == "done" ? Theme.text-disabled : Theme.text-1;
+            font-size: Theme.font-13;
+            horizontal-stretch: 1;
+            overflow: elide;
+            vertical-alignment: center;
+        }
+        SvgIcon { source: Icons.flag; size: 14px; tint: accent; }
+        if item.due-text != "": Rectangle {
+            height: 22px; border-radius: Theme.pill-radius-22;
+            border-width: 1px; border-color: Theme.border-default;
+            background: item.is-urgent ? Theme.danger-bg : Theme.bg-surface-2;
+            HorizontalLayout {
+                padding-left: Theme.space-2; padding-right: Theme.space-2;
+                Text { text: item.due-text; color: item.is-urgent ? Theme.danger : Theme.text-3; font-size: Theme.font-11; vertical-alignment: center; }
+            }
+        }
+    }
+}
+
+component QuadrantCell inherits Rectangle {
+    in property <string> title;
+    in property <string> hint;
+    in property <color> accent;
+    in property <[TodoBoardItem]> items;
+    callback toggle-item(int, string);
+    callback add-item();
+    background: Theme.bg-surface;
+    border-radius: Theme.r-lg;
+    border-width: 1px;
+    border-color: Theme.border-subtle;
+    clip: true;
+    VerticalLayout {
+        spacing: 0px;
+        Rectangle {
+            height: 44px;
+            border-width: 1px;
+            border-color: Theme.border-subtle;
+            HorizontalLayout {
+                padding-left: Theme.space-3; padding-right: Theme.space-3; spacing: Theme.space-2;
+                cross-axis-alignment: center;
+                Rectangle { width: 4px; height: 16px; border-radius: 2px; background: accent; }
+                Text { text: root.title; color: Theme.text-1; font-size: Theme.font-13; font-weight: 600; vertical-alignment: center; }
+                Rectangle {
+                    height: 20px; min-width: 20px; border-radius: Theme.pill-radius-20; background: Theme.bg-surface-2;
+                    Text { text: items.length; color: Theme.text-3; font-size: Theme.font-11; horizontal-alignment: center; vertical-alignment: center; }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                Rectangle { width: 28px; height: 28px; border-radius: Theme.r-md; background: add-touch.has-hover ? Theme.bg-hover : transparent;
+                    SvgIcon { source: Icons.plus; size: 14px; tint: Theme.text-3; x: 7px; y: 7px; }
+                    add-touch := TouchArea { mouse-cursor: pointer; clicked => { root.add-item(); } }
+                }
+            }
+        }
+        VerticalLayout {
+            padding: Theme.space-2; spacing: 6px;
+            for item in items: BoardTask {
+                item: item; accent: root.accent;
+                toggle => { root.toggle-item(item.id, item.status == "done" ? "todo" : "done"); }
+            }
+            Rectangle {
+                height: 38px; border-radius: Theme.r-md; border-width: 1.5px;
+                border-color: Theme.border-strong; background: transparent;
+                Text { text: "+  拖入任务到「" + root.hint + "」"; color: Theme.text-3; font-size: Theme.font-11; horizontal-alignment: center; vertical-alignment: center; }
+                TouchArea { mouse-cursor: pointer; clicked => { root.add-item(); } }
+            }
+        }
+    }
+}
+
+export component QuadrantView inherits Rectangle {
+    in property <[TodoBoardItem]> urgent-important;
+    in property <[TodoBoardItem]> not-urgent-important;
+    in property <[TodoBoardItem]> urgent-not-important;
+    in property <[TodoBoardItem]> not-urgent-not-important;
+    callback move-to(int, string);
+    callback delete-item(int);
+    callback add-item(string);
+    background: Theme.bg-app;
+    VerticalLayout {
+        width: parent.width;
+        height: parent.height;
+        padding: Theme.space-4; spacing: Theme.space-3;
+        HorizontalLayout {
+            spacing: Theme.space-3;
+            height: (root.height - Theme.space-8 - Theme.space-3) / 2;
+            QuadrantCell { horizontal-stretch: 1; vertical-stretch: 1; title: "I 立即做 · 重要且紧急"; hint: "立即做"; accent: Theme.danger; items: urgent-important; toggle-item(id, status) => { root.move-to(id, status); } add-item => { root.add-item("urgent-important"); } }
+            QuadrantCell { horizontal-stretch: 1; vertical-stretch: 1; title: "II 计划做 · 重要不紧急"; hint: "计划做"; accent: Theme.warning; items: not-urgent-important; toggle-item(id, status) => { root.move-to(id, status); } add-item => { root.add-item("important"); } }
+        }
+        HorizontalLayout {
+            spacing: Theme.space-3;
+            height: (root.height - Theme.space-8 - Theme.space-3) / 2;
+            QuadrantCell { horizontal-stretch: 1; vertical-stretch: 1; title: "III 委派 · 紧急不重要"; hint: "委派"; accent: Theme.accent; items: urgent-not-important; toggle-item(id, status) => { root.move-to(id, status); } add-item => { root.add-item("urgent"); } }
+            QuadrantCell { horizontal-stretch: 1; vertical-stretch: 1; title: "IV 减少 · 不重要不紧急"; hint: "减少"; accent: Theme.success; items: not-urgent-not-important; toggle-item(id, status) => { root.move-to(id, status); } add-item => { root.add-item("normal"); } }
+        }
+    }
+}
+
+component KanbanColumn inherits Rectangle {
+    in property <string> title;
+    in property <color> accent;
+    in property <[TodoBoardItem]> items;
+    callback move-item(int, string);
+    callback add-item();
+    background: Theme.bg-surface;
+    border-radius: Theme.r-lg;
+    border-width: 1px;
+    border-color: Theme.border-subtle;
+    VerticalLayout {
+        padding: Theme.space-3; spacing: Theme.space-2;
+        HorizontalLayout {
+            cross-axis-alignment: center;
+            Rectangle { width: 4px; height: 16px; border-radius: 2px; background: accent; }
+            Text { text: root.title; color: Theme.text-1; font-size: Theme.font-13; font-weight: 600; horizontal-stretch: 1; }
+            Text { text: items.length; color: Theme.text-3; font-size: Theme.font-11; }
+            Rectangle { width: 26px; height: 26px; border-radius: Theme.r-md; background: add-touch.has-hover ? Theme.bg-hover : transparent;
+                SvgIcon { source: Icons.plus; size: 13px; tint: Theme.text-3; x: 6.5px; y: 6.5px; }
+                add-touch := TouchArea { mouse-cursor: pointer; clicked => { root.add-item(); } }
+            }
+        }
+        for item in items: BoardTask { item: item; accent: root.accent; toggle => { root.move-item(item.id, item.status == "done" ? "todo" : "done"); } }
+    }
+}
+
+export component KanbanView inherits Rectangle {
+    in property <[TodoBoardItem]> todo-items;
+    in property <[TodoBoardItem]> doing-items;
+    in property <[TodoBoardItem]> done-items;
+    callback move-to(int, string);
+    callback delete-item(int);
+    callback add-item(string);
+    background: Theme.bg-app;
+    HorizontalLayout {
+        width: parent.width;
+        height: parent.height;
+        padding: Theme.space-4; spacing: Theme.space-3;
+        KanbanColumn { horizontal-stretch: 1; title: "待办"; accent: Theme.accent; items: todo-items; move-item(id, status) => { root.move-to(id, status); } add-item => { root.add-item("todo"); } }
+        KanbanColumn { horizontal-stretch: 1; title: "进行中"; accent: Theme.warning; items: doing-items; move-item(id, status) => { root.move-to(id, status); } add-item => { root.add-item("doing"); } }
+        KanbanColumn { horizontal-stretch: 1; title: "已完成"; accent: Theme.success; items: done-items; move-item(id, status) => { root.move-to(id, status); } add-item => { root.add-item("done"); } }
+    }
+}
+
+export component TodoStatsView inherits Rectangle {
+    in property <[TodoBoardItem]> todo-items;
+    in property <[TodoBoardItem]> doing-items;
+    in property <[TodoBoardItem]> done-items;
+    in property <[TodoBoardItem]> urgent-important;
+    in property <[TodoBoardItem]> not-urgent-important;
+    in property <[TodoBoardItem]> urgent-not-important;
+    in property <[TodoBoardItem]> not-urgent-not-important;
+    background: Theme.bg-app;
+    property <int> total-count: todo-items.length + doing-items.length + done-items.length;
+    VerticalLayout {
+        width: parent.width; height: parent.height; padding: Theme.space-4; spacing: Theme.space-4;
+        HorizontalLayout {
+            height: 126px; spacing: Theme.space-4;
+            for metric in ["全部\n" + root.total-count, "待办\n" + root.todo-items.length, "进行中\n" + root.doing-items.length, "已完成\n" + root.done-items.length]: Rectangle {
+                horizontal-stretch: 1; border-radius: Theme.r-lg; border-width: 1px; border-color: Theme.border-subtle; background: Theme.bg-surface;
+                Text { text: metric; color: Theme.text-1; font-size: Theme.font-18; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+            }
+        }
+        Rectangle {
+            height: 220px; border-radius: Theme.r-lg; border-width: 1px; border-color: Theme.border-subtle; background: Theme.bg-surface;
+            VerticalLayout { padding: Theme.space-4; spacing: Theme.space-3;
+                Text { text: "四象限分布"; color: Theme.text-1; font-size: Theme.font-15; font-weight: 700; }
+                for row in ["I 重要且紧急  " + root.urgent-important.length, "II 重要不紧急  " + root.not-urgent-important.length, "III 紧急不重要  " + root.urgent-not-important.length, "IV 不重要不紧急  " + root.not-urgent-not-important.length]: Rectangle {
+                    height: 34px; border-radius: Theme.r-md; background: Theme.bg-surface-2;
+                    Text { x: Theme.space-3; width: parent.width - Theme.space-6; text: row; color: Theme.text-2; font-size: Theme.font-13; vertical-alignment: center; }
+                }
+            }
+        }
+        Rectangle { vertical-stretch: 1; }
+    }
+}

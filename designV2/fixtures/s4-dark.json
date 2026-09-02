@@ -1,0 +1,95 @@
+{
+  "view-mode": 4,
+  "visual-theme": 1,
+  "todo-board-mode": 1,
+  "board-urgent-important": [
+    {
+      "id": 1,
+      "title": "修复 NUC980 量产烧录 watchdog 卡死",
+      "due-text": "今天 18:00",
+      "is-urgent": true,
+      "status": "todo"
+    },
+    {
+      "id": 2,
+      "title": "确认 OTA 签名工具服务器路径",
+      "due-text": "昨天",
+      "is-urgent": true,
+      "status": "done"
+    },
+    {
+      "id": 3,
+      "title": "BMS Gate 4 故障注入测试报告",
+      "due-text": "明早 10:00",
+      "is-urgent": true,
+      "status": "todo"
+    }
+  ],
+  "board-not-urgent-important": [
+    {
+      "id": 4,
+      "title": "Battery Monitor 电流/电压/功率实时显示",
+      "due-text": "9/4",
+      "is-urgent": false,
+      "status": "todo"
+    },
+    {
+      "id": 5,
+      "title": "OTA 签名工具迁移 Slint 框架",
+      "due-text": "",
+      "is-urgent": false,
+      "status": "todo"
+    },
+    {
+      "id": 6,
+      "title": "STM32 跑马灯板 PCB 评审",
+      "due-text": "9/8",
+      "is-urgent": false,
+      "status": "todo"
+    }
+  ],
+  "board-urgent-not-important": [
+    {
+      "id": 7,
+      "title": "回复客户 GridLink 询价邮件",
+      "due-text": "今天",
+      "is-urgent": true,
+      "status": "todo"
+    },
+    {
+      "id": 8,
+      "title": "帮 QA 确认固件版本号",
+      "due-text": "今天",
+      "is-urgent": false,
+      "status": "todo"
+    },
+    {
+      "id": 9,
+      "title": "导出 8 月 OKR 进度表",
+      "due-text": "",
+      "is-urgent": false,
+      "status": "done"
+    }
+  ],
+  "board-not-urgent-not-important": [
+    {
+      "id": 10,
+      "title": "整理浏览器书签",
+      "due-text": "",
+      "is-urgent": false,
+      "status": "todo"
+    },
+    {
+      "id": 11,
+      "title": "看短视频效率技巧合集",
+      "due-text": "",
+      "is-urgent": false,
+      "status": "done"
+    }
+  ],
+  "status-left-text": "已同步 · 2 分钟前",
+  "status-right-text": "共 18 个待办 · 今日完成率 60%",
+  "Theme": {
+    "theme-mode": 2
+  }
+}

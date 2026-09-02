@@ -1,0 +1,65 @@
+import { Theme } from "theme.slint";
+
+export global Icons {
+    out property <image> app-logo: @image-url("../assets/timehub-logo.svg");
+    out property <image> calendar: @image-url("icons/i-cal.svg");
+    out property <image> today: @image-url("icons/i-today.svg");
+    out property <image> check: @image-url("icons/i-check.svg");
+    out property <image> note: @image-url("icons/i-note.svg");
+    out property <image> heart: @image-url("icons/i-heart.svg");
+    out property <image> tools: @image-url("icons/i-tools.svg");
+    out property <image> gear: @image-url("icons/i-gear.svg");
+    out property <image> plus: @image-url("icons/i-plus.svg");
+    out property <image> search: @image-url("icons/i-search.svg");
+    out property <image> left: @image-url("icons/i-left.svg");
+    out property <image> right: @image-url("icons/i-right.svg");
+    out property <image> down: @image-url("icons/i-down.svg");
+    out property <image> sun: @image-url("icons/i-sun.svg");
+    out property <image> moon: @image-url("icons/i-moon.svg");
+    out property <image> cloud: @image-url("icons/i-cloud.svg");
+    out property <image> clock: @image-url("icons/i-clock.svg");
+    out property <image> bell: @image-url("icons/i-bell.svg");
+    out property <image> pin: @image-url("icons/i-pin.svg");
+    out property <image> play: @image-url("icons/i-play.svg");
+    out property <image> pause: @image-url("icons/i-pause.svg");
+    out property <image> tag: @image-url("icons/i-tag.svg");
+    out property <image> minimize: @image-url("icons/i-min.svg");
+    out property <image> maximize: @image-url("icons/i-max.svg");
+    out property <image> close: @image-url("icons/i-close.svg");
+    out property <image> trash: @image-url("icons/i-trash.svg");
+    out property <image> sync: @image-url("icons/i-sync.svg");
+    out property <image> more: @image-url("icons/i-more.svg");
+    out property <image> flag: @image-url("icons/i-flag.svg");
+    out property <image> target: @image-url("icons/i-target.svg");
+    out property <image> globe: @image-url("icons/i-globe.svg");
+    out property <image> timer: @image-url("icons/i-timer.svg");
+    out property <image> glass: @image-url("icons/i-glass.svg");
+    out property <image> cake: @image-url("icons/i-cake.svg");
+    out property <image> gift: @image-url("icons/i-gift.svg");
+    out property <image> alert: @image-url("icons/i-alert.svg");
+    out property <image> alert-alt: @image-url("icons/i-alert-2.svg");
+    out property <image> spark: @image-url("icons/i-spark.svg");
+    out property <image> grid: @image-url("icons/i-grid.svg");
+    out property <image> grid-alt: @image-url("icons/i-grid-2.svg");
+    out property <image> chart: @image-url("icons/i-chart.svg");
+    out property <image> chart-alt: @image-url("icons/i-chart-2.svg");
+    out property <image> layout: @image-url("icons/i-layout.svg");
+    out property <image> arrow-right: @image-url("icons/i-arrow-r.svg");
+    out property <image> list: @image-url("icons/i-list.svg");
+    out property <image> users: @image-url("icons/i-users.svg");
+    out property <image> palette: @image-url("icons/i-palette.svg");
+    out property <image> lock: @image-url("icons/i-lock.svg");
+    out property <image> keyboard: @image-url("icons/i-keyboard.svg");
+    out property <image> database: @image-url("icons/i-db.svg");
+    out property <image> info: @image-url("icons/i-info.svg");
+    out property <image> reload: @image-url("icons/i-reload.svg");
+}
+
+export component SvgIcon inherits Image {
+    in property <length> size: 16px;
+    in property <brush> tint: Theme.text-2;
+    width: size;
+    height: size;
+    colorize: tint;
+    image-fit: contain;
+}

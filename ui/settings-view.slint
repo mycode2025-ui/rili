@@ -1,0 +1,267 @@
+import { Theme } from "theme.slint";
+import { Icons, SvgIcon } from "icons.slint";
+import { Palette } from "std-widgets.slint";
+
+component SettingsNavItem inherits Rectangle {
+    in property <string> label;
+    in property <image> icon;
+    in property <bool> selected;
+    callback clicked();
+    height: 34px; border-radius: Theme.r-md;
+    background: selected ? Theme.accent-subtle : (touch.has-hover ? Theme.bg-hover : transparent);
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    HorizontalLayout {
+        padding-left: 10px; padding-right: 10px; spacing: Theme.space-2;
+        cross-axis-alignment: center;
+        SvgIcon { source: root.icon; size: 16px; tint: selected ? Theme.accent : Theme.text-2; }
+        Text { text: root.label; color: selected ? Theme.accent : Theme.text-2; font-size: Theme.font-13; font-weight: selected ? 600 : 400; vertical-alignment: center; }
+    }
+}
+
+component ThemeCard inherits Rectangle {
+    in property <string> label;
+    in property <int> mode;
+    in property <bool> selected;
+    callback choose(int);
+    min-width: 96px; preferred-width: 166px; max-width: 166px; height: 118px; border-radius: Theme.r-lg;
+    border-width: selected ? 1.5px : 1px;
+    border-color: selected ? Theme.accent : Theme.border-default;
+    background: Theme.bg-surface;
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.choose(root.mode); } }
+    VerticalLayout {
+        padding: Theme.space-3; spacing: Theme.space-2;
+        Rectangle {
+            height: 64px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-subtle;
+            background: mode == 2 ? Theme.settings-preview-dark : Theme.settings-preview-light;
+            if mode == 0: HorizontalLayout {
+                Rectangle { background: Theme.settings-preview-light; }
+                Rectangle { background: Theme.settings-preview-dark; }
+            }
+        }
+        HorizontalLayout {
+            spacing: Theme.space-2;
+            cross-axis-alignment: center;
+            Rectangle { width: 6px; height: 6px; border-radius: 3px; background: selected ? Theme.accent : Theme.text-3; }
+            Text { text: root.label; color: Theme.text-1; font-size: Theme.font-12-5; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+        }
+    }
+}
+
+component SettingInfo inherits VerticalLayout {
+    in property <string> title;
+    in property <string> description;
+    spacing: 2px;
+    min-width: 220px;
+    preferred-width: 400px;
+    Text { width: 100%; text: root.title; color: Theme.text-1; font-size: Theme.font-13; overflow: elide; }
+    Text { width: 100%; text: root.description; color: Theme.text-3; font-size: Theme.font-11-5; overflow: elide; }
+}
+
+component SmallChoice inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked();
+    height: 28px; min-width: 48px; border-radius: Theme.r-md;
+    border-width: 1px; border-color: selected ? Theme.accent : Theme.border-default;
+    background: selected ? Theme.accent-subtle : Theme.bg-surface;
+    TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    Text { text: root.label; color: selected ? Theme.accent : Theme.text-2; font-size: Theme.font-12; horizontal-alignment: center; vertical-alignment: center; }
+}
+
+component Switch inherits Rectangle {
+    in-out property <bool> checked;
+    callback toggled(bool);
+    width: 36px; height: 20px; border-radius: Theme.pill-radius-20;
+    background: checked ? Theme.accent : Theme.border-strong;
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.checked = !root.checked; root.toggled(root.checked); } }
+    Rectangle { width: 16px; height: 16px; border-radius: 8px; x: checked ? 18px : 2px; y: 2px; background: Theme.bg-surface; }
+}
+
+component SettingsAction inherits Rectangle {
+    in property <string> label;
+    callback clicked();
+    height: 30px; min-width: 92px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default;
+    background: touch.has-hover ? Theme.bg-hover : Theme.bg-surface;
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    Text { text: root.label; color: Theme.text-1; font-size: Theme.font-12; horizontal-alignment: center; vertical-alignment: center; }
+}
+
+export component SettingsView inherits Rectangle {
+    in property <int> theme-index;
+    in property <bool> week-starts-sunday;
+    in property <bool> show-week-numbers;
+    in-out property <int> visual-theme: 1;
+    in-out property <int> selected-section: 0;
+    in property <int> interface-font-size: 13;
+    in property <int> interface-density: 1;
+    in property <bool> reduce-motion: false;
+    in property <bool> notifications-enabled: true;
+    in property <string> default-event-reminder: "10";
+    in property <bool> local-only: false;
+    in property <bool> taskbar-clock-enabled: true;
+    callback set-theme(int);
+    callback set-visual-theme(int);
+    callback set-week-starts-sunday(bool);
+    callback set-show-week-numbers(bool);
+    callback set-interface-font-size(int);
+    callback set-interface-density(int);
+    callback set-reduce-motion(bool);
+    callback set-notifications-enabled(bool);
+    callback set-default-event-reminder(string);
+    callback set-local-only(bool);
+    callback set-taskbar-clock-enabled(bool);
+    callback settings-action(string);
+    background: Theme.bg-app;
+
+    HorizontalLayout {
+        spacing: 0px;
+        Rectangle {
+            width: Theme.sidebar-width; background: Theme.bg-sidebar; border-width: 1px; border-color: Theme.border-subtle;
+            VerticalLayout {
+                padding: Theme.space-2; spacing: 2px;
+                SettingsNavItem { label: "外观"; icon: Icons.palette; selected: root.selected-section == 0; clicked => { root.selected-section = 0; } }
+                SettingsNavItem { label: "日历"; icon: Icons.calendar; selected: root.selected-section == 1; clicked => { root.selected-section = 1; } }
+                SettingsNavItem { label: "通知"; icon: Icons.bell; selected: root.selected-section == 2; clicked => { root.selected-section = 2; } }
+                SettingsNavItem { label: "同步"; icon: Icons.sync; selected: root.selected-section == 3; clicked => { root.selected-section = 3; } }
+                SettingsNavItem { label: "隐私"; icon: Icons.lock; selected: root.selected-section == 4; clicked => { root.selected-section = 4; } }
+                SettingsNavItem { label: "快捷键"; icon: Icons.keyboard; selected: root.selected-section == 5; clicked => { root.selected-section = 5; } }
+                SettingsNavItem { label: "数据"; icon: Icons.database; selected: root.selected-section == 6; clicked => { root.selected-section = 6; } }
+                SettingsNavItem { label: "关于"; icon: Icons.info; selected: root.selected-section == 7; clicked => { root.selected-section = 7; } }
+                Rectangle { vertical-stretch: 1; }
+            }
+        }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            padding-left: Theme.space-5; padding-right: Theme.space-5; padding-top: Theme.space-4; spacing: 0px;
+            Text { text: root.selected-section == 0 ? "外观" : (root.selected-section == 1 ? "日历" : (root.selected-section == 2 ? "通知" : (root.selected-section == 3 ? "同步" : (root.selected-section == 4 ? "隐私" : (root.selected-section == 5 ? "快捷键" : (root.selected-section == 6 ? "数据" : "关于")))))); color: Theme.text-1; font-size: Theme.font-15; font-weight: 600; }
+            Text { text: root.selected-section == 0 ? "自定义 TimeHub 在窗口中的显示方式。" : "管理该功能的本地偏好与操作。"; color: Theme.text-3; font-size: Theme.font-12; }
+            Rectangle { height: Theme.space-6; }
+            HorizontalLayout {
+                visible: root.selected-section == 0;
+                height: root.selected-section == 0 ? 134px : 0px; spacing: Theme.space-4;
+                SettingInfo { title: "主题"; description: "选择界面配色方案，可跟随系统"; horizontal-stretch: 1; }
+                ThemeCard { label: "浅色"; mode: 1; selected: visual-theme == 1; choose(mode) => { visual-theme = mode; Theme.theme-mode = mode; Palette.color-scheme = ColorScheme.light; root.set-visual-theme(mode); } }
+                ThemeCard { label: "深色"; mode: 2; selected: visual-theme == 2; choose(mode) => { visual-theme = mode; Theme.theme-mode = mode; Palette.color-scheme = ColorScheme.dark; root.set-visual-theme(mode); } }
+                ThemeCard { label: "跟随系统"; mode: 0; selected: visual-theme == 0; choose(mode) => { visual-theme = mode; Theme.theme-mode = mode; Palette.color-scheme = ColorScheme.unknown; root.set-visual-theme(mode); } }
+            }
+            Rectangle { visible: root.selected-section == 0; height: root.selected-section == 0 ? 1px : 0px; background: Theme.border-subtle; }
+            HorizontalLayout {
+                visible: root.selected-section == 0;
+                height: root.selected-section == 0 ? 72px : 0px;
+                cross-axis-alignment: center;
+                SettingInfo { title: "强调色"; description: "用于按钮、选中项与日程着色"; horizontal-stretch: 1; }
+                HorizontalLayout {
+                    spacing: Theme.space-2;
+                    for swatch[i] in [Theme.c-blue, Theme.c-green, Theme.c-orange, Theme.c-red, Theme.c-purple, Theme.c-cyan, Theme.c-pink, Theme.c-lime]: Rectangle {
+                        width: 28px; height: 28px; border-radius: 14px;
+                        border-width: theme-index == i ? 2px : 0px;
+                        border-color: swatch;
+                        background: transparent;
+                        Rectangle { width: 22px; height: 22px; x: 3px; y: 3px; border-radius: 11px; background: swatch; }
+                        touch := TouchArea { mouse-cursor: pointer; clicked => { root.set-theme(i); } }
+                    }
+                }
+            }
+            Rectangle { visible: root.selected-section == 0; height: root.selected-section == 0 ? 1px : 0px; background: Theme.border-subtle; }
+            HorizontalLayout {
+                visible: root.selected-section == 0;
+                height: root.selected-section == 0 ? 114px : 0px;
+                SettingInfo { title: "界面字号"; description: "统一调整主窗口、弹窗、快速面板与桌面挂件字号"; horizontal-stretch: 1; }
+                Rectangle {
+                    width: 104px; height: 30px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface;
+                    HorizontalLayout {
+                        Rectangle { width: 30px; Text { text: "−"; color: Theme.text-2; font-size: Theme.font-13; horizontal-alignment: center; vertical-alignment: center; } TouchArea { mouse-cursor: pointer; clicked => { root.set-interface-font-size(Math.max(12, root.interface-font-size - 1)); } } }
+                        Text { text: root.interface-font-size + "px"; color: Theme.text-1; font-size: Theme.font-12; horizontal-stretch: 1; horizontal-alignment: center; vertical-alignment: center; }
+                        Rectangle { width: 30px; Text { text: "+"; color: Theme.text-2; font-size: Theme.font-13; horizontal-alignment: center; vertical-alignment: center; } TouchArea { mouse-cursor: pointer; clicked => { root.set-interface-font-size(Math.min(16, root.interface-font-size + 1)); } } }
+                    }
+                }
+                Rectangle { width: Theme.space-3; }
+                Rectangle {
+                    width: 150px; height: 84px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-subtle; background: Theme.bg-surface-2;
+                    VerticalLayout { padding: 10px; spacing: 6px; Rectangle { height: 8px; width: 102px; border-radius: 3px; background: Theme.border-default; } Rectangle { height: 8px; width: 70px; border-radius: 3px; background: Theme.border-default; } Rectangle { height: 8px; width: 84px; border-radius: 3px; background: Theme.border-default; } }
+                }
+            }
+            Rectangle { visible: root.selected-section == 0; height: root.selected-section == 0 ? 1px : 0px; background: Theme.border-subtle; }
+            HorizontalLayout {
+                visible: root.selected-section == 0;
+                height: root.selected-section == 0 ? 72px : 0px;
+                SettingInfo { title: "界面密度"; description: "控制日程与列表的行高"; horizontal-stretch: 1; }
+                HorizontalLayout { spacing: Theme.space-2; SmallChoice { label: "紧凑"; selected: root.interface-density == 0; clicked => { root.set-interface-density(0); } } SmallChoice { label: "标准"; selected: root.interface-density == 1; clicked => { root.set-interface-density(1); } } SmallChoice { label: "宽松"; selected: root.interface-density == 2; clicked => { root.set-interface-density(2); } } }
+            }
+            Rectangle { visible: root.selected-section == 0; height: root.selected-section == 0 ? 1px : 0px; background: Theme.border-subtle; }
+            HorizontalLayout {
+                visible: root.selected-section == 0;
+                height: root.selected-section == 0 ? 72px : 0px;
+                SettingInfo { title: "减淡动效"; description: "关闭视图切换动画与弹入效果"; horizontal-stretch: 1; }
+                Switch { checked: root.reduce-motion; toggled(value) => { root.set-reduce-motion(value); } }
+            }
+            if root.selected-section == 1: VerticalLayout {
+                horizontal-stretch: 1;
+                height: 218px;
+                spacing: 0px;
+                HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "一周起始日"; description: "在周一和周日之间切换"; horizontal-stretch: 1; } SmallChoice { label: "周一"; selected: !root.week-starts-sunday; clicked => { root.set-week-starts-sunday(false); } } Rectangle { width: Theme.space-2; } SmallChoice { label: "周日"; selected: root.week-starts-sunday; clicked => { root.set-week-starts-sunday(true); } } }
+                Rectangle { height: 1px; background: Theme.border-subtle; }
+                HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "显示周数"; description: "在月视图与周视图显示 ISO 周数"; horizontal-stretch: 1; } Switch { checked: root.show-week-numbers; toggled(value) => { root.set-show-week-numbers(value); } } }
+                Rectangle { height: 1px; background: Theme.border-subtle; }
+                HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "任务栏时钟入口"; description: "保留 Windows 原生时间显示，单击时间打开 TimeHub"; horizontal-stretch: 1; } Switch { checked: root.taskbar-clock-enabled; toggled(value) => { root.set-taskbar-clock-enabled(value); } } }
+            }
+            if root.selected-section == 2: VerticalLayout {
+                horizontal-stretch: 1;
+                height: 218px;
+                spacing: 0px;
+                HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "系统通知"; description: "允许日程、待办和倒数日提醒"; horizontal-stretch: 1; } Switch { checked: root.notifications-enabled; toggled(value) => { root.set-notifications-enabled(value); } } }
+                Rectangle { height: 1px; background: Theme.border-subtle; }
+                HorizontalLayout {
+                    height: 72px; cross-axis-alignment: center;
+                    SettingInfo { title: "默认日程提醒"; description: "统一应用于新建、导入及现有日程"; horizontal-stretch: 1; }
+                    HorizontalLayout {
+                        spacing: 6px;
+                        SmallChoice { label: "关闭"; selected: root.default-event-reminder == ""; clicked => { root.set-default-event-reminder(""); } }
+                        SmallChoice { label: "准时"; selected: root.default-event-reminder == "0"; clicked => { root.set-default-event-reminder("0"); } }
+                        SmallChoice { label: "10分钟"; selected: root.default-event-reminder == "10"; clicked => { root.set-default-event-reminder("10"); } }
+                        SmallChoice { label: "1小时"; selected: root.default-event-reminder == "60"; clicked => { root.set-default-event-reminder("60"); } }
+                        SmallChoice { label: "1天"; selected: root.default-event-reminder == "1440"; clicked => { root.set-default-event-reminder("1440"); } }
+                    }
+                }
+                Rectangle { height: 1px; background: Theme.border-subtle; }
+                HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "验证系统通知"; description: "发送一条 TimeHub 示例提醒，用于检查 Windows 通知权限"; horizontal-stretch: 1; } SettingsAction { label: "发送示例"; clicked => { root.settings-action("test-notification"); } } }
+            }
+            if root.selected-section == 3: VerticalLayout {
+                horizontal-stretch: 1;
+                height: 145px;
+                HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "日历订阅"; description: "同步已配置的 ICS、Outlook 与 CalDAV 来源"; horizontal-stretch: 1; } SettingsAction { label: "立即同步"; clicked => { root.settings-action("sync"); } } }
+                Rectangle { height: 1px; background: Theme.border-subtle; }
+                HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "添加来源"; description: "前往工具页配置外部日历账户"; horizontal-stretch: 1; } SettingsAction { label: "打开配置"; clicked => { root.settings-action("open-integrations"); } } }
+            }
+            if root.selected-section == 4: VerticalLayout {
+                horizontal-stretch: 1;
+                height: 145px;
+                HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "仅本地模式"; description: "关闭外部同步，数据只保存在当前电脑"; horizontal-stretch: 1; } Switch { checked: root.local-only; toggled(value) => { root.set-local-only(value); } } }
+                Rectangle { height: 1px; background: Theme.border-subtle; }
+                HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "数据目录"; description: "查看本地数据库和备份所在位置"; horizontal-stretch: 1; } SettingsAction { label: "打开目录"; clicked => { root.settings-action("open-data-folder"); } } }
+            }
+            if root.selected-section == 5: VerticalLayout {
+                horizontal-stretch: 1;
+                height: 145px;
+                HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "新建日程"; description: "Ctrl + N"; horizontal-stretch: 1; } SettingsAction { label: "恢复默认"; clicked => { root.settings-action("reset-shortcuts"); } } }
+                Rectangle { height: 1px; background: Theme.border-subtle; }
+                HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "打开搜索"; description: "Ctrl + K"; horizontal-stretch: 1; } Text { text: "全局快捷键将在系统授权后生效"; color: Theme.text-3; font-size: Theme.font-11; vertical-alignment: center; } }
+            }
+            if root.selected-section == 6: VerticalLayout {
+                horizontal-stretch: 1;
+                height: 145px;
+                HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "导出备份"; description: "生成包含数据库的本地备份文件"; horizontal-stretch: 1; } SettingsAction { label: "立即备份"; clicked => { root.settings-action("backup"); } } }
+                Rectangle { height: 1px; background: Theme.border-subtle; }
+                HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "重新载入"; description: "从磁盘重新读取当前数据"; horizontal-stretch: 1; } SettingsAction { label: "重新载入"; clicked => { root.settings-action("reload"); } } }
+            }
+            if root.selected-section == 7: VerticalLayout {
+                horizontal-stretch: 1;
+                height: 145px;
+                HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "TimeHub Desktop"; description: "V4 · Rust + Slint 桌面版"; horizontal-stretch: 1; } SettingsAction { label: "检查更新"; clicked => { root.settings-action("check-update"); } } }
+                Rectangle { height: 1px; background: Theme.border-subtle; }
+                HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "诊断"; description: "检查数据库、提醒与同步配置"; horizontal-stretch: 1; } SettingsAction { label: "运行诊断"; clicked => { root.settings-action("diagnostics"); } } }
+            }
+            Rectangle { vertical-stretch: 1; }
+        }
+    }
+}

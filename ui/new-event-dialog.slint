@@ -1,0 +1,373 @@
+import { Theme } from "theme.slint";
+import { Icons, SvgIcon } from "icons.slint";
+import { CalendarItem } from "side-panel.slint";
+import { TimeHubDatePickerPopup, TimeHubTimePickerPopup } from "date-time-picker.slint";
+
+component TokenInput inherits Rectangle {
+    in-out property <string> text;
+    in property <length> text-size: Theme.font-13;
+    in property <int> text-weight: 400;
+    background: transparent;
+    input := TextInput {
+        x: 0px; y: 0px; width: parent.width; height: parent.height;
+        text <=> root.text;
+        color: Theme.text-1;
+        font-size: root.text-size;
+        font-weight: root.text-weight;
+        vertical-alignment: center;
+        selection-foreground-color: Theme.on-accent;
+        selection-background-color: Theme.accent;
+    }
+}
+
+component FormBox inherits Rectangle {
+    in property <string> text;
+    in property <image> icon;
+    callback clicked();
+    height: 30px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface;
+    TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    HorizontalLayout { width: 100%; height: 100%; padding-left: 10px; padding-right: 10px; spacing: 6px; cross-axis-alignment: center; SvgIcon { source: root.icon; size: 13px; tint: Theme.text-3; } Text { text: root.text; color: Theme.text-1; font-size: Theme.font-12-5; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; } }
+}
+
+component EditableFormBox inherits Rectangle {
+    in-out property <string> text;
+    in property <image> icon;
+    callback open-picker();
+    height: 30px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface;
+    HorizontalLayout { width: 100%; height: 100%; padding-left: 8px; padding-right: 10px; spacing: 6px; cross-axis-alignment: center;
+        icon-box := Rectangle { width: 20px; height: parent.height;
+            SvgIcon { source: root.icon; size: 14px; tint: Theme.accent; x: 3px; y: (parent.height - self.height) / 2; }
+            TouchArea { mouse-cursor: pointer; clicked => { root.open-picker(); } }
+        }
+        input := TokenInput { height: 100%; text <=> root.text; horizontal-stretch: 1; }
+    }
+}
+
+component ParseChip inherits Rectangle {
+    in property <string> label;
+    in property <bool> ok;
+    in property <length> chip-width: 88px;
+    width: chip-width;
+    height: 24px; border-radius: Theme.pill-radius-24; border-width: ok ? 0px : 1px; border-color: Theme.border-subtle; background: ok ? Theme.success-bg : Theme.bg-surface;
+    clip: true;
+    HorizontalLayout { width: 100%; height: 100%; padding-left: Theme.space-2; padding-right: Theme.space-2; Text { text: root.label; color: ok ? Theme.success : Theme.text-2; font-size: Theme.font-11; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; } }
+}
+
+component ReminderChip inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    in property <length> chip-width: 78px;
+    callback clicked();
+    width: chip-width;
+    height: 26px; border-radius: Theme.pill-radius-26; border-width: 1px; border-color: selected ? Theme.accent : Theme.border-default; background: selected ? Theme.accent-subtle : Theme.bg-surface;
+    TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    HorizontalLayout { width: 100%; height: 100%; padding-left: 10px; padding-right: 10px; Text { text: root.label; color: selected ? Theme.accent : Theme.text-2; font-size: Theme.font-11; vertical-alignment: center; horizontal-alignment: center; overflow: elide; } }
+}
+
+export component NewEventDialog inherits Rectangle {
+    in-out property <string> draft-title: "研发周会";
+    in-out property <string> draft-date: "明天";
+    in-out property <string> draft-time: "15:00";
+    in property <string> draft-reminder: "10";
+    in property <string> draft-repeat: "none";
+    in property <string> draft-note: "";
+    in property <int> draft-calendar-id: 1;
+    in property <string> draft-calendar-name: "默认";
+    in property <string> validation-message: "";
+    in-out property <int> draft-duration: 60;
+    in property <[CalendarItem]> calendars;
+    in-out property <bool> all-day: draft-time == "";
+    in-out property <bool> reminder-now: draft-reminder == "0";
+    in-out property <bool> reminder-ten: draft-reminder == "10" || draft-reminder == "0,10";
+    in-out property <bool> reminder-hour: draft-reminder == "60";
+    in-out property <bool> reminder-day: draft-reminder == "1440";
+    in-out property <int> repeat-index: draft-repeat == "daily" ? 1 : (draft-repeat == "weekly" ? 2 : (draft-repeat == "monthly" ? 3 : (draft-repeat == "yearly" ? 4 : 0)));
+    in-out property <int> selected-calendar-id: draft-calendar-id;
+    in-out property <string> selected-calendar-name: draft-calendar-name;
+    in-out property <bool> calendar-open: false;
+    in-out property <bool> more-open: false;
+    in-out property <string> note-text: draft-note;
+    in-out property <int> picker-year: 2026;
+    in-out property <int> picker-month: 9;
+    in-out property <int> picker-day: 1;
+    in-out property <int> picker-hour: 9;
+    in-out property <int> picker-minute: 0;
+    callback parse(string);
+    callback save(string, string, string, string, string, string, int, int);
+    callback cancel();
+    callback prepare-date-picker(string);
+    callback prepare-time-picker(string);
+    callback drag-requested();
+    pure function pad-two(value: int) -> string { return value < 10 ? "0" + value : value; }
+    pure function format-date(year: int, month: int, day: int) -> string { return year + "-" + root.pad-two(month) + "-" + root.pad-two(day); }
+    pure function format-time(hour: int, minute: int) -> string { return root.pad-two(hour) + ":" + root.pad-two(minute); }
+    width: 480px; height: root.more-open ? 600px : 520px;
+    background: Theme.bg-surface;
+    border-radius: Theme.r-xl;
+    drop-shadow-color: Theme.shadow-3-color-a; drop-shadow-blur: Theme.shadow-3-blur-a; drop-shadow-offset-y: Theme.shadow-3-y-a;
+    clip: true;
+    VerticalLayout {
+        width: parent.width; height: parent.height; spacing: 0px;
+        Rectangle {
+            height: 56px; border-width: 1px; border-color: Theme.border-subtle;
+            header-drag := TouchArea {
+                mouse-cursor: default;
+                changed pressed => { if (self.pressed) { root.drag-requested(); } }
+            }
+            HorizontalLayout {
+                padding-left: 18px; padding-right: 18px;
+                Text { text: "新建日程"; color: Theme.text-1; font-size: Theme.font-15; font-weight: 600; vertical-alignment: center; horizontal-stretch: 1; }
+                Rectangle { width: 28px; height: 28px; border-radius: Theme.r-md; SvgIcon { source: Icons.close; size: 14px; tint: Theme.text-2; x: 7px; y: 7px; } TouchArea { mouse-cursor: pointer; clicked => { root.cancel(); } } }
+            }
+        }
+        VerticalLayout {
+            padding-left: 18px; padding-right: 18px; padding-top: 14px; spacing: 10px;
+            Rectangle {
+                height: 40px; border-radius: Theme.r-md; border-width: 1px;
+                border-color: title-edit.has-focus ? Theme.accent : Theme.border-default;
+                background: Theme.bg-surface-2;
+                title-edit := TextInput {
+                    x: 12px; width: parent.width - 24px; height: parent.height;
+                    text <=> root.draft-title; color: Theme.text-1; font-size: Theme.font-15; font-weight: 600;
+                    vertical-alignment: center; selection-foreground-color: Theme.on-accent; selection-background-color: Theme.accent;
+                }
+            }
+            Rectangle {
+                height: 76px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface-2;
+                VerticalLayout {
+                    padding: Theme.space-2; spacing: Theme.space-2;
+                    HorizontalLayout {
+                        spacing: Theme.space-2;
+                        cross-axis-alignment: center;
+                        SvgIcon { source: Icons.glass; size: 14px; tint: Theme.text-3; }
+                        natural := TokenInput { height: 26px; text: "明天下午3点研发周会 会议室5"; horizontal-stretch: 1; }
+                        Rectangle { width: 44px; height: 26px; border-radius: Theme.r-sm; background: Theme.accent-subtle; Text { text: "解析"; color: Theme.accent; font-size: Theme.font-11; horizontal-alignment: center; vertical-alignment: center; } TouchArea { clicked => { root.parse(natural.text); } } }
+                    }
+                    HorizontalLayout {
+                        width: 100%; height: 24px; spacing: 6px;
+                        ParseChip { chip-width: 108px; label: "标题 " + draft-title; }
+                        ParseChip { chip-width: 126px; label: "时间 " + draft-date + " " + draft-time; }
+                        ParseChip { chip-width: 88px; label: "地点 会议室5"; }
+                        ParseChip { chip-width: 70px; label: "已识别"; ok: true; }
+                    }
+                }
+            }
+            HorizontalLayout { height: 30px; Text { width: 58px; text: "全天"; color: Theme.text-2; font-size: Theme.font-12; vertical-alignment: center; } Rectangle { width: 32px; height: 18px; border-radius: Theme.pill-radius-18; background: root.all-day ? Theme.accent : Theme.bg-surface-2; TouchArea { mouse-cursor: pointer; clicked => { root.all-day = !root.all-day; } } Rectangle { width: 14px; height: 14px; border-radius: 7px; x: root.all-day ? 16px : 2px; y: 2px; background: Theme.bg-surface; } } }
+            HorizontalLayout { height: 34px; spacing: Theme.space-2; Text { width: 46px; text: "时间"; color: Theme.text-2; font-size: Theme.font-12; vertical-alignment: center; }
+                date-edit := EditableFormBox { width: 150px; text <=> root.draft-date; icon: Icons.calendar; open-picker => { root.prepare-date-picker(root.draft-date); date-picker.show(); } }
+                time-edit := EditableFormBox { width: 92px; text <=> root.draft-time; icon: Icons.clock; opacity: root.all-day ? 0.4 : 1; open-picker => { if (!root.all-day) { root.prepare-time-picker(root.draft-time); time-picker.show(); } } }
+                duration-box := FormBox { width: 112px; text: "持续 " + root.draft-duration + " 分钟"; icon: Icons.clock; clicked => { root.draft-duration = root.draft-duration == 30 ? 60 : (root.draft-duration == 60 ? 90 : (root.draft-duration == 90 ? 120 : 30)); } }
+            }
+            HorizontalLayout { height: 34px; spacing: Theme.space-3; Text { width: 46px; text: "日历"; color: Theme.text-2; font-size: Theme.font-12; vertical-alignment: center; } FormBox { horizontal-stretch: 1; text: root.selected-calendar-name; icon: Icons.calendar; clicked => { root.calendar-open = !root.calendar-open; } } }
+            HorizontalLayout { height: 34px; spacing: Theme.space-2; Text { width: 46px; text: "提醒"; color: Theme.text-2; font-size: Theme.font-12; vertical-alignment: center; } ReminderChip { chip-width: 58px; label: "准时"; selected: root.reminder-now; clicked => { root.reminder-now = !root.reminder-now; } } ReminderChip { chip-width: 104px; label: "提前10分钟"; selected: root.reminder-ten; clicked => { root.reminder-ten = !root.reminder-ten; } } ReminderChip { chip-width: 92px; label: "提前1小时"; selected: root.reminder-hour; clicked => { root.reminder-hour = !root.reminder-hour; } } ReminderChip { chip-width: 78px; label: "提前1天"; selected: root.reminder-day; clicked => { root.reminder-day = !root.reminder-day; } } }
+            HorizontalLayout { height: 34px; spacing: Theme.space-3; Text { width: 46px; text: "重复"; color: Theme.text-2; font-size: Theme.font-12; vertical-alignment: center; } FormBox { horizontal-stretch: 1; text: root.repeat-index == 0 ? "不重复" : (root.repeat-index == 1 ? "每天" : (root.repeat-index == 2 ? "每周" : (root.repeat-index == 3 ? "每月" : "每年"))); icon: Icons.reload; clicked => { root.repeat-index = root.repeat-index == 4 ? 0 : root.repeat-index + 1; } } }
+            Rectangle { height: 26px; background: transparent; TouchArea { mouse-cursor: pointer; clicked => { root.more-open = !root.more-open; } } HorizontalLayout { spacing: 6px; cross-axis-alignment: center; SvgIcon { source: Icons.down; size: 13px; tint: Theme.accent; } Text { text: root.more-open ? "收起更多选项" : "更多选项 · 备注"; color: Theme.accent; font-size: Theme.font-12; vertical-alignment: center; } } }
+            if root.more-open: VerticalLayout {
+                height: 72px; spacing: Theme.space-2;
+                HorizontalLayout { height: 34px; spacing: Theme.space-3; Text { width: 46px; text: "备注"; color: Theme.text-2; font-size: Theme.font-12; vertical-alignment: center; } EditableFormBox { horizontal-stretch: 1; text <=> root.note-text; icon: Icons.note; } }
+                HorizontalLayout { height: 28px; spacing: Theme.space-2; Rectangle { width: 46px; } ReminderChip { chip-width: 64px; label: "今天"; clicked => { root.draft-date = "今天"; } } ReminderChip { chip-width: 64px; label: "明天"; clicked => { root.draft-date = "明天"; } } ReminderChip { chip-width: 72px; label: "09:00"; clicked => { root.draft-time = "09:00"; root.all-day = false; } } ReminderChip { chip-width: 72px; label: "14:00"; clicked => { root.draft-time = "14:00"; root.all-day = false; } } }
+            }
+            Text {
+                visible: root.validation-message != "";
+                height: root.validation-message == "" ? 0px : 18px;
+                text: root.validation-message;
+                color: Theme.danger;
+                font-size: Theme.font-11;
+                overflow: elide;
+                vertical-alignment: center;
+            }
+            Rectangle { vertical-stretch: 1; }
+        }
+        Rectangle {
+            height: 60px; border-width: 1px; border-color: Theme.border-subtle; background: Theme.bg-surface-2;
+            HorizontalLayout {
+                padding-left: 18px; padding-right: 18px; spacing: Theme.space-2;
+                Rectangle { horizontal-stretch: 1; }
+                Rectangle { width: 54px; height: 30px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface; Text { text: "取消"; color: Theme.text-1; font-size: Theme.font-12-5; horizontal-alignment: center; vertical-alignment: center; } TouchArea { clicked => { root.cancel(); } } }
+                Rectangle { width: 54px; height: 30px; border-radius: Theme.r-md; background: Theme.accent; Text { text: "保存"; color: Theme.on-accent; font-size: Theme.font-12-5; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; } TouchArea { clicked => {
+                    root.save(root.draft-title, root.draft-date, root.all-day ? "" : root.draft-time,
+                        (root.reminder-now ? "0" : "") + (root.reminder-ten ? (root.reminder-now ? ",10" : "10") : "") + (root.reminder-hour ? ((root.reminder-now || root.reminder-ten) ? ",60" : "60") : "") + (root.reminder-day ? ((root.reminder-now || root.reminder-ten || root.reminder-hour) ? ",1440" : "1440") : ""),
+                        root.repeat-index == 0 ? "none" : (root.repeat-index == 1 ? "daily" : (root.repeat-index == 2 ? "weekly" : (root.repeat-index == 3 ? "monthly" : "yearly"))),
+                        root.note-text, root.selected-calendar-id, root.draft-duration);
+                } } }
+            }
+        }
+    }
+    if root.calendar-open: Rectangle {
+        x: 76px; y: 286px; width: 380px; height: Math.min(180px, root.calendars.length * 34px + 12px);
+        background: Theme.bg-surface; border-width: 1px; border-color: Theme.border-default; border-radius: Theme.r-md;
+        drop-shadow-color: Theme.shadow-2-color-a; drop-shadow-blur: Theme.shadow-2-blur-a; drop-shadow-offset-y: Theme.shadow-2-y-a;
+        VerticalLayout { padding: 6px;
+            for calendar in root.calendars: Rectangle { height: 32px; border-radius: Theme.r-sm; background: calendar.id == root.selected-calendar-id ? Theme.accent-subtle : transparent;
+                TouchArea { mouse-cursor: pointer; clicked => { root.selected-calendar-id = calendar.id; root.selected-calendar-name = calendar.name; root.calendar-open = false; } }
+                HorizontalLayout { padding-left: Theme.space-2; spacing: Theme.space-2; Rectangle { width: 8px; height: 8px; border-radius: 4px; background: calendar.color; } Text { text: calendar.name; color: Theme.text-1; font-size: Theme.font-12; vertical-alignment: center; } }
+            }
+        }
+    }
+    date-picker := TimeHubDatePickerPopup {
+        x: date-edit.absolute-position.x - root.absolute-position.x;
+        y: 0px;
+        title: "选择日程日期";
+        year <=> root.picker-year; month <=> root.picker-month; day <=> root.picker-day;
+        accepted(year, month, day) => {
+            root.draft-date = root.format-date(year, month, day);
+        }
+    }
+    time-picker := TimeHubTimePickerPopup {
+        x: time-edit.absolute-position.x - root.absolute-position.x;
+        y: 0px;
+        title: "选择日程时间";
+        hour <=> root.picker-hour; minute <=> root.picker-minute;
+        accepted(hour, minute) => {
+            root.draft-time = root.format-time(hour, minute);
+        }
+    }
+}
+
+// Compact top-level editor used only by desktop cards.  The main window keeps
+// the complete NewEventDialog above; this one is intentionally smaller and its
+// footer has a fixed slot so typing can never push the save button outside.
+export component NewEventWindow inherits Window {
+    title: "TimeHub 新建日程";
+    default-font-family: Theme.font-family;
+    icon: Icons.app-logo;
+    width: 390px;
+    height: 320px;
+    no-frame: true;
+    always-on-top: true;
+    background: transparent;
+
+    in-out property <string> draft-title: "";
+    in-out property <string> draft-date: "";
+    in-out property <string> draft-time: "09:00";
+    in property <string> draft-reminder: "10";
+    in property <string> draft-repeat: "none";
+    in property <string> draft-note: "";
+    in property <int> draft-calendar-id: 1;
+    in property <string> draft-calendar-name: "默认";
+    in-out property <string> validation-message: "";
+    in-out property <int> draft-duration: 60;
+    in property <[CalendarItem]> calendars;
+    in-out property <int> picker-year: 2026;
+    in-out property <int> picker-month: 9;
+    in-out property <int> picker-day: 1;
+    in-out property <int> picker-hour: 9;
+    in-out property <int> picker-minute: 0;
+    in-out property <bool> all-day: draft-time == "";
+    in-out property <int> reminder-index: draft-reminder == "0" ? 0 : (draft-reminder == "60" ? 2 : (draft-reminder == "1440" ? 3 : 1));
+    in-out property <int> repeat-index: draft-repeat == "daily" ? 1 : (draft-repeat == "weekly" ? 2 : (draft-repeat == "monthly" ? 3 : (draft-repeat == "yearly" ? 4 : 0)));
+    in-out property <string> note-text: draft-note;
+    in-out property <int> selected-calendar-id: draft-calendar-id;
+    in-out property <string> selected-calendar-name: draft-calendar-name;
+    in-out property <bool> calendar-open: false;
+
+    callback parse(string);
+    callback save(string, string, string, string, string, string, int, int);
+    callback prepare-date-picker(string);
+    callback prepare-time-picker(string);
+    callback close-requested();
+    callback begin-window-drag();
+    pure function pad-two(value: int) -> string { return value < 10 ? "0" + value : value; }
+    pure function format-date(year: int, month: int, day: int) -> string { return year + "-" + root.pad-two(month) + "-" + root.pad-two(day); }
+    pure function format-time(hour: int, minute: int) -> string { return root.pad-two(hour) + ":" + root.pad-two(minute); }
+
+    Rectangle {
+        width: 100%; height: 100%;
+        background: Theme.bg-surface;
+        border-width: 1px; border-color: Theme.border-default; border-radius: Theme.r-xl;
+        drop-shadow-color: Theme.shadow-3-color-a; drop-shadow-blur: Theme.shadow-3-blur-a; drop-shadow-offset-y: Theme.shadow-3-y-a;
+        clip: true;
+        VerticalLayout {
+            spacing: 0px;
+            Rectangle {
+                height: 44px; background: Theme.bg-surface-2; border-width: 1px; border-color: Theme.border-subtle;
+                header-drag := TouchArea { changed pressed => { if (self.pressed) { root.begin-window-drag(); } } }
+                HorizontalLayout {
+                    padding-left: 14px; padding-right: 8px; spacing: 8px;
+                    Text { text: "新建日程"; color: Theme.text-1; font-size: Theme.font-16; font-weight: 700; vertical-alignment: center; horizontal-stretch: 1; }
+                    Rectangle { width: 30px; height: 30px; border-radius: Theme.r-md; background: close-touch.has-hover ? Theme.bg-hover : transparent;
+                        SvgIcon { source: Icons.close; size: 14px; tint: Theme.text-2; x: 8px; y: 8px; }
+                        close-touch := TouchArea { mouse-cursor: pointer; clicked => { root.close-requested(); } }
+                    }
+                }
+            }
+            VerticalLayout {
+                padding-left: 14px; padding-right: 14px; padding-top: 10px; padding-bottom: 8px; spacing: 6px;
+                Rectangle {
+                    height: 36px; border-radius: Theme.r-md; border-width: 1px;
+                    border-color: compact-title.has-focus ? Theme.accent : Theme.border-default; background: Theme.bg-surface-2;
+                    Text { x: 12px; width: parent.width - 24px; height: parent.height; visible: root.draft-title == "" && !compact-title.has-focus; text: "日程标题"; color: Theme.text-3; font-size: Theme.font-13; vertical-alignment: center; }
+                    compact-title := TextInput {
+                        x: 12px; width: parent.width - 24px; height: parent.height; text <=> root.draft-title;
+                        color: Theme.text-1; font-size: Theme.font-14; font-weight: 600; vertical-alignment: center;
+                        selection-foreground-color: Theme.on-accent; selection-background-color: Theme.accent;
+                    }
+                }
+                HorizontalLayout { height: 30px; spacing: 6px;
+                    compact-date := EditableFormBox { width: 140px; text <=> root.draft-date; icon: Icons.calendar; open-picker => { root.prepare-date-picker(root.draft-date); compact-date-picker.show(); } }
+                    compact-time := EditableFormBox { width: 84px; text <=> root.draft-time; icon: Icons.clock; opacity: root.all-day ? 0.4 : 1; open-picker => { if (!root.all-day) { root.prepare-time-picker(root.draft-time); compact-time-picker.show(); } } }
+                    FormBox { horizontal-stretch: 1; text: root.draft-duration + " 分"; icon: Icons.clock; clicked => { root.draft-duration = root.draft-duration == 30 ? 60 : (root.draft-duration == 60 ? 90 : (root.draft-duration == 90 ? 120 : 30)); } }
+                }
+                HorizontalLayout { height: 30px; spacing: 6px;
+                    FormBox { horizontal-stretch: 1; text: root.selected-calendar-name; icon: Icons.calendar; clicked => { root.calendar-open = !root.calendar-open; } }
+                    ReminderChip { chip-width: 64px; label: "全天"; selected: root.all-day; clicked => { root.all-day = !root.all-day; } }
+                }
+                HorizontalLayout { height: 26px; spacing: 6px;
+                    ReminderChip { chip-width: 56px; label: "准时"; selected: root.reminder-index == 0; clicked => { root.reminder-index = 0; } }
+                    ReminderChip { chip-width: 88px; label: "提前10分"; selected: root.reminder-index == 1; clicked => { root.reminder-index = 1; } }
+                    ReminderChip { chip-width: 78px; label: "提前1时"; selected: root.reminder-index == 2; clicked => { root.reminder-index = 2; } }
+                    ReminderChip { chip-width: 72px; label: "提前1天"; selected: root.reminder-index == 3; clicked => { root.reminder-index = 3; } }
+                }
+                HorizontalLayout { height: 30px; spacing: 6px;
+                    FormBox { width: 138px; text: root.repeat-index == 0 ? "不重复" : (root.repeat-index == 1 ? "每天" : (root.repeat-index == 2 ? "每周" : (root.repeat-index == 3 ? "每月" : "每年"))); icon: Icons.reload; clicked => { root.repeat-index = root.repeat-index == 4 ? 0 : root.repeat-index + 1; } }
+                    EditableFormBox { horizontal-stretch: 1; text <=> root.note-text; icon: Icons.note; }
+                }
+                Text {
+                    visible: root.validation-message != ""; height: root.validation-message == "" ? 0px : 18px;
+                    text: root.validation-message; color: Theme.danger; font-size: Theme.font-11; overflow: elide; vertical-alignment: center;
+                }
+                Rectangle { vertical-stretch: 1; }
+            }
+            Rectangle {
+                height: 50px; background: Theme.bg-surface-2; border-width: 1px; border-color: Theme.border-subtle;
+                HorizontalLayout { padding-left: 14px; padding-right: 14px; spacing: 8px; cross-axis-alignment: center;
+                    Text { text: root.draft-date + "  " + (root.all-day ? "全天" : root.draft-time); color: Theme.text-3; font-size: Theme.font-11; horizontal-stretch: 1; vertical-alignment: center; overflow: elide; }
+                    Rectangle { width: 58px; height: 30px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface;
+                        Text { text: "取消"; color: Theme.text-1; font-size: Theme.font-12; horizontal-alignment: center; vertical-alignment: center; }
+                        TouchArea { mouse-cursor: pointer; clicked => { root.close-requested(); } }
+                    }
+                    Rectangle { width: 58px; height: 30px; border-radius: Theme.r-md; background: Theme.accent;
+                        Text { text: "保存"; color: Theme.on-accent; font-size: Theme.font-12; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+                        TouchArea { mouse-cursor: pointer; clicked => {
+                            root.save(root.draft-title, root.draft-date, root.all-day ? "" : root.draft-time,
+                                root.reminder-index == 0 ? "0" : (root.reminder-index == 1 ? "10" : (root.reminder-index == 2 ? "60" : "1440")),
+                                root.repeat-index == 0 ? "none" : (root.repeat-index == 1 ? "daily" : (root.repeat-index == 2 ? "weekly" : (root.repeat-index == 3 ? "monthly" : "yearly"))),
+                                root.note-text, root.selected-calendar-id, root.draft-duration);
+                        } }
+                    }
+                }
+            }
+        }
+        if root.calendar-open: Rectangle {
+            x: 16px; y: 164px; width: parent.width - 104px; height: Math.min(150px, root.calendars.length * 32px + 12px);
+            background: Theme.bg-surface; border-width: 1px; border-color: Theme.border-default; border-radius: Theme.r-md;
+            drop-shadow-color: Theme.shadow-2-color-a; drop-shadow-blur: Theme.shadow-2-blur-a; drop-shadow-offset-y: Theme.shadow-2-y-a;
+            VerticalLayout { padding: 6px;
+                for calendar in root.calendars: Rectangle { height: 30px; border-radius: Theme.r-sm; background: calendar.id == root.selected-calendar-id ? Theme.accent-subtle : transparent;
+                    TouchArea { mouse-cursor: pointer; clicked => { root.selected-calendar-id = calendar.id; root.selected-calendar-name = calendar.name; root.calendar-open = false; } }
+                    HorizontalLayout { padding-left: 8px; spacing: 8px; Rectangle { width: 8px; height: 8px; border-radius: 4px; background: calendar.color; } Text { text: calendar.name; color: Theme.text-1; font-size: Theme.font-12; vertical-alignment: center; } }
+                }
+            }
+        }
+    }
+    compact-date-picker := TimeHubDatePickerPopup {
+        x: 24px; y: 0px; title: "选择日程日期"; compact: true; auto-accept: true;
+        year <=> root.picker-year; month <=> root.picker-month; day <=> root.picker-day;
+        accepted(year, month, day) => { root.draft-date = root.format-date(year, month, day); }
+    }
+    compact-time-picker := TimeHubTimePickerPopup {
+        x: 146px; y: 0px; title: "选择日程时间"; compact: true;
+        hour <=> root.picker-hour; minute <=> root.picker-minute;
+        accepted(hour, minute) => { root.draft-time = root.format-time(hour, minute); root.all-day = false; }
+    }
+}

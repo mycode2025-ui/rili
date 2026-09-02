@@ -1,0 +1,130 @@
+import { LineEdit, ScrollView } from "std-widgets.slint";
+import { Theme } from "design-system.slint";
+import { GhostButton, PrimaryButton, DangerGhostButton } from "widgets.slint";
+
+export struct ShiftTypeItem {
+    id: int,
+    name: string,
+    time-text: string,
+    color: color,
+}
+
+export struct ShiftAssignmentItem {
+    id: int,
+    date-text: string,
+    name: string,
+    time-text: string,
+    color: color,
+    is-rest: bool,
+}
+
+export component ShiftView inherits Rectangle {
+    in property <[ShiftTypeItem]> shift-types;
+    in property <[ShiftAssignmentItem]> assignments;
+    in property <string> start-date;
+    in property <string> end-date;
+    in property <string> sequence;
+    in property <string> result-text;
+    callback generate(string, string, string);
+    callback delete-assignment(int);
+
+    background: Theme.panel-bg;
+    border-radius: Theme.radius-lg;
+    border-width: 1px;
+    border-color: Theme.panel-border;
+
+    VerticalLayout {
+        padding: Theme.gap-lg;
+        spacing: Theme.gap-md;
+        HorizontalLayout {
+            Text { text: "排班助手"; color: Theme.text-primary; font-size: Theme.font-xl; font-weight: 700; }
+            Rectangle { horizontal-stretch: 1; }
+            Text { text: "本地班次周期生成"; color: Theme.text-muted; font-size: Theme.font-sm; vertical-alignment: center; }
+        }
+        Rectangle {
+            background: Theme.bg;
+            border-radius: Theme.radius-md;
+            border-width: 1px;
+            border-color: Theme.panel-border;
+            VerticalLayout {
+                padding: Theme.gap-md;
+                spacing: Theme.gap-sm;
+                Text { text: "生成周期班表"; color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; }
+                HorizontalLayout {
+                    spacing: Theme.gap-sm;
+                    start-input := LineEdit { text: start-date; placeholder-text: "开始日期 YYYY-MM-DD"; horizontal-stretch: 1; }
+                    end-input := LineEdit { text: end-date; placeholder-text: "结束日期 YYYY-MM-DD"; horizontal-stretch: 1; }
+                    sequence-input := LineEdit { text: sequence; placeholder-text: "班次序列，用逗号分隔，如 白班,白班,夜班,夜班,休息,休息"; horizontal-stretch: 3; }
+                    PrimaryButton { text: "生成班表"; clicked => { generate(start-input.text, end-input.text, sequence-input.text); } }
+                }
+                Text { text: "可用班次：" + shift-types.length + " 个。序列按日期循环；重复生成同一日期会更新原班次。"; color: Theme.text-muted; font-size: Theme.font-sm; }
+                Text { text: result-text; color: Theme.accent; font-size: Theme.font-sm; }
+            }
+        }
+        HorizontalLayout {
+            spacing: Theme.gap-md;
+            vertical-stretch: 1;
+            Rectangle {
+                horizontal-stretch: 1;
+                background: Theme.bg;
+                border-radius: Theme.radius-md;
+                border-width: 1px;
+                border-color: Theme.panel-border;
+                VerticalLayout {
+                    padding: Theme.gap-md;
+                    spacing: Theme.gap-sm;
+                    Text { text: "班次定义"; color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; }
+                    for shift in shift-types: Rectangle {
+                        min-height: 42px;
+                        background: Theme.panel-bg;
+                        border-radius: Theme.radius-sm;
+                        HorizontalLayout {
+                            padding: Theme.gap-sm;
+                            spacing: Theme.gap-sm;
+                            Rectangle { width: 5px; border-radius: 2px; background: shift.color; }
+                            Text { text: shift.name; color: Theme.text-primary; horizontal-stretch: 1; vertical-alignment: center; }
+                            Text { text: shift.time-text; color: Theme.text-secondary; vertical-alignment: center; }
+                        }
+                    }
+                }
+            }
+            Rectangle {
+                horizontal-stretch: 2;
+                background: Theme.bg;
+                border-radius: Theme.radius-md;
+                border-width: 1px;
+                border-color: Theme.panel-border;
+                VerticalLayout {
+                    padding: Theme.gap-md;
+                    spacing: Theme.gap-sm;
+                    Text { text: "本月班表"; color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; }
+                    ScrollView {
+                        vertical-stretch: 1;
+                        VerticalLayout {
+                            spacing: Theme.gap-sm;
+                            for assignment in assignments: Rectangle {
+                                min-height: 48px;
+                                background: Theme.panel-bg;
+                                border-radius: Theme.radius-sm;
+                                HorizontalLayout {
+                                    padding: Theme.gap-sm;
+                                    spacing: Theme.gap-md;
+                                    Text { text: assignment.date-text; color: Theme.text-secondary; width: 100px; vertical-alignment: center; }
+                                    Rectangle { width: 5px; border-radius: 2px; background: assignment.color; }
+                                    Text { text: assignment.name; color: assignment.is-rest ? Theme.text-muted : Theme.text-primary; horizontal-stretch: 1; vertical-alignment: center; }
+                                    Text { text: assignment.time-text; color: Theme.text-muted; vertical-alignment: center; }
+                                    DangerGhostButton { text: "清空"; clicked => { delete-assignment(assignment.id); } }
+                                }
+                            }
+                            if assignments.length == 0: Text {
+                                text: "本月还没有班次，先生成一个周期班表";
+                                color: Theme.text-muted;
+                                font-size: Theme.font-md;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,210 @@
+import { Theme } from "design-system.slint";
+import { ScrollView } from "std-widgets.slint";
+import { EventItem } from "side-panel.slint";
+
+export struct WeekDayItem {
+    year: int,
+    month: int,
+    day: int,
+    weekday-label: string,
+    lunar-text: string,
+    is-today: bool,
+    is-selected: bool,
+    is-holiday: bool,
+    is-weekend: bool,
+    is-makeup-workday: bool,
+    events: [EventItem],
+}
+
+global WeekConstants {
+    out property <length> hour-height: 40px;
+    out property <length> hour-label-width: 64px;
+}
+
+component WeekEvent inherits Rectangle {
+    in property <EventItem> data;
+    in property <length> column-width;
+    callback clicked <=> touch.clicked;
+    property <length> lane-width: data.lane-count <= 1 ? column-width - 6px : (data.lane-count == 2 ? (column-width - 8px) / 2 : (column-width - 10px) / 3);
+
+    x: data.lane == 0 ? 3px : (data.lane == 1 ? 5px + lane-width : 7px + lane-width + lane-width);
+    y: (data.start-minutes / 60.0) * WeekConstants.hour-height;
+    width: lane-width;
+    height: max(24px, (data.duration-minutes / 60.0) * WeekConstants.hour-height - 2px);
+    border-radius: Theme.radius-sm;
+    border-width: 1px;
+    border-color: data.color.with-alpha(26%);
+    background: data.color.with-alpha(15%);
+    clip: true;
+    touch := TouchArea { mouse-cursor: pointer; }
+
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 3px;
+        height: parent.height;
+        border-radius: 3px;
+        background: data.color;
+    }
+
+    VerticalLayout {
+        padding-left: 7px;
+        padding-right: Theme.gap-xs;
+        padding-top: 3px;
+        spacing: 0px;
+        Text { text: data.title; color: data.color.darker(25%); font-size: Theme.font-xs; font-weight: 600; overflow: elide; }
+        Text { text: data.time-text; color: Theme.text-secondary; font-size: Theme.font-10; overflow: elide; }
+    }
+}
+
+component WeekHeader inherits Rectangle {
+    in property <WeekDayItem> data;
+    callback clicked <=> touch.clicked;
+
+    background: data.is-selected && !data.is-today ? Theme.accent-subtle : Theme.panel-bg;
+    border-width: 1px;
+    border-color: Theme.divider;
+    touch := TouchArea { }
+
+    VerticalLayout {
+        padding-top: 7px;
+        spacing: 2px;
+        Text { text: data.weekday-label; color: data.is-weekend ? Theme.weekend-text : Theme.text-secondary; font-size: Theme.font-xs; horizontal-alignment: center; }
+        HorizontalLayout {
+            Rectangle { horizontal-stretch: 1; }
+            Rectangle {
+                width: 26px;
+                height: 26px;
+                border-radius: 13px;
+                background: data.is-today ? Theme.today-bg : transparent;
+                Text { text: data.day; color: data.is-today ? Theme.today-text : (data.is-weekend ? Theme.weekend-text : Theme.text-primary); font-size: Theme.font-16; font-weight: data.is-today ? 700 : 600; horizontal-alignment: center; vertical-alignment: center; }
+            }
+            Rectangle { horizontal-stretch: 1; }
+        }
+        if data.lunar-text != "": Text { text: data.lunar-text; color: Theme.text-muted; font-size: Theme.font-10; horizontal-alignment: center; }
+    }
+}
+
+// 7 列、24 行时间轴；非工作时段灰化，事件位置直接使用事件的分钟数。
+export component WeekView inherits Rectangle {
+    in property <string> week-title;
+    in property <[WeekDayItem]> week-days;
+    in property <int> current-minutes: 22 * 60 + 53;
+    in property <string> current-time-text: "22:53";
+    callback prev-week();
+    callback next-week();
+    callback goto-today();
+    callback select-date(int, int, int);
+    callback open-event(int);
+
+    background: Theme.panel-bg;
+    border-radius: Theme.radius-lg;
+    border-width: 1px;
+    border-color: Theme.panel-border;
+
+    VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+        HorizontalLayout {
+            height: 78px;
+            spacing: 0px;
+            Rectangle { width: WeekConstants.hour-label-width; background: Theme.panel-bg-secondary; }
+            for d in week-days: WeekHeader {
+                horizontal-stretch: 1;
+                min-width: 110px;
+                data: d;
+                clicked => { select-date(d.year, d.month, d.day); }
+            }
+        }
+        HorizontalLayout {
+            height: 32px;
+            spacing: 0px;
+            Rectangle {
+                width: WeekConstants.hour-label-width;
+                background: Theme.panel-bg-secondary;
+                border-width: 1px;
+                border-color: Theme.divider;
+                Text { text: "全天"; color: Theme.text-muted; font-size: Theme.font-xs; horizontal-alignment: right; vertical-alignment: center; }
+            }
+            for d in week-days: Rectangle {
+                horizontal-stretch: 1;
+                min-width: 110px;
+                background: d.is-today ? Theme.accent.with-alpha(Theme.dark ? 8% : 5%) : Theme.panel-bg;
+                border-width: 1px;
+                border-color: Theme.divider;
+                HorizontalLayout {
+                    padding: 3px;
+                    spacing: 3px;
+                    for e in d.events: Rectangle {
+                        visible: e.all-day;
+                        horizontal-stretch: 1;
+                        height: 22px;
+                        border-radius: Theme.radius-sm;
+                        background: e.color;
+                        TouchArea { mouse-cursor: pointer; clicked => { root.open-event(e.id); } }
+                        Text { x: 6px; width: parent.width - 12px; text: e.title; color: Theme.on-accent; font-size: Theme.font-11; vertical-alignment: center; overflow: elide; }
+                    }
+                }
+            }
+        }
+        Flickable {
+            vertical-stretch: 1;
+            interactive: true;
+            viewport-width: max(self.width, WeekConstants.hour-label-width + 7 * 110px);
+            viewport-height: WeekConstants.hour-height * 24;
+            // 默认从工作日开始时间展示，仍可向上滚动查看凌晨时段。
+            viewport-y: -8 * WeekConstants.hour-height;
+            timeline := Rectangle {
+                width: max(parent.width, WeekConstants.hour-label-width + 7 * 110px);
+                height: WeekConstants.hour-height * 24;
+                HorizontalLayout {
+                    x: 0px; y: 0px; width: parent.width; height: WeekConstants.hour-height * 24; spacing: 0px;
+                    VerticalLayout {
+                        width: WeekConstants.hour-label-width;
+                        for hour in 24: Rectangle {
+                            height: WeekConstants.hour-height;
+                            background: Theme.panel-bg-secondary;
+                            border-width: 1px;
+                            border-color: Theme.divider;
+                            Text { text: hour < 10 ? "0" + hour + ":00" : hour + ":00"; color: Theme.text-muted; font-size: Theme.font-xs; horizontal-alignment: right; vertical-alignment: top; }
+                        }
+                    }
+                    for d in week-days: Rectangle {
+                        horizontal-stretch: 1;
+                        min-width: 110px;
+                        height: WeekConstants.hour-height * 24;
+                        background: d.is-today ? Theme.accent.with-alpha(Theme.dark ? 8% : 5%) : Theme.panel-bg;
+                        border-width: 1px;
+                        border-color: Theme.divider;
+                        for hour in 24: Rectangle {
+                            y: hour * WeekConstants.hour-height;
+                            width: parent.width;
+                            height: WeekConstants.hour-height;
+                            background: hour < 9 || hour >= 18 ? Theme.panel-bg-secondary : transparent;
+                            border-width: 1px;
+                            border-color: Theme.divider;
+                        }
+                        for e in d.events: WeekEvent {
+                            visible: !e.all-day;
+                            data: e;
+                            column-width: parent.width;
+                            clicked => { root.open-event(e.id); }
+                        }
+                    }
+                }
+                Rectangle {
+                    x: WeekConstants.hour-label-width;
+                    y: (root.current-minutes / 60.0) * WeekConstants.hour-height;
+                    width: parent.width - WeekConstants.hour-label-width;
+                    height: 1.5px;
+                    background: Theme.danger;
+                    Rectangle { x: -5px; y: -4px; width: 10px; height: 10px; border-radius: 5px; background: Theme.danger; }
+                    Rectangle {
+                        x: -58px; y: -10px; width: 42px; height: 20px; border-radius: 3px; background: Theme.danger;
+                        Text { text: root.current-time-text; color: Theme.on-accent; font-size: Theme.font-10; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                }
+            }
+        }
+    }
+}

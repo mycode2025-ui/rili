@@ -1,0 +1,191 @@
+import { Theme } from "design-system.slint";
+import { ScrollView } from "std-widgets.slint";
+
+export struct TimelineEvent {
+    id: int,
+    title: string,
+    color: color,
+    /// 从当天 0:00 起的分钟数（0..1440），全天事件此字段无意义。
+    start-minutes: int,
+    duration-minutes: int,
+    all-day: bool,
+}
+
+export struct TimelineDay {
+    year: int,
+    month: int,
+    day: int,
+    weekday-label: string,
+    lunar-text: string,
+    is-today: bool,
+    is-weekend: bool,
+    is-holiday: bool,
+    events: [TimelineEvent],
+}
+
+/// 每小时的高度，决定整个时间轴的缩放比例；60px/小时是常见日历软件的默认密度。
+global TimelineConstants {
+    out property <length> hour-height: 56px;
+    out property <length> hour-label-width: 44px;
+}
+
+component TimelineColumn inherits Rectangle {
+    in property <TimelineDay> data;
+    in property <int> column-index;
+    callback slot-clicked(int /* start-minutes，取整点 */);
+    callback event-moved(int /* event-id */, int /* new-start-minutes */);
+    callback event-resized(int /* event-id */, int /* new-duration-minutes */);
+
+    border-width: column-index > 0 ? 1px : 0px;
+    border-color: Theme.divider;
+
+    background-touch := TouchArea {
+        clicked => {
+            slot-clicked(Math.floor(self.mouse-y / TimelineConstants.hour-height) * 60);
+        }
+    }
+
+    for e in data.events: Rectangle {
+        property <length> drag-dy: 0px;
+        property <bool> dragging: false;
+        property <length> resize-dy: 0px;
+        property <bool> resizing: false;
+
+        x: 2px;
+        width: parent.width - 4px;
+        y: (e.start-minutes / 60.0) * TimelineConstants.hour-height + (dragging ? drag-dy : 0px);
+        height: max(18px, (e.duration-minutes / 60.0) * TimelineConstants.hour-height + (resizing ? resize-dy : 0px));
+        background: e.color.with-alpha(85%);
+        border-radius: 4px;
+        clip: true;
+
+        move-touch := TouchArea {
+            width: parent.width;
+            height: parent.height - 6px;
+            changed pressed => {
+                if (self.pressed) {
+                    dragging = true;
+                } else {
+                    dragging = false;
+                    let delta-minutes = Math.round((drag-dy / TimelineConstants.hour-height) * 60 / 15) * 15;
+                    if (delta-minutes != 0) {
+                        event-moved(e.id, max(0, e.start-minutes + delta-minutes));
+                    }
+                    drag-dy = 0px;
+                }
+            }
+            moved => {
+                if (dragging) {
+                    drag-dy = self.mouse-y - self.pressed-y;
+                }
+            }
+        }
+
+        Text {
+            x: 4px;
+            y: 2px;
+            width: parent.width - 8px;
+            text: e.title;
+            font-size: Theme.font-10;
+            color: Theme.on-accent;
+            overflow: elide;
+        }
+
+        // 底部拖拽手柄：拖动调整事件时长（吸附到 15 分钟）。
+        resize-touch := TouchArea {
+            y: parent.height - 6px;
+            width: parent.width;
+            height: 6px;
+            changed pressed => {
+                if (self.pressed) {
+                    resizing = true;
+                } else {
+                    resizing = false;
+                    let delta-minutes = Math.round((resize-dy / TimelineConstants.hour-height) * 60 / 15) * 15;
+                    if (delta-minutes != 0) {
+                        event-resized(e.id, max(15, e.duration-minutes + delta-minutes));
+                    }
+                    resize-dy = 0px;
+                }
+            }
+            moved => {
+                if (resizing) {
+                    resize-dy = self.mouse-y - self.pressed-y;
+                }
+            }
+        }
+    }
+}
+
+// 日视图 / 三日视图共用的时间轴组件：纵向 0-23 时刻度，每天一列，事件按开始时间/时长定位为色块，
+// 支持竖直拖拽移动事件（吸附到 15 分钟）和拖动底边调整时长。
+export component DayView inherits Rectangle {
+    in property <string> title-text;
+    in property <[TimelineDay]> timeline-days;
+    callback prev();
+    callback next();
+    callback goto-today();
+    callback add-event-at(int /* column-index */, int /* start-minutes */);
+    callback event-moved(int /* event-id */, int /* new-start-minutes */);
+    callback event-resized(int /* event-id */, int /* new-duration-minutes */);
+
+    background: Theme.panel-bg;
+    border-radius: Theme.radius-lg;
+    border-width: 1px;
+    border-color: Theme.panel-border;
+
+    VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+
+        // 列头：星期几 + 日期 + 农历。
+        HorizontalLayout {
+            spacing: 1px;
+            Rectangle { width: TimelineConstants.hour-label-width; }
+            for d in timeline-days: VerticalLayout {
+                horizontal-stretch: 1;
+                alignment: center;
+                Text {
+                    text: d.weekday-label + " " + d.day;
+                    font-size: Theme.font-md;
+                    font-weight: d.is-today ? 700 : 400;
+                    horizontal-alignment: center;
+                    color: d.is-today ? Theme.accent : (d.is-weekend ? Theme.weekend-text : Theme.text-primary);
+                }
+                Text {
+                    text: d.lunar-text;
+                    font-size: Theme.font-10;
+                    horizontal-alignment: center;
+                    color: Theme.text-muted;
+                }
+            }
+        }
+        Rectangle { height: 1px; background: Theme.divider; }
+
+        ScrollView {
+            vertical-stretch: 1;
+            HorizontalLayout {
+                spacing: 1px;
+                VerticalLayout {
+                    width: TimelineConstants.hour-label-width;
+                    for hour in 24: Text {
+                        height: TimelineConstants.hour-height;
+                        text: hour == 0 ? "" : hour + ":00";
+                        font-size: Theme.font-9;
+                        color: Theme.text-muted;
+                        horizontal-alignment: right;
+                    }
+                }
+                for d[i] in timeline-days: TimelineColumn {
+                    horizontal-stretch: 1;
+                    height: TimelineConstants.hour-height * 24;
+                    column-index: i;
+                    data: d;
+                    slot-clicked(m) => { add-event-at(i, m); }
+                    event-moved(id, m) => { event-moved(id, m); }
+                    event-resized(id, m) => { event-resized(id, m); }
+                }
+            }
+        }
+    }
+}

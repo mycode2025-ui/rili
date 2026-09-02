@@ -1,0 +1,721 @@
+{
+  "view-mode": 0,
+  "visual-theme": 1,
+  "month-title": "2026年8月",
+  "selected-day": 31,
+  "selected-date-text": "8月31日 周一",
+  "days": [
+    {
+      "day": 27,
+      "in-current-month": false,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 31,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 28,
+      "in-current-month": false,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 31,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 29,
+      "in-current-month": false,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 31,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 30,
+      "in-current-month": false,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 31,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 31,
+      "in-current-month": false,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 31,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 1,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": true,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 31,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 2,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": true,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 31,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 3,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 32,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 4,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 32,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 5,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 32,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 6,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 32,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 7,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 32,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 8,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": true,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 32,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 9,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": true,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 32,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 10,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 33,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 11,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 33,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 12,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 33,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 13,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 33,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 14,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 33,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 15,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": true,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 33,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 16,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": true,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 33,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 17,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 34,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 18,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 34,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 19,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 34,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 20,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 34,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 21,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 34,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 22,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": true,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 34,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 23,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": true,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 34,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 24,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 35,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 25,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 35,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 26,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 35,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 27,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 35,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 28,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 35,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 29,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": true,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "七月十七",
+      "has-events": false,
+      "week-number": 35,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 30,
+      "in-current-month": true,
+      "is-today": false,
+      "is-weekend": true,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "七月十八",
+      "has-events": false,
+      "week-number": 35,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 31,
+      "in-current-month": true,
+      "is-today": true,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "农历七月十九",
+      "has-events": true,
+      "week-number": 36,
+      "event-tags": [
+        {
+          "title": "09:30  研发周会",
+          "color": "#2e6be6"
+        },
+        {
+          "title": "15:30  供应商电话",
+          "color": "#c77700"
+        },
+        {
+          "title": "20:00  读书 30 分钟",
+          "color": "#0e9f6e"
+        }
+      ],
+      "extra-count": 0
+    },
+    {
+      "day": 1,
+      "in-current-month": false,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "开学",
+      "has-events": true,
+      "week-number": 36,
+      "event-tags": [
+        {
+          "title": "08:30  送女儿上学",
+          "color": "#7c4dff"
+        },
+        {
+          "title": "14:00  项目启动会",
+          "color": "#2e6be6"
+        },
+        {
+          "title": "19:00  健身",
+          "color": "#db2777"
+        }
+      ],
+      "extra-count": 0
+    },
+    {
+      "day": 2,
+      "in-current-month": false,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": true,
+      "week-number": 36,
+      "event-tags": [
+        {
+          "title": "10:00  供应商来访",
+          "color": "#0891b2"
+        },
+        {
+          "title": "14:00  PCB 评审",
+          "color": "#2e6be6"
+        }
+      ],
+      "extra-count": 0
+    },
+    {
+      "day": 3,
+      "in-current-month": false,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": true,
+      "week-number": 36,
+      "event-tags": [
+        {
+          "title": "09:30  研发周会",
+          "color": "#2e6be6"
+        }
+      ],
+      "extra-count": 0
+    },
+    {
+      "day": 4,
+      "in-current-month": false,
+      "is-today": false,
+      "is-weekend": false,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 36,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 5,
+      "in-current-month": false,
+      "is-today": false,
+      "is-weekend": true,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 36,
+      "event-tags": [],
+      "extra-count": 0
+    },
+    {
+      "day": 6,
+      "in-current-month": false,
+      "is-today": false,
+      "is-weekend": true,
+      "is-holiday": false,
+      "is-makeup-workday": false,
+      "lunar-text": "",
+      "has-events": false,
+      "week-number": 36,
+      "event-tags": [],
+      "extra-count": 0
+    }
+  ],
+  "events-for-day": [
+    {
+      "id": 1,
+      "title": "研发评审会",
+      "time-text": "10:00",
+      "meta-text": "会议室 5 · 1 小时",
+      "color": "#2e6be6",
+      "start-minutes": 600,
+      "duration-minutes": 60,
+      "all-day": false
+    },
+    {
+      "id": 2,
+      "title": "供应商电话会议",
+      "time-text": "15:30",
+      "meta-text": "腾讯会议 · 30 分钟",
+      "color": "#c77700",
+      "start-minutes": 930,
+      "duration-minutes": 30,
+      "all-day": false
+    },
+    {
+      "id": 3,
+      "title": "读书 30 分钟",
+      "time-text": "20:00",
+      "meta-text": "每天 · 已连续 18 天",
+      "color": "#0e9f6e",
+      "start-minutes": 1200,
+      "duration-minutes": 30,
+      "all-day": false
+    }
+  ],
+  "todos-for-day": [
+    {
+      "id": 1,
+      "title": "整理 BMS 故障注入用例",
+      "done": true,
+      "priority": 0
+    },
+    {
+      "id": 2,
+      "title": "回复量产烧录问题邮件",
+      "done": true,
+      "priority": 0
+    },
+    {
+      "id": 3,
+      "title": "提交 NUC980 内核配置变更",
+      "done": true,
+      "priority": 0
+    },
+    {
+      "id": 4,
+      "title": "核对 9 月排班表",
+      "done": false,
+      "priority": 1
+    },
+    {
+      "id": 5,
+      "title": "准备季度 OKR 材料",
+      "done": false,
+      "priority": 2
+    }
+  ],
+  "notes": [
+    {
+      "id": 1,
+      "title": "量产烧录 checklist v3",
+      "content": ""
+    }
+  ],
+  "habits": [],
+  "calendars": [
+    {
+      "id": 1,
+      "name": "工作",
+      "color": "#2e6be6",
+      "visible": true
+    },
+    {
+      "id": 2,
+      "name": "个人",
+      "color": "#0e9f6e",
+      "visible": true
+    },
+    {
+      "id": 3,
+      "name": "家庭",
+      "color": "#c77700",
+      "visible": true
+    },
+    {
+      "id": 4,
+      "name": "生日 / 纪念日",
+      "color": "#7c4dff",
+      "visible": true
+    },
+    {
+      "id": 5,
+      "name": "Outlook",
+      "color": "#0891b2",
+      "visible": true
+    },
+    {
+      "id": 6,
+      "name": "节假日",
+      "color": "#65a30d",
+      "visible": true
+    },
+    {
+      "id": 7,
+      "name": "健身",
+      "color": "#db2777",
+      "visible": false
+    }
+  ],
+  "calendar-names": [
+    "工作",
+    "个人",
+    "家庭",
+    "生日 / 纪念日",
+    "Outlook",
+    "节假日",
+    "健身"
+  ],
+  "weather-summary": "上海 26°C 多云  ·  8月31日 22:53"
+}

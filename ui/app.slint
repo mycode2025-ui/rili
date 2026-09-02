@@ -1,0 +1,1301 @@
+import { Theme } from "design-system.slint";
+import { CalendarView, CalendarDay } from "calendar-view.slint";
+import { WeekView, WeekDayItem } from "week-view.slint";
+import { TodayView } from "today-view.slint";
+import { DayView, TimelineDay, TimelineEvent } from "day-view.slint";
+import { YearView, YearMonth } from "year-view.slint";
+import { ToolsView, SubscriptionItem } from "tools-view.slint";
+import { SearchView, SearchItem } from "search-view.slint";
+import { RecordsView, RecordItem } from "records-view.slint";
+import { ShiftView, ShiftTypeItem, ShiftAssignmentItem } from "shift-view.slint";
+import { SettingsView } from "settings-view.slint";
+import { KanbanView, QuadrantView, TodoStatsView, TodoBoardItem } from "todo-board.slint";
+import { SidePanel, EventItem, TodoItem, NoteItem, HabitItem, CalendarItem } from "side-panel.slint";
+import { WidgetWindow, CountdownItem } from "widget.slint";
+import { CalendarWidgetWindow, EventsWidgetWindow, CountdownWidgetWindow, ClockWidgetWindow, FocusWidgetWindow, TodoWidgetWindow, NotesWidgetWindow } from "desktop-widgets.slint";
+import { QuickPanelWindow } from "quick-panel.slint";
+import { NewEventDialog, NewEventWindow } from "new-event-dialog.slint";
+import { ThemeComparisonWindow } from "theme-comparison.slint";
+import { NotesView } from "notes-view.slint";
+import { CourseView, CourseItem } from "course-view.slint";
+import { GhostButton, Dropdown, ThemeCheckBox, NavButton, IconButton, PrimaryButton } from "widgets.slint";
+import { Icons, SvgIcon } from "icons.slint";
+import { Palette, ScrollView } from "std-widgets.slint";
+
+export { CalendarDay, EventItem, TodoItem, NoteItem, HabitItem, CalendarItem, WeekDayItem, TimelineDay, TimelineEvent, TodoBoardItem, YearMonth, SearchItem, RecordItem, ShiftTypeItem, ShiftAssignmentItem, CourseItem, SubscriptionItem, CountdownItem, WidgetWindow, CalendarWidgetWindow, EventsWidgetWindow, CountdownWidgetWindow, ClockWidgetWindow, FocusWidgetWindow, TodoWidgetWindow, NotesWidgetWindow, QuickPanelWindow, NewEventWindow, ThemeComparisonWindow, Theme }
+
+component MainWindowDragArea inherits TouchArea {
+    callback drag-requested();
+    callback maximize-requested();
+    mouse-cursor: default;
+    changed pressed => {
+        if self.pressed {
+            root.drag-requested();
+        }
+    }
+    double-clicked => { root.maximize-requested(); }
+}
+
+component MiniDay inherits Rectangle {
+    in property <CalendarDay> data;
+    in property <bool> selected: false;
+    callback clicked();
+
+    height: 24px;
+    border-radius: Theme.radius-sm;
+    background: data.is-today ? Theme.today-bg : (selected ? Theme.accent-soft : transparent);
+    TouchArea { mouse-cursor: data.in-current-month ? pointer : default; clicked => { if (data.in-current-month) { root.clicked(); } } }
+
+    Text {
+        text: data.day;
+        color: data.is-today ? Theme.today-text : (!data.in-current-month ? Theme.text-muted : (data.is-weekend || data.is-holiday ? Theme.weekend-text : Theme.text-primary));
+        font-size: Theme.font-xs;
+        font-weight: data.is-today || selected ? 700 : 400;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component ToolbarButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    in property <length> button-width: 40px;
+    callback clicked <=> touch.clicked;
+    width: button-width; height: 26px; border-radius: 6px;
+    background: selected ? Theme.bg-surface : (touch.has-hover ? Theme.bg-hover : transparent);
+    drop-shadow-color: selected ? Theme.shadow-1-color-a : transparent;
+    drop-shadow-blur: selected ? Theme.shadow-1-blur-a : 0px;
+    touch := TouchArea { mouse-cursor: pointer; }
+    Text { text: root.label; color: selected ? Theme.text-1 : Theme.text-2; font-size: Theme.font-12; font-weight: selected ? 600 : 400; horizontal-alignment: center; vertical-alignment: center; }
+}
+
+component SidebarQuickAction inherits Rectangle {
+    in property <string> label;
+    in property <image> icon;
+    in property <bool> selected: false;
+    callback clicked();
+
+    height: 48px;
+    border-radius: Theme.r-md;
+    background: selected ? Theme.accent-subtle : (touch.has-hover ? Theme.bg-hover : transparent);
+    accessible-role: button;
+    accessible-label: root.label;
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    VerticalLayout {
+        padding-top: 6px;
+        padding-bottom: 5px;
+        spacing: 3px;
+        alignment: center;
+        SvgIcon { source: root.icon; size: 15px; tint: root.selected ? Theme.accent : Theme.text-2; }
+        Text {
+            text: root.label;
+            color: root.selected ? Theme.accent : Theme.text-2;
+            font-size: Theme.font-10;
+            font-weight: root.selected ? 600 : 400;
+            horizontal-alignment: center;
+        }
+    }
+}
+
+component OverviewMetricCard inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+
+    height: 66px;
+    border-radius: Theme.r-md;
+    border-width: 1px;
+    border-color: Theme.border-subtle;
+    background: Theme.bg-surface;
+
+    Text {
+        x: 10px; y: 8px; width: parent.width - 20px; height: 20px;
+        text: root.label;
+        color: Theme.text-2; font-size: Theme.font-12; vertical-alignment: center;
+    }
+    Text {
+        x: 10px; y: 28px; width: parent.width - 20px; height: 26px;
+        text: root.value;
+        color: Theme.text-1; font-size: Theme.font-18; font-weight: 700; vertical-alignment: center;
+    }
+}
+
+component DesktopWidgetManagerItem inherits Rectangle {
+    in property <string> label;
+    in property <string> description;
+    in property <image> icon;
+    in property <bool> installed;
+    callback toggled(bool);
+
+    height: 72px;
+    border-radius: Theme.r-md;
+    border-width: 1px;
+    border-color: installed ? Theme.accent : Theme.border-default;
+    background: item-touch.has-hover ? Theme.bg-hover : Theme.bg-surface-2;
+    item-touch := TouchArea { mouse-cursor: pointer; clicked => { root.toggled(!root.installed); } }
+    HorizontalLayout {
+        padding-left: Theme.space-3; padding-right: Theme.space-3; spacing: Theme.space-3; cross-axis-alignment: center;
+        Rectangle {
+            width: 34px; height: 34px; border-radius: Theme.r-md;
+            background: root.installed ? Theme.accent-soft : Theme.bg-surface;
+            SvgIcon { source: root.icon; size: 18px; tint: root.installed ? Theme.accent : Theme.text-2; x: 8px; y: 8px; }
+        }
+        VerticalLayout {
+            horizontal-stretch: 1; spacing: 2px; alignment: center;
+            Text { text: root.label; color: Theme.text-1; font-size: Theme.font-13; font-weight: 600; }
+            Text { text: root.description; color: Theme.text-3; font-size: Theme.font-10-5; overflow: elide; }
+        }
+        Rectangle {
+            width: 54px; height: 28px; border-radius: Theme.r-md;
+            border-width: root.installed ? 1px : 0px;
+            border-color: root.installed ? Theme.danger : Theme.accent;
+            background: root.installed ? transparent : Theme.accent;
+            Text { text: root.installed ? "删除" : "新建"; color: root.installed ? Theme.danger : Theme.on-accent; font-size: Theme.font-11; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+        }
+    }
+}
+
+export component AppWindow inherits Window {
+    title: "日历";
+    default-font-family: Theme.font-family;
+    icon: Icons.app-logo;
+    preferred-width: 1280px;
+    preferred-height: 820px;
+    min-width: 960px;
+    min-height: 640px;
+    no-frame: true;
+    background: Theme.bg;
+    forward-focus: shortcut-scope;
+
+    in property <string> month-title;
+    in property <[CalendarDay]> days;
+    in property <int> selected-day;
+    in property <string> selected-date-text;
+    in property <[EventItem]> events-for-day;
+    in property <[TodoItem]> todos-for-day;
+    in property <[NoteItem]> notes;
+    in property <[HabitItem]> habits;
+    in property <[CalendarItem]> calendars;
+    in property <[string]> calendar-names;
+    in property <bool> widget-visible;
+    in-out property <bool> widget-manager-open: false;
+    in-out property <bool> search-open: false;
+    in-out property <bool> desktop-calendar-visible: true;
+    in-out property <bool> desktop-events-visible: true;
+    in-out property <bool> desktop-countdown-visible: true;
+    in-out property <bool> desktop-clock-visible: true;
+    in-out property <bool> desktop-focus-visible: true;
+    in-out property <bool> desktop-todo-visible: true;
+    in-out property <bool> desktop-notes-visible: true;
+    in-out property <bool> desktop-click-through: false;
+    in property <bool> week-starts-sunday: false;
+    in property <bool> show-week-numbers: false;
+    in property <int> theme-index: 0;
+    // Rust always initializes this from persisted settings. -1 guarantees the
+    // first assignment also runs the Palette synchronization below.
+    in property <int> visual-theme: -1;
+    changed visual-theme => {
+        // Keep Slint's standard controls (date/time pickers in particular) in the
+        // same color scheme as TimeHub's custom design system.
+        Palette.color-scheme = visual-theme == 2 ? ColorScheme.dark :
+            (visual-theme == 0 ? ColorScheme.unknown : ColorScheme.light);
+    }
+    in property <int> interface-font-size: 13;
+    in property <int> interface-density: 1;
+    in property <bool> reduce-motion: false;
+    in property <bool> notifications-enabled: true;
+    in property <string> default-event-reminder: "10";
+    in property <bool> local-only: false;
+    in property <bool> taskbar-clock-enabled: true;
+    in-out property <int> settings-section: 0;
+    in-out property <bool> settings-open: false;
+    /// 0=月 1=周 2=日 3=三日 4=待办 5=年 6=工具 7=搜索 8=记录 9=排班 11=便签 12=课程表
+    in property <int> view-mode: 0;
+    in property <string> week-title;
+    in property <[WeekDayItem]> week-days;
+    in property <string> timeline-title;
+    in property <[TimelineDay]> timeline-days;
+    in property <string> weather-summary;
+    in property <string> today-day-text;
+    in property <string> today-date-heading;
+    in property <string> today-toolbar-date;
+    in property <string> today-lunar-heading;
+    in property <string> today-day-of-year-text;
+    in property <string> today-week-number-text;
+    in property <string> today-remaining-days-text;
+    in property <string> today-weather-fact-text;
+    in property <float> today-year-progress;
+    in property <string> today-year-progress-text;
+    in property <string> status-left-text: "";
+    in property <string> status-right-text: "";
+    in property <int> current-minutes: 22 * 60 + 53;
+    in property <string> current-time-text: "22:53";
+    in property <int> todo-board-mode: 0;
+    in property <[TodoBoardItem]> board-todo-items;
+    in property <[TodoBoardItem]> board-doing-items;
+    in property <[TodoBoardItem]> board-done-items;
+    in property <[TodoBoardItem]> board-urgent-important;
+    in property <[TodoBoardItem]> board-not-urgent-important;
+    in property <[TodoBoardItem]> board-urgent-not-important;
+    in property <[TodoBoardItem]> board-not-urgent-not-important;
+    in property <[YearMonth]> year-months;
+    in property <int> calendar-year;
+    in-out property <string> record-date-draft: "";
+    in-out property <int> picker-year: 2026;
+    in-out property <int> picker-month: 9;
+    in-out property <int> picker-day: 1;
+    in-out property <int> picker-hour: 9;
+    in-out property <int> picker-minute: 0;
+    in property <string> calculator-start;
+    in property <string> calculator-end;
+    in property <string> calculator-offset;
+    in property <string> calculator-result;
+    in property <string> almanac-text;
+    in property <string> weather-city;
+    in property <string> weather-status;
+    in property <string> stopwatch-text;
+    in property <bool> stopwatch-running;
+    in property <string> pomodoro-text;
+    in property <bool> pomodoro-running;
+    in property <string> time-progress-text;
+    in property <string> world-clock-text;
+    in property <string> integration-status;
+    in property <string> ai-input;
+    in property <string> ai-draft;
+    in property <string> ai-draft-title;
+    in property <string> ai-draft-date;
+    in property <string> ai-draft-time;
+    in property <string> ai-draft-reminder;
+    in property <string> subscription-name;
+    in property <string> subscription-url;
+    in property <[SubscriptionItem]> subscriptions;
+    in property <[SearchItem]> search-results;
+    in-out property <string> search-query;
+    in-out property <int> search-focus-request: 0;
+    in property <[RecordItem]> records;
+    in property <[ShiftTypeItem]> shift-types;
+    in property <[ShiftAssignmentItem]> shift-assignments;
+    in property <string> shift-start-date;
+    in property <string> shift-end-date;
+    in property <string> shift-sequence;
+    in property <string> shift-result;
+    in property <[CourseItem]> course-items;
+    in property <int> course-week: 1;
+    in property <int> course-actual-week: 1;
+    in property <string> course-week-title;
+    in property <string> course-term-start;
+    in property <int> course-active-count: 0;
+    in-out property <bool> new-event-open: false;
+    in-out property <bool> notification-open: false;
+    in-out property <string> action-message: "";
+    in property <string> new-event-date-default;
+    in-out property <int> editing-event-id: 0;
+    in-out property <string> editor-title: "";
+    in-out property <string> editor-date: "";
+    in-out property <string> editor-time: "09:00";
+    in-out property <string> editor-reminder: "10";
+    in-out property <string> editor-repeat: "none";
+    in-out property <string> editor-note: "";
+    in-out property <int> editor-calendar-id: 1;
+    in-out property <string> editor-calendar-name: "默认";
+    in-out property <int> editor-duration: 60;
+    in-out property <string> editor-error: "";
+    in-out property <bool> todo-add-open: false;
+    in-out property <string> todo-add-target: "normal";
+    in-out property <string> todo-draft-title: "";
+    in-out property <bool> calendar-add-open: false;
+    in-out property <string> calendar-draft-name: "";
+
+    callback prev-month();
+    callback next-month();
+    callback goto-today();
+    callback select-day(int);
+    callback prev-week();
+    callback next-week();
+    callback select-date(int, int, int);
+    callback prev-timeline();
+    callback next-timeline();
+    callback add-event-at(int, int);
+    callback event-moved(int, int);
+    callback event-resized(int, int);
+    callback open-event(int);
+    callback save-event-dialog(int, string, string, string, string, string, string, int, int) -> bool;
+    callback set-view-mode(int);
+    callback prev-year();
+    callback next-year();
+    callback calculate-tool(string, string, string, string);
+    callback set-weather-city(string);
+    callback refresh-weather();
+    callback toggle-stopwatch();
+    callback reset-stopwatch();
+    callback toggle-pomodoro();
+    callback reset-pomodoro();
+    callback search(string);
+    callback open-search-result(int, string, string);
+    callback add-record(string, string, string) -> string;
+    callback prepare-picker-date(string);
+    callback prepare-picker-time(string);
+    callback delete-record(int);
+    callback generate-shift(string, string, string);
+    callback delete-shift(int);
+    callback change-course-week(int);
+    callback goto-course-current-week();
+    callback set-course-term-start(string) -> string;
+    callback save-course(int, string, string, string, int, int, int, int, int, int) -> string;
+    callback delete-course(int);
+    callback parse-natural(string);
+    callback create-natural-event(string, string, string, string);
+    callback add-subscription(string, string);
+    callback sync-subscriptions();
+    callback refresh-external-data();
+    callback set-todo-board-mode(int);
+    callback move-todo-status(int, string);
+    callback add-todo-target(string, string);
+    callback add-event(string, string, string, string, int);
+    callback delete-event(int);
+    callback add-todo(string);
+    callback toggle-todo(int);
+    callback delete-todo(int);
+    callback add-note(string, string);
+    callback update-note(int, string, string);
+    callback delete-note(int);
+    callback add-habit(string);
+    callback toggle-habit(int);
+    callback delete-habit(int);
+    callback toggle-calendar-visible(int, bool);
+    callback add-calendar(string);
+    callback toggle-widget();
+    callback set-desktop-widget-visible(string, bool);
+    callback set-desktop-click-through(bool);
+    callback open-quick-panel();
+    callback set-week-starts-sunday(bool);
+    callback set-show-week-numbers(bool);
+    callback set-theme(int);
+    callback set-visual-theme(int);
+    callback set-interface-font-size(int);
+    callback set-interface-density(int);
+    callback set-reduce-motion(bool);
+    callback set-notifications-enabled(bool);
+    callback set-default-event-reminder(string);
+    callback set-local-only(bool);
+    callback set-taskbar-clock-enabled(bool);
+    callback settings-action(string);
+    callback begin-window-drag();
+    callback minimize-window();
+    callback maximize-window();
+    callback close-window();
+
+    function open-new-event-editor() {
+        root.editing-event-id = 0;
+        root.editor-title = "";
+        root.editor-date = root.new-event-date-default;
+        root.editor-time = "09:00";
+        root.editor-reminder = root.default-event-reminder;
+        root.editor-repeat = "none";
+        root.editor-note = "";
+        root.editor-calendar-id = 1;
+        root.editor-calendar-name = "默认";
+        root.editor-duration = 60;
+        root.editor-error = "";
+        root.new-event-open = true;
+    }
+
+    shortcut-scope := FocusScope {
+        width: 100%; height: 100%;
+        KeyBinding {
+            keys: @keys(Control + K);
+            activated => {
+                if (!root.settings-open) {
+                    root.search-focus-request += 1;
+                    root.search-open = true;
+                    root.search(root.search-query);
+                }
+            }
+        }
+        KeyBinding {
+            keys: @keys(Escape);
+            activated => {
+                if (root.settings-open) {
+                    root.settings-open = false;
+                }
+            }
+        }
+        VerticalLayout {
+            width: 100%; height: 100%;
+        Rectangle {
+            height: Theme.titlebar-height;
+            background: Theme.header-bg;
+            border-width: 1px;
+            border-color: Theme.panel-border;
+            HorizontalLayout {
+                width: 100%;
+                height: 100%;
+                padding-left: Theme.gap-lg;
+                padding-right: Theme.gap-lg;
+                spacing: Theme.gap-sm;
+                cross-axis-alignment: center;
+                Rectangle {
+                        width: 110px;
+                        height: Theme.titlebar-height;
+                        MainWindowDragArea {
+                            drag-requested => { root.begin-window-drag(); }
+                            maximize-requested => { root.maximize-window(); }
+                        }
+                        Image {
+                            x: 0px;
+                            y: (parent.height - self.height) / 2;
+                            width: 22px;
+                            height: 22px;
+                            source: Icons.app-logo;
+                            image-fit: contain;
+                        }
+                    Text {
+                        x: 30px;
+                        y: 0px;
+                        width: parent.width - 30px;
+                        height: parent.height;
+                        text: "TimeHub";
+                        color: Theme.header-text;
+                        font-size: Theme.font-13;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+                }
+                Rectangle { width: Theme.space-5; }
+                search-box := Rectangle {
+                    width: 320px;
+                    height: 30px;
+                    border-radius: Theme.pill-radius-30;
+                    background: Theme.panel-bg-secondary;
+                    border-width: 1px;
+                    border-color: Theme.panel-border;
+                    HorizontalLayout {
+                        width: 100%; height: 100%;
+                        padding-left: Theme.gap-sm;
+                        padding-right: Theme.gap-sm;
+                        spacing: Theme.gap-xs;
+                        cross-axis-alignment: center;
+                        SvgIcon { source: Icons.search; size: 16px; tint: Theme.text-muted; }
+                        Text { text: root.search-query == "" ? "搜索日程、待办、便签、课程..." : root.search-query; color: root.search-query == "" ? Theme.text-muted : Theme.text-1; font-size: Theme.font-sm; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+                        Text { text: "Ctrl K"; color: Theme.text-muted; font-size: Theme.font-xs; vertical-alignment: center; }
+                    }
+                    search-touch := TouchArea {
+                        mouse-cursor: text;
+                        clicked => {
+                            root.search-focus-request += 1;
+                            root.search-open = true;
+                            root.search(root.search-query);
+                        }
+                    }
+                }
+                Rectangle {
+                    horizontal-stretch: 1;
+                    height: Theme.titlebar-height;
+                    MainWindowDragArea {
+                        drag-requested => { root.begin-window-drag(); }
+                        maximize-requested => { root.maximize-window(); }
+                    }
+                }
+                IconButton { icon: Icons.sync; size: 30px; borderless: true; clicked => { root.action-message = "正在同步日历与订阅…"; root.sync-subscriptions(); } }
+                IconButton { icon: Icons.bell; size: 30px; borderless: true; clicked => { root.notification-open = !root.notification-open; } }
+                IconButton { icon: Icons.gear; size: 30px; borderless: true; clicked => { root.search-open = false; root.notification-open = false; root.settings-open = true; } }
+                Rectangle { width: 1px; height: 20px; background: Theme.border-default; }
+                Rectangle {
+                    width: 28px; height: 28px; border-radius: 14px; background: Theme.c-purple;
+                    Text { text: "陈"; color: Theme.on-accent; font-size: Theme.font-11; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+                }
+                IconButton { icon: Icons.minimize; size: 40px; icon-size: 14px; borderless: true; clicked => { root.minimize-window(); } }
+                IconButton { icon: Icons.maximize; size: 40px; icon-size: 14px; borderless: true; clicked => { root.maximize-window(); } }
+                IconButton { icon: Icons.close; size: 40px; icon-size: 14px; borderless: true; clicked => { root.close-window(); } }
+            }
+        }
+
+        HorizontalLayout {
+            vertical-stretch: 1;
+            spacing: 0px;
+            Rectangle {
+                width: Theme.sidebar-width;
+                background: Theme.sidebar-bg;
+                border-width: 1px;
+                border-color: Theme.panel-border;
+                VerticalLayout {
+                    padding: Theme.space-3;
+                    spacing: 2px;
+                    Rectangle {
+                        height: 34px;
+                        border-radius: Theme.radius-md;
+                        background: Theme.accent;
+                        HorizontalLayout {
+                            padding-left: Theme.gap-sm;
+                            padding-right: Theme.gap-sm;
+                            spacing: Theme.gap-xs;
+                            Rectangle {
+                                width: 16px;
+                                height: parent.height;
+                                SvgIcon { source: Icons.plus; size: 16px; tint: Theme.on-accent; x: 0px; y: (parent.height - self.height) / 2; }
+                            }
+                            Text { height: parent.height; text: "新建"; color: Theme.on-accent; font-size: Theme.font-md; font-weight: 600; horizontal-stretch: 1; vertical-alignment: center; }
+                        }
+                        new-touch := TouchArea { clicked => { root.open-new-event-editor(); } }
+                    }
+                    // V4: the navigation group starts 12px below the primary action.
+                    Rectangle { height: Theme.space-3; }
+                    today-nav := NavButton { label: "今天"; icon: Icons.today; badge: "6"; selected: view-mode == 2 || view-mode == 3; clicked => { root.set-view-mode(2); } }
+                    calendar-nav := NavButton { label: "日历"; icon: Icons.calendar; selected: view-mode == 0 || view-mode == 1 || view-mode == 5; clicked => { root.set-view-mode(0); } }
+                    course-nav := NavButton { label: "课程表"; icon: Icons.grid; selected: view-mode == 12; clicked => { root.set-view-mode(12); } }
+                    NavButton { label: "待办"; icon: Icons.check; selected: view-mode == 4; clicked => { root.set-view-mode(4); } }
+                    NavButton { label: "便签"; icon: Icons.note; selected: view-mode == 11; clicked => { root.set-view-mode(11); } }
+                    records-nav := NavButton { label: "记录"; icon: Icons.heart; selected: view-mode == 8; clicked => { root.set-view-mode(8); } }
+                    tools-nav := NavButton { label: "工具"; icon: Icons.tools; selected: view-mode == 6; clicked => { root.set-view-mode(6); } }
+                    settings-nav := NavButton { label: "设置"; icon: Icons.gear; selected: root.settings-open; clicked => { root.search-open = false; root.notification-open = false; root.settings-open = true; } }
+                    Rectangle { height: Theme.gap-lg; }
+                    if view-mode == 0 || view-mode == 1 || view-mode == 3: VerticalLayout {
+                      spacing: 1px;
+                      HorizontalLayout { height: 24px; cross-axis-alignment: center;
+                        Text { text: month-title; color: Theme.text-muted; font-size: Theme.font-xs; font-weight: 600; horizontal-stretch: 1; vertical-alignment: center; }
+                        IconButton { icon: Icons.left; size: 22px; icon-size: 11px; borderless: true; clicked => { root.prev-month(); } }
+                        IconButton { icon: Icons.right; size: 22px; icon-size: 11px; borderless: true; clicked => { root.next-month(); } }
+                      }
+                      HorizontalLayout {
+                        spacing: 1px;
+                        for label in week-starts-sunday ? ["日", "一", "二", "三", "四", "五", "六"] : ["一", "二", "三", "四", "五", "六", "日"]: Text {
+                            text: label;
+                            horizontal-stretch: 1;
+                            horizontal-alignment: center;
+                            color: (week-starts-sunday ? label == "日" : label == "六" || label == "日") ? Theme.weekend-text : Theme.text-muted;
+                            font-size: Theme.font-10;
+                        }
+                      }
+                      for week in 6: HorizontalLayout {
+                        spacing: 1px;
+                        for col in 7: MiniDay {
+                            horizontal-stretch: 1;
+                            data: days[week * 7 + col];
+                            selected: days[week * 7 + col].day == selected-day && days[week * 7 + col].in-current-month;
+                            clicked => { root.select-day(days[week * 7 + col].day); }
+                        }
+                      }
+                      Rectangle { height: Theme.gap-md; }
+                      HorizontalLayout { height: 24px;
+                        Text { text: "我的日历"; color: Theme.text-muted; font-size: Theme.font-xs; font-weight: 600; horizontal-stretch: 1; vertical-alignment: center; }
+                        IconButton { icon: Icons.plus; size: 22px; icon-size: 11px; borderless: true; clicked => { root.calendar-draft-name = ""; root.calendar-add-open = true; } }
+                      }
+                      for c in calendars: Rectangle {
+                        height: 28px; border-radius: Theme.r-sm;
+                        background: row-touch.has-hover ? Theme.bg-hover : transparent;
+                        row-touch := TouchArea { mouse-cursor: pointer; clicked => { root.toggle-calendar-visible(c.id, !c.visible); } }
+                        HorizontalLayout {
+                            padding-left: 10px; padding-right: 10px; spacing: Theme.space-2;
+                            cross-axis-alignment: center;
+                            Rectangle {
+                                width: 14px; height: 14px; border-radius: 4px;
+                                border-width: c.visible ? 0px : 1.5px; border-color: Theme.border-strong;
+                                background: c.visible ? c.color : transparent;
+                                if c.visible: SvgIcon { source: Icons.check; size: 8px; tint: Theme.on-accent; x: 3px; y: 3px; }
+                            }
+                            Text { text: c.name; color: c.visible ? Theme.text-1 : Theme.text-3; font-size: Theme.font-12; horizontal-stretch: 1; vertical-alignment: center; overflow: elide; }
+                            if c.name == "Outlook" || c.name == "节假日": Rectangle {
+                                width: c.name == "Outlook" ? 20px : 28px; height: 20px; border-radius: Theme.r-sm;
+                                border-width: 1px; border-color: Theme.border-default;
+                                Text { text: c.name == "Outlook" ? "云" : "订阅"; color: Theme.text-3; font-size: Theme.font-10; horizontal-alignment: center; vertical-alignment: center; }
+                            }
+                        }
+                      }
+                    }
+                    if view-mode == 2: VerticalLayout {
+                        width: 100%;
+                        height: 242px;
+                        spacing: Theme.space-2;
+                        Text { height: 20px; text: "今日概览"; color: Theme.text-3; font-size: Theme.font-11; font-weight: 600; vertical-alignment: center; }
+                        OverviewMetricCard { label: "日程"; value: events-for-day.length + " 个"; }
+                        OverviewMetricCard { label: "待办已完成"; value: "3 / " + todos-for-day.length; }
+                        OverviewMetricCard { label: "专注时长"; value: "2.5 小时"; }
+                    }
+                    Rectangle { vertical-stretch: 1; }
+                    Text {
+                        height: 20px;
+                        text: "快捷功能";
+                        color: Theme.text-3;
+                        font-size: Theme.font-10-5;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+                    HorizontalLayout {
+                        height: 48px;
+                        spacing: Theme.space-1;
+                        SidebarQuickAction {
+                            horizontal-stretch: 1;
+                            label: "桌面卡片";
+                            icon: Icons.layout;
+                            clicked => { root.widget-manager-open = true; }
+                        }
+                        SidebarQuickAction {
+                            horizontal-stretch: 1;
+                            label: "快速面板";
+                            icon: Icons.grid;
+                            clicked => { root.open-quick-panel(); }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+            background: Theme.bg;
+            VerticalLayout {
+                    width: 100%; height: 100%;
+                    if view-mode == 0 || view-mode == 1 || view-mode == 3 || view-mode == 5: Rectangle {
+                        height: Theme.toolbar-height;
+                        background: Theme.panel-bg;
+                        border-width: 1px;
+                        border-color: Theme.panel-border;
+                        HorizontalLayout {
+                            width: 100%;
+                            height: 100%;
+                            padding-left: Theme.gap-xl;
+                            padding-right: Theme.gap-xl;
+                            spacing: Theme.gap-sm;
+                            cross-axis-alignment: center;
+                            IconButton { icon: Icons.left; size: 30px; borderless: true; clicked => { if (view-mode == 0) { root.prev-month(); } else if (view-mode == 1) { root.prev-week(); } else if (view-mode == 5) { root.prev-year(); } else { root.prev-timeline(); } } }
+                            ToolbarButton { label: "今天"; button-width: 52px; clicked => { root.goto-today(); } }
+                            IconButton { icon: Icons.right; size: 30px; borderless: true; clicked => { if (view-mode == 0) { root.next-month(); } else if (view-mode == 1) { root.next-week(); } else if (view-mode == 5) { root.next-year(); } else { root.next-timeline(); } } }
+                            Text { text: view-mode == 0 ? month-title : (view-mode == 1 ? week-title : (view-mode == 5 ? calendar-year + "年" : timeline-title)); color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; vertical-alignment: center; horizontal-stretch: 1; }
+                            if view-mode == 0: PrimaryButton {
+                                width: 108px;
+                                height: 32px;
+                                text: "新建日程";
+                                icon: Icons.plus;
+                                show-icon: true;
+                                clicked => { root.open-new-event-editor(); }
+                            }
+                            Rectangle {
+                                width: 206px; height: 32px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface-2;
+                                HorizontalLayout {
+                                    width: 100%;
+                                    height: 100%;
+                                    padding: 2px; spacing: 2px;
+                                    cross-axis-alignment: center;
+                                    ToolbarButton { label: "月"; button-width: 36px; selected: view-mode == 0; clicked => { root.set-view-mode(0); } }
+                                    ToolbarButton { label: "周"; button-width: 36px; selected: view-mode == 1; clicked => { root.set-view-mode(1); } }
+                                    ToolbarButton { label: "日"; button-width: 36px; selected: view-mode == 2; clicked => { root.set-view-mode(2); } }
+                                    ToolbarButton { label: "三日"; button-width: 44px; selected: view-mode == 3; clicked => { root.set-view-mode(3); } }
+                                    ToolbarButton { label: "年"; button-width: 36px; selected: view-mode == 5; clicked => { root.set-view-mode(5); } }
+                                }
+                            }
+                        }
+                    }
+                    if view-mode == 2: Rectangle {
+                        height: Theme.toolbar-height;
+                        background: Theme.bg-surface;
+                        border-width: 1px;
+                        border-color: Theme.border-subtle;
+                        HorizontalLayout {
+                            width: 100%;
+                            height: 100%;
+                            padding-left: Theme.space-5; padding-right: Theme.space-5; spacing: Theme.space-3;
+                            cross-axis-alignment: center;
+                            Text { text: "今天"; color: Theme.text-1; font-size: Theme.font-18; font-weight: 700; vertical-alignment: center; }
+                            Text { text: root.today-toolbar-date; color: Theme.text-2; font-size: Theme.font-13; vertical-alignment: center; }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
+                    }
+                    if view-mode == 4: Rectangle {
+                        height: Theme.toolbar-height;
+                        background: Theme.panel-bg;
+                        border-width: 1px;
+                        border-color: Theme.panel-border;
+                        HorizontalLayout { width: 100%; height: 100%; padding-left: Theme.gap-xl; padding-right: Theme.gap-xl; spacing: Theme.gap-sm; cross-axis-alignment: center;
+                            Text { text: "待办"; color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; vertical-alignment: center; }
+                            Rectangle { horizontal-stretch: 1; }
+                            Rectangle {
+                                width: 166px; height: 32px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface-2;
+                                HorizontalLayout {
+                                    width: 100%;
+                                    height: 100%;
+                                    padding: 2px; spacing: 2px;
+                                    ToolbarButton { label: "四象限"; button-width: 56px; selected: todo-board-mode == 1; clicked => { root.set-todo-board-mode(1); } }
+                                    ToolbarButton { label: "看板"; button-width: 48px; selected: todo-board-mode == 0; clicked => { root.set-todo-board-mode(0); } }
+                                    ToolbarButton { label: "统计"; button-width: 48px; selected: todo-board-mode == 2; clicked => { root.set-todo-board-mode(2); } }
+                                }
+                            }
+                        }
+                    }
+                    if view-mode >= 6: Rectangle {
+                        height: Theme.toolbar-height;
+                        background: Theme.panel-bg;
+                        border-width: 1px;
+                        border-color: Theme.panel-border;
+                        HorizontalLayout { width: 100%; height: 100%; padding-left: Theme.gap-xl; padding-right: Theme.gap-xl; cross-axis-alignment: center;
+                            Text { text: view-mode == 6 ? "工具" : (view-mode == 7 ? "搜索" : (view-mode == 8 ? "记录" : (view-mode == 9 ? "排班" : (view-mode == 11 ? "便签" : (view-mode == 12 ? "课程表" : "设置"))))); color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; vertical-alignment: center; }
+                            Rectangle { horizontal-stretch: 1; }
+                            Text { text: "TimeHub"; color: Theme.text-muted; font-size: Theme.font-xs; vertical-alignment: center; }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        padding: 0px;
+                        spacing: 0px;
+                        vertical-stretch: 1;
+                        if view-mode == 0: Rectangle {
+                            horizontal-stretch: 1; vertical-stretch: 1; background: Theme.bg-app;
+                            HorizontalLayout {
+                                padding: Theme.space-4;
+                                CalendarView {
+                                    horizontal-stretch: 1; vertical-stretch: 1;
+                                    month-title: month-title; days: days; selected-day: selected-day;
+                                    week-starts-sunday: week-starts-sunday; show-week-numbers: show-week-numbers;
+                                    prev-month => { prev-month(); } next-month => { next-month(); }
+                                    goto-today => { goto-today(); } select-day(d) => { select-day(d); }
+                                    open-event(id) => { root.open-event(id); }
+                                }
+                            }
+                        }
+                        if view-mode == 1: Rectangle {
+                            horizontal-stretch: 1; vertical-stretch: 1; background: Theme.bg-app;
+                            HorizontalLayout {
+                                padding: Theme.space-4;
+                                WeekView {
+                                    horizontal-stretch: 1; vertical-stretch: 1;
+                                    week-title: week-title; week-days: week-days;
+                                    current-minutes: root.current-minutes;
+                                    current-time-text: root.current-time-text;
+                                    prev-week => { prev-week(); } next-week => { next-week(); }
+                                    goto-today => { goto-today(); } select-date(y, m, d) => { select-date(y, m, d); }
+                                    open-event(id) => { root.open-event(id); }
+                                }
+                            }
+                        }
+                        if view-mode == 2: Rectangle {
+                            horizontal-stretch: 1;
+                            vertical-stretch: 1;
+                            background: Theme.bg-app;
+                            clip: true;
+                            TodayView {
+                                width: parent.width;
+                                height: parent.height;
+                                events: events-for-day;
+                                todos: todos-for-day;
+                                day-text: root.today-day-text;
+                                date-heading: root.today-date-heading;
+                                lunar-heading: root.today-lunar-heading;
+                                day-of-year-text: root.today-day-of-year-text;
+                                week-number-text: root.today-week-number-text;
+                                remaining-days-text: root.today-remaining-days-text;
+                                weather-fact-text: root.today-weather-fact-text;
+                                year-progress: root.today-year-progress;
+                                year-progress-text: root.today-year-progress-text;
+                                toggle-todo(id) => { root.toggle-todo(id); }
+                                add-event => { root.open-new-event-editor(); }
+                                add-todo => { root.set-view-mode(4); }
+                                add-countdown => { root.set-view-mode(8); root.action-message = "请在记录页添加倒数日"; }
+                                open-event(id) => { root.open-event(id); }
+                                open-countdown => { root.set-view-mode(8); }
+                            }
+                        }
+                        if view-mode == 3: DayView {
+                            horizontal-stretch: 1;
+                            vertical-stretch: 1;
+                            title-text: timeline-title;
+                            timeline-days: timeline-days;
+                            prev => { prev-timeline(); }
+                            next => { next-timeline(); }
+                            goto-today => { goto-today(); }
+                            add-event-at(col, m) => { add-event-at(col, m); }
+                            event-moved(id, m) => { event-moved(id, m); }
+                            event-resized(id, m) => { event-resized(id, m); }
+                        }
+                        if view-mode == 0: SidePanel {
+                            width: Theme.inspector-width;
+                            vertical-stretch: 1;
+                            selected-date-text: selected-date-text;
+                            events-for-day: events-for-day;
+                            todos-for-day: todos-for-day;
+                            notes: notes;
+                            habits: habits;
+                            calendars: calendars;
+                            calendar-names: calendar-names;
+                            open-event(id) => { root.open-event(id); }
+                            open-note(id) => { root.set-view-mode(11); }
+                            request-add(kind) => {
+                                if (kind == "event") { root.open-new-event-editor(); }
+                                else if (kind == "todo") { root.todo-add-target = "normal"; root.todo-draft-title = ""; root.todo-add-open = true; }
+                                else { root.add-note("新便签", ""); root.set-view-mode(11); }
+                            }
+                            add-event(t, r, m, c, cal) => { add-event(t, r, m, c, cal); }
+                            delete-event(id) => { delete-event(id); }
+                            add-todo(t) => { add-todo(t); }
+                            toggle-todo(id) => { toggle-todo(id); }
+                            delete-todo(id) => { delete-todo(id); }
+                            add-note(t, c) => { add-note(t, c); }
+                            update-note(id, t, c) => { update-note(id, t, c); }
+                            delete-note(id) => { delete-note(id); }
+                            add-habit(t) => { add-habit(t); }
+                            toggle-habit(id) => { toggle-habit(id); }
+                            delete-habit(id) => { delete-habit(id); }
+                            toggle-calendar-visible(id, v) => { toggle-calendar-visible(id, v); }
+                            add-calendar(n) => { add-calendar(n); }
+                        }
+                        if view-mode == 4: Rectangle {
+                            horizontal-stretch: 1;
+                            vertical-stretch: 1;
+                            if todo-board-mode == 0: KanbanView {
+                                width: parent.width; height: parent.height;
+                                todo-items: board-todo-items;
+                                doing-items: board-doing-items;
+                                done-items: board-done-items;
+                                move-to(id, s) => { move-todo-status(id, s); }
+                                delete-item(id) => { delete-todo(id); }
+                                add-item(target) => { root.todo-add-target = target; root.todo-draft-title = ""; root.todo-add-open = true; }
+                            }
+                            if todo-board-mode == 1: QuadrantView {
+                                width: parent.width; height: parent.height;
+                                urgent-important: board-urgent-important;
+                                not-urgent-important: board-not-urgent-important;
+                                urgent-not-important: board-urgent-not-important;
+                                not-urgent-not-important: board-not-urgent-not-important;
+                                move-to(id, s) => { move-todo-status(id, s); }
+                                delete-item(id) => { delete-todo(id); }
+                                add-item(target) => { root.todo-add-target = target; root.todo-draft-title = ""; root.todo-add-open = true; }
+                            }
+                            if todo-board-mode == 2: TodoStatsView {
+                                width: parent.width; height: parent.height;
+                                todo-items: board-todo-items; doing-items: board-doing-items; done-items: board-done-items;
+                                urgent-important: board-urgent-important; not-urgent-important: board-not-urgent-important;
+                                urgent-not-important: board-urgent-not-important; not-urgent-not-important: board-not-urgent-not-important;
+                            }
+                        }
+                        if view-mode == 5: YearView {
+                            horizontal-stretch: 1;
+                            vertical-stretch: 1;
+                            year: calendar-year;
+                            months: year-months;
+                            week-starts-sunday: week-starts-sunday;
+                            prev-year => { prev-year(); }
+                            next-year => { next-year(); }
+                            goto-today => { goto-today(); }
+                            select-date(y, m, d) => { select-date(y, m, d); }
+                        }
+                        if view-mode == 6: Rectangle {
+                            horizontal-stretch: 1;
+                            vertical-stretch: 1;
+                            background: Theme.bg-app;
+                            clip: true;
+                            ToolsView {
+                                width: parent.width;
+                                height: parent.height;
+                                date-start: calculator-start;
+                                date-end: calculator-end;
+                                date-offset: calculator-offset;
+                                calculator-result: calculator-result;
+                                almanac-text: almanac-text;
+                                weather-city: weather-city;
+                                weather-status: weather-status;
+                                stopwatch-text: stopwatch-text;
+                                stopwatch-running: stopwatch-running;
+                                pomodoro-text: pomodoro-text;
+                                pomodoro-running: pomodoro-running;
+                                time-progress-text: time-progress-text;
+                                world-clock-text: world-clock-text;
+                                integration-status: integration-status;
+                                ai-input: ai-input;
+                                ai-draft: ai-draft;
+                                ai-draft-title: ai-draft-title;
+                                ai-draft-date: ai-draft-date;
+                                ai-draft-time: ai-draft-time;
+                                ai-draft-reminder: ai-draft-reminder;
+                                subscription-name: subscription-name;
+                                subscription-url: subscription-url;
+                                subscriptions: subscriptions;
+                                calculate(operation, start, end, offset) => { calculate-tool(operation, start, end, offset); }
+                                set-weather-city(city) => { set-weather-city(city); }
+                                refresh-weather => { refresh-weather(); }
+                                toggle-stopwatch => { toggle-stopwatch(); }
+                                reset-stopwatch => { reset-stopwatch(); }
+                                toggle-pomodoro => { toggle-pomodoro(); }
+                                reset-pomodoro => { reset-pomodoro(); }
+                                parse-natural(text) => { parse-natural(text); }
+                                create-natural-event(title, date, time, reminder) => { create-natural-event(title, date, time, reminder); }
+                                add-subscription(name, url) => { add-subscription(name, url); }
+                                sync-subscriptions => { sync-subscriptions(); }
+                            }
+                        }
+                        if view-mode == 8: RecordsView {
+                            horizontal-stretch: 1;
+                            vertical-stretch: 1;
+                            records: records;
+                            habits: habits;
+                            record-date <=> root.record-date-draft;
+                            picker-year <=> root.picker-year; picker-month <=> root.picker-month; picker-day <=> root.picker-day;
+                            prepare-date-picker(value) => { root.prepare-picker-date(value); }
+                            add-record(title, date, category) => { add-record(title, date, category); }
+                            delete-record(id) => { delete-record(id); }
+                            add-habit(title) => { add-habit(title); }
+                            toggle-habit(id) => { toggle-habit(id); }
+                            delete-habit(id) => { delete-habit(id); }
+                        }
+                        if view-mode == 9: ShiftView {
+                            horizontal-stretch: 1;
+                            vertical-stretch: 1;
+                            shift-types: shift-types;
+                            assignments: shift-assignments;
+                            start-date: shift-start-date;
+                            end-date: shift-end-date;
+                            sequence: shift-sequence;
+                            result-text: shift-result;
+                            generate(start, end, sequence) => { generate-shift(start, end, sequence); }
+                            delete-assignment(id) => { delete-shift(id); }
+                        }
+                        if view-mode == 11: NotesView {
+                            horizontal-stretch: 1; vertical-stretch: 1;
+                            notes: notes;
+                            add-note(title, content) => { root.add-note(title, content); }
+                            update-note(id, title, content) => { root.update-note(id, title, content); }
+                            delete-note(id) => { root.delete-note(id); }
+                        }
+                        if view-mode == 12: CourseView {
+                            horizontal-stretch: 1; vertical-stretch: 1;
+                            courses: root.course-items;
+                            current-week: root.course-week;
+                            actual-week: root.course-actual-week;
+                            week-title: root.course-week-title;
+                            term-start: root.course-term-start;
+                            active-count: root.course-active-count;
+                            change-week(delta) => { root.change-course-week(delta); }
+                            goto-current-week => { root.goto-course-current-week(); }
+                            set-term-start(value) => { return root.set-course-term-start(value); }
+                            save-course(id, title, teacher, location, weekday, start-period, period-count, start-week, end-week, color-index) => {
+                                return root.save-course(id, title, teacher, location, weekday, start-period, period-count, start-week, end-week, color-index);
+                            }
+                            delete-course(id) => { root.delete-course(id); }
+                        }
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            height: Theme.statusbar-height;
+            background: Theme.sidebar-bg;
+            border-width: 1px;
+            border-color: Theme.panel-border;
+            HorizontalLayout {
+                width: 100%;
+                height: 100%;
+                padding-left: Theme.gap-lg;
+                padding-right: Theme.gap-lg;
+                spacing: Theme.space-2;
+                cross-axis-alignment: center;
+                Rectangle { width: Theme.w-sidebar - Theme.gap-lg; }
+                Rectangle { width: 6px; height: 6px; border-radius: 3px; background: Theme.success; }
+                Text {
+                    text: status-left-text != "" ? status-left-text : "已同步 · 本地优先";
+                    color: Theme.text-muted; font-size: Theme.font-xs; vertical-alignment: center;
+                }
+                Rectangle { horizontal-stretch: 1; }
+                Text {
+                    text: status-right-text != "" ? status-right-text : (weather-summary != "" ? weather-summary : "TimeHub");
+                    color: Theme.text-muted; font-size: Theme.font-xs; vertical-alignment: center;
+                }
+            }
+        }
+        }
+    }
+
+    // Settings stay in the context of the current page. The dimmed backdrop
+    // and large centered surface make the transition clear without replacing
+    // the application's navigation and content hierarchy.
+    settings-layer := Rectangle {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+        visible: root.settings-open || self.opacity > 0.01;
+        opacity: root.settings-open ? 1 : 0;
+        background: Theme.bg-scrim;
+        animate opacity { duration: root.reduce-motion ? 0ms : 160ms; }
+
+        if root.settings-open: TouchArea {
+            clicked => { root.settings-open = false; }
+        }
+
+        settings-panel := Rectangle {
+            width: Math.min(root.width - 80px, 1080px);
+            height: Math.min(root.height - 48px, 700px);
+            x: (root.width - self.width) / 2;
+            y: root.settings-open ? (root.height - self.height) / 2 : (root.height - self.height) / 2 + 14px;
+            border-radius: Theme.r-xl;
+            border-width: 1px;
+            border-color: Theme.border-default;
+            background: Theme.bg-surface;
+            clip: true;
+            drop-shadow-color: Theme.shadow-3-color-a;
+            drop-shadow-blur: Theme.shadow-3-blur-a;
+            drop-shadow-offset-y: Theme.shadow-3-y-a;
+            animate y { duration: root.reduce-motion ? 0ms : 180ms; }
+
+            // Prevent clicks in empty panel space from reaching the backdrop.
+            TouchArea { }
+
+            VerticalLayout {
+                width: 100%;
+                height: 100%;
+                spacing: 0px;
+                Rectangle {
+                    height: 52px;
+                    background: Theme.bg-surface;
+                    border-width: 1px;
+                    border-color: Theme.border-subtle;
+                    HorizontalLayout {
+                        padding-left: Theme.space-4;
+                        padding-right: Theme.space-3;
+                        spacing: Theme.space-3;
+                        cross-axis-alignment: center;
+                        SvgIcon { source: Icons.gear; size: 18px; tint: Theme.accent; }
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            alignment: center;
+                            spacing: 1px;
+                            Text { text: "设置"; color: Theme.text-1; font-size: Theme.font-15; font-weight: 600; }
+                            Text { text: "修改会立即生效 · 按 Esc 关闭"; color: Theme.text-3; font-size: Theme.font-10; }
+                        }
+                        IconButton {
+                            icon: Icons.close;
+                            size: 30px;
+                            icon-size: 14px;
+                            borderless: true;
+                            clicked => { root.settings-open = false; }
+                        }
+                    }
+                }
+                SettingsView {
+                    horizontal-stretch: 1;
+                    vertical-stretch: 1;
+                    theme-index: root.theme-index;
+                    visual-theme: root.visual-theme;
+                    week-starts-sunday: root.week-starts-sunday;
+                    show-week-numbers: root.show-week-numbers;
+                    interface-font-size: root.interface-font-size;
+                    interface-density: root.interface-density;
+                    reduce-motion: root.reduce-motion;
+                    notifications-enabled: root.notifications-enabled;
+                    default-event-reminder: root.default-event-reminder;
+                    local-only: root.local-only;
+                    taskbar-clock-enabled: root.taskbar-clock-enabled;
+                    selected-section <=> root.settings-section;
+                    set-theme(index) => { root.set-theme(index); }
+                    set-visual-theme(mode) => { root.set-visual-theme(mode); }
+                    set-week-starts-sunday(value) => { root.set-week-starts-sunday(value); }
+                    set-show-week-numbers(value) => { root.set-show-week-numbers(value); }
+                    set-interface-font-size(value) => { root.set-interface-font-size(value); }
+                    set-interface-density(value) => { root.set-interface-density(value); }
+                    set-reduce-motion(value) => { root.set-reduce-motion(value); }
+                    set-notifications-enabled(value) => { root.set-notifications-enabled(value); }
+                    set-default-event-reminder(value) => { root.set-default-event-reminder(value); }
+                    set-local-only(value) => { root.set-local-only(value); }
+                    set-taskbar-clock-enabled(value) => { root.set-taskbar-clock-enabled(value); }
+                    settings-action(action) => { root.settings-action(action); }
+                }
+            }
+        }
+    }
+
+    // 全局搜索使用主窗口内覆盖层，避免原生 PopupWindow 在无边框窗口下
+    // 出现“看得到但点不到”的命中区域偏移。
+    if search-open: Rectangle {
+        x: 0px; y: Theme.titlebar-height; width: parent.width; height: parent.height - Theme.titlebar-height;
+        background: transparent;
+        TouchArea { clicked => { root.search-open = false; } }
+    }
+    if search-open: SearchView {
+        x: search-box.absolute-position.x;
+        y: Theme.titlebar-height + Theme.space-1;
+        width: 520px;
+        height: 380px;
+        query <=> root.search-query;
+        focus-request: root.search-focus-request;
+        results: root.search-results;
+        search(query) => { root.search(query); }
+        open-result(id, date, kind) => {
+            root.search-open = false;
+            root.open-search-result(id, date, kind);
+        }
+    }
+
+    if notification-open: Rectangle {
+        x: 0px; y: Theme.titlebar-height; width: parent.width; height: parent.height - Theme.titlebar-height;
+        TouchArea { clicked => { root.notification-open = false; } }
+    }
+    if notification-open: Rectangle {
+        x: parent.width - 342px; y: Theme.titlebar-height + Theme.space-2;
+        width: 326px; height: 248px; border-radius: Theme.r-lg;
+        border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface;
+        drop-shadow-color: Theme.shadow-2-color-a; drop-shadow-blur: Theme.shadow-2-blur-a; drop-shadow-offset-y: Theme.shadow-2-y-a;
+        VerticalLayout {
+            padding: Theme.space-4; spacing: Theme.space-2;
+            HorizontalLayout {
+                Text { text: "通知"; color: Theme.text-1; font-size: Theme.font-15; font-weight: 700; vertical-alignment: center; horizontal-stretch: 1; }
+                IconButton { icon: Icons.close; size: 28px; borderless: true; clicked => { root.notification-open = false; } }
+            }
+            Rectangle {
+                height: 66px; border-radius: Theme.r-md; background: notify-today.has-hover ? Theme.bg-hover : Theme.bg-surface-2;
+                notify-today := TouchArea { mouse-cursor: pointer; clicked => { root.notification-open = false; root.set-view-mode(2); } }
+                VerticalLayout { padding: Theme.space-3; spacing: Theme.space-1;
+                    Text { text: "今日安排"; color: Theme.text-1; font-size: Theme.font-13; font-weight: 600; }
+                    Text { text: "今天共有 " + events-for-day.length + " 项日程"; color: Theme.text-3; font-size: Theme.font-11; }
+                }
+            }
+            Rectangle {
+                height: 66px; border-radius: Theme.r-md; background: notify-todo.has-hover ? Theme.bg-hover : Theme.bg-surface-2;
+                notify-todo := TouchArea { mouse-cursor: pointer; clicked => { root.notification-open = false; root.set-view-mode(4); } }
+                VerticalLayout { padding: Theme.space-3; spacing: Theme.space-1;
+                    Text { text: "待办提醒"; color: Theme.text-1; font-size: Theme.font-13; font-weight: 600; }
+                    Text { text: "今日还有 " + todos-for-day.length + " 项待办"; color: Theme.text-3; font-size: Theme.font-11; }
+                }
+            }
+            Rectangle { vertical-stretch: 1; }
+        }
+    }
+    if widget-manager-open: Rectangle {
+        width: parent.width; height: parent.height; background: Theme.bg-scrim;
+        TouchArea { clicked => { root.widget-manager-open = false; } }
+        Rectangle {
+            x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+            width: 620px; height: 492px; border-radius: Theme.r-xl;
+            border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface;
+            drop-shadow-color: Theme.shadow-3-color-a; drop-shadow-blur: Theme.shadow-3-blur-a; drop-shadow-offset-y: Theme.shadow-3-y-a;
+            VerticalLayout {
+                padding: Theme.space-5; spacing: Theme.space-3;
+                HorizontalLayout {
+                    height: 36px; cross-axis-alignment: center;
+                    VerticalLayout { horizontal-stretch: 1; spacing: 1px;
+                        Text { text: "桌面卡片"; color: Theme.text-1; font-size: Theme.font-18; font-weight: 700; }
+                        Text { text: "按需新建或删除卡片，不会删除日程数据"; color: Theme.text-3; font-size: Theme.font-10-5; }
+                    }
+                    IconButton { icon: Icons.close; size: 30px; borderless: true; clicked => { root.widget-manager-open = false; } }
+                }
+                for row in 4: HorizontalLayout {
+                    height: 72px; spacing: Theme.space-3;
+                    if row == 0: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "月历"; description: "月份与节日概览"; icon: Icons.calendar; installed: root.desktop-calendar-visible; toggled(v) => { root.desktop-calendar-visible = v; root.set-desktop-widget-visible("calendar", v); } }
+                    if row == 0: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "今日日程"; description: "今天的日程列表"; icon: Icons.clock; installed: root.desktop-events-visible; toggled(v) => { root.desktop-events-visible = v; root.set-desktop-widget-visible("events", v); } }
+                    if row == 1: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "倒数日"; description: "重要日期倒计时"; icon: Icons.timer; installed: root.desktop-countdown-visible; toggled(v) => { root.desktop-countdown-visible = v; root.set-desktop-widget-visible("countdown", v); } }
+                    if row == 1: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "时钟"; description: "时间与今日进度"; icon: Icons.clock; installed: root.desktop-clock-visible; toggled(v) => { root.desktop-clock-visible = v; root.set-desktop-widget-visible("clock", v); } }
+                    if row == 2: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "专注计时"; description: "番茄钟与专注任务"; icon: Icons.target; installed: root.desktop-focus-visible; toggled(v) => { root.desktop-focus-visible = v; root.set-desktop-widget-visible("focus", v); } }
+                    if row == 2: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "今日待办"; description: "快速查看和完成待办"; icon: Icons.check; installed: root.desktop-todo-visible; toggled(v) => { root.desktop-todo-visible = v; root.set-desktop-widget-visible("todo", v); } }
+                    if row == 3: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "便签"; description: "快速新建和管理便签"; icon: Icons.note; installed: root.desktop-notes-visible; toggled(v) => { root.desktop-notes-visible = v; root.set-desktop-widget-visible("notes", v); } }
+                    if row == 3: Rectangle { width: (parent.width - Theme.space-3) / 2; background: transparent; }
+                }
+                Rectangle { height: 1px; background: Theme.border-subtle; }
+                HorizontalLayout {
+                    height: 34px; cross-axis-alignment: center;
+                    VerticalLayout { horizontal-stretch: 1; spacing: 1px;
+                        Text { text: "鼠标穿透"; color: Theme.text-1; font-size: Theme.font-13; font-weight: 600; }
+                        Text { text: "开启后点击会落到卡片下方窗口；可回到这里关闭"; color: Theme.text-3; font-size: Theme.font-10-5; }
+                    }
+                    ThemeCheckBox { width: 96px; text: root.desktop-click-through ? "已开启" : "已关闭"; checked: root.desktop-click-through; toggled(v) => { root.desktop-click-through = v; root.set-desktop-click-through(v); } }
+                }
+            }
+        }
+    }
+    if action-message != "": Rectangle {
+        // 操作反馈采用接近系统通知的尺寸，并贴近工作区右下角；最大化时
+        // 底部工作区边缘正好位于任务栏上沿，不再额外避让应用状态栏。
+        x: parent.width - self.width - Theme.space-4;
+        y: parent.height - self.height - Theme.space-2;
+        width: 410px; height: 76px; border-radius: Theme.r-xl;
+        background: Theme.bg-surface; border-width: 1px; border-color: Theme.border-default;
+        drop-shadow-color: Theme.shadow-2-color-a;
+        drop-shadow-blur: Theme.shadow-2-blur-a;
+        drop-shadow-offset-y: Theme.shadow-2-y-a;
+        HorizontalLayout { padding: Theme.space-3; spacing: Theme.space-3; cross-axis-alignment: center;
+            Rectangle {
+                width: 38px; height: 38px; border-radius: Theme.r-lg; background: Theme.accent-subtle;
+                SvgIcon { source: Icons.bell; size: 19px; tint: Theme.accent; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; }
+            }
+            VerticalLayout {
+                horizontal-stretch: 1; spacing: 3px;
+                Text { text: "TimeHub 通知"; color: Theme.text-1; font-size: Theme.font-12-5; font-weight: 600; overflow: elide; }
+                Text { text: root.action-message; color: Theme.text-2; font-size: Theme.font-11-5; overflow: elide; }
+            }
+            IconButton { icon: Icons.close; size: 28px; icon-size: 12px; borderless: true; clicked => { root.action-message = ""; } }
+        }
+    }
+    Timer {
+        interval: 4s;
+        running: root.action-message != "";
+        triggered => { root.action-message = ""; }
+    }
+
+    if todo-add-open: Rectangle {
+        width: parent.width; height: parent.height; background: Theme.bg-scrim;
+        TouchArea { clicked => { root.todo-add-open = false; } }
+        Rectangle {
+            x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+            width: 420px; height: 190px; border-radius: Theme.r-xl; background: Theme.bg-surface;
+            border-width: 1px; border-color: Theme.border-default;
+            VerticalLayout { padding: Theme.space-4; spacing: Theme.space-3;
+                Text { text: "添加待办"; color: Theme.text-1; font-size: Theme.font-15; font-weight: 700; }
+                Rectangle { height: 40px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface-2;
+                    TextInput { x: Theme.space-3; width: parent.width - Theme.space-6; height: parent.height; text <=> root.todo-draft-title; color: Theme.text-1; font-size: Theme.font-13; vertical-alignment: center; }
+                }
+                Text {
+                    text: "目标：" + (root.todo-add-target == "normal" ? "待办" : (root.todo-add-target == "progress" ? "进行中" : (root.todo-add-target == "done" ? "已完成" : root.todo-add-target)));
+                    color: Theme.text-3;
+                    font-size: Theme.font-11;
+                }
+                HorizontalLayout { height: 32px; spacing: Theme.space-2;
+                    Rectangle { horizontal-stretch: 1; }
+                    GhostButton { text: "取消"; clicked => { root.todo-add-open = false; } }
+                    PrimaryButton { text: "添加"; clicked => { if (root.todo-draft-title != "") { root.add-todo-target(root.todo-draft-title, root.todo-add-target); root.todo-add-open = false; } } }
+                }
+            }
+        }
+    }
+
+    if calendar-add-open: Rectangle {
+        width: parent.width; height: parent.height; background: Theme.bg-scrim;
+        TouchArea { clicked => { root.calendar-add-open = false; } }
+        Rectangle {
+            x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+            width: 420px; height: 168px; border-radius: Theme.r-xl; background: Theme.bg-surface;
+            border-width: 1px; border-color: Theme.border-default;
+            VerticalLayout { padding: Theme.space-4; spacing: Theme.space-3;
+                Text { text: "新建分类日历"; color: Theme.text-1; font-size: Theme.font-15; font-weight: 700; }
+                Rectangle { height: 40px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface-2;
+                    TextInput { x: Theme.space-3; width: parent.width - Theme.space-6; height: parent.height; text <=> root.calendar-draft-name; color: Theme.text-1; font-size: Theme.font-13; vertical-alignment: center; }
+                }
+                HorizontalLayout { height: 32px; spacing: Theme.space-2; Rectangle { horizontal-stretch: 1; } GhostButton { text: "取消"; clicked => { root.calendar-add-open = false; } } PrimaryButton { text: "创建"; clicked => { if (root.calendar-draft-name != "") { root.add-calendar(root.calendar-draft-name); root.calendar-add-open = false; } } } }
+            }
+        }
+    }
+
+    if new-event-open: Rectangle {
+        width: parent.width; height: parent.height; background: Theme.bg-scrim;
+        TouchArea { }
+        NewEventDialog {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            draft-title <=> root.editor-title;
+            draft-date <=> root.editor-date;
+            draft-time <=> root.editor-time;
+            draft-reminder: root.editor-reminder;
+            draft-repeat: root.editor-repeat;
+            draft-note: root.editor-note;
+            draft-calendar-id: root.editor-calendar-id;
+            draft-calendar-name: root.editor-calendar-name;
+            draft-duration: root.editor-duration;
+            validation-message: root.editor-error;
+            calendars: root.calendars;
+            picker-year <=> root.picker-year; picker-month <=> root.picker-month; picker-day <=> root.picker-day;
+            picker-hour <=> root.picker-hour; picker-minute <=> root.picker-minute;
+            prepare-date-picker(value) => { root.prepare-picker-date(value); }
+            prepare-time-picker(value) => { root.prepare-picker-time(value); }
+            parse(text) => { root.parse-natural(text); }
+            save(title, date, time, reminder, repeat, note, calendar-id, duration) => {
+                if (root.save-event-dialog(root.editing-event-id, title, date, time, reminder, repeat, note, calendar-id, duration)) {
+                    root.editor-error = "";
+                    root.new-event-open = false;
+                }
+            }
+            cancel => { root.editor-error = ""; root.new-event-open = false; }
+        }
+    }
+}

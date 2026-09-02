@@ -1,0 +1,349 @@
+import { LineEdit } from "std-widgets.slint";
+import { Theme } from "design-system.slint";
+import { GhostButton, PrimaryButton, DangerGhostButton, IconButton } from "widgets.slint";
+import { Icons, SvgIcon } from "icons.slint";
+
+export struct CourseItem {
+    id: int,
+    title: string,
+    teacher: string,
+    location: string,
+    weekday: int,
+    start-period: int,
+    period-count: int,
+    start-week: int,
+    end-week: int,
+    color-index: int,
+    color: color,
+}
+
+component ValueStepper inherits Rectangle {
+    in property <string> label;
+    in-out property <int> value: 1;
+    in property <int> minimum: 1;
+    in property <int> maximum: 30;
+
+    height: 58px;
+    border-radius: Theme.r-md;
+    border-width: 1px;
+    border-color: Theme.border-default;
+    background: Theme.bg-surface-2;
+    VerticalLayout {
+        padding: Theme.space-2;
+        spacing: 3px;
+        Text { text: root.label; color: Theme.text-3; font-size: Theme.font-10; }
+        HorizontalLayout {
+            spacing: Theme.space-1;
+            Rectangle {
+                width: 24px; height: 24px; border-radius: Theme.r-sm;
+                background: minus-touch.has-hover ? Theme.bg-hover : Theme.bg-surface;
+                minus-touch := TouchArea { mouse-cursor: pointer; clicked => { root.value = max(root.minimum, root.value - 1); } }
+                Text { text: "−"; color: Theme.text-2; font-size: Theme.font-16; horizontal-alignment: center; vertical-alignment: center; }
+            }
+            Text { text: root.value; color: Theme.text-1; font-size: Theme.font-14; font-weight: 700; horizontal-stretch: 1; horizontal-alignment: center; vertical-alignment: center; }
+            Rectangle {
+                width: 24px; height: 24px; border-radius: Theme.r-sm;
+                background: plus-touch.has-hover ? Theme.bg-hover : Theme.bg-surface;
+                plus-touch := TouchArea { mouse-cursor: pointer; clicked => { root.value = min(root.maximum, root.value + 1); } }
+                Text { text: "+"; color: Theme.text-2; font-size: Theme.font-14; horizontal-alignment: center; vertical-alignment: center; }
+            }
+        }
+    }
+}
+
+component CourseCard inherits Rectangle {
+    in property <CourseItem> course;
+    callback clicked();
+
+    border-radius: Theme.r-md;
+    border-width: 1px;
+    border-color: course.color;
+    background: card-touch.has-hover ? course.color.with-alpha(Theme.dark ? 32% : 20%) : course.color.with-alpha(Theme.dark ? 22% : 12%);
+    clip: true;
+    accessible-role: button;
+    accessible-label: course.title + "，第" + course.start-period + "节";
+    card-touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    Rectangle { x: 0px; y: 0px; width: 4px; height: parent.height; background: course.color; }
+    VerticalLayout {
+        x: 10px; y: 7px; width: parent.width - 16px; height: parent.height - 12px;
+        spacing: 2px;
+        Text { text: root.course.title; color: Theme.text-1; font-size: Theme.font-12; font-weight: 700; overflow: elide; }
+        Text {
+            text: (root.course.location == "" ? "未设教室" : root.course.location) + (root.course.teacher == "" ? "" : " · " + root.course.teacher);
+            color: Theme.text-2; font-size: Theme.font-10; overflow: elide;
+        }
+        if root.course.period-count > 1: Text {
+            text: "第 " + root.course.start-period + "–" + (root.course.start-period + root.course.period-count - 1) + " 节";
+            color: Theme.text-3; font-size: Theme.font-9; overflow: elide;
+        }
+    }
+}
+
+export component CourseView inherits Rectangle {
+    in property <[CourseItem]> courses;
+    in property <int> current-week: 1;
+    in property <int> actual-week: 1;
+    in property <string> week-title;
+    in property <string> term-start;
+    in property <int> active-count: 0;
+    callback change-week(int);
+    callback goto-current-week();
+    callback set-term-start(string) -> string;
+    callback save-course(int, string, string, string, int, int, int, int, int, int) -> string;
+    callback delete-course(int);
+
+    in-out property <bool> editor-open: false;
+    in-out property <int> editor-id: 0;
+    in-out property <string> editor-title: "";
+    in-out property <string> editor-teacher: "";
+    in-out property <string> editor-location: "";
+    in-out property <int> editor-weekday: 1;
+    in-out property <int> editor-start-period: 1;
+    in-out property <int> editor-period-count: 2;
+    in-out property <int> editor-start-week: 1;
+    in-out property <int> editor-end-week: 18;
+    in-out property <int> editor-color-index: 0;
+    in-out property <string> editor-error: "";
+    in-out property <string> page-message: "";
+
+    pure function color-at(index: int) -> color {
+        return index == 0 ? Theme.c-blue : (index == 1 ? Theme.c-green : (index == 2 ? Theme.c-orange :
+            (index == 3 ? Theme.c-red : (index == 4 ? Theme.c-purple : (index == 5 ? Theme.c-cyan :
+            (index == 6 ? Theme.c-pink : Theme.c-lime))))));
+    }
+
+    function open-new() {
+        root.editor-id = 0;
+        root.editor-title = "";
+        root.editor-teacher = "";
+        root.editor-location = "";
+        root.editor-weekday = 1;
+        root.editor-start-period = 1;
+        root.editor-period-count = 2;
+        root.editor-start-week = root.current-week;
+        root.editor-end-week = max(root.current-week, 18);
+        root.editor-color-index = Math.mod(root.courses.length, 8);
+        root.editor-error = "";
+        root.editor-open = true;
+    }
+
+    background: Theme.bg-app;
+
+    VerticalLayout {
+        padding: Theme.space-4;
+        spacing: Theme.space-3;
+
+        Rectangle {
+            height: 66px;
+            border-radius: Theme.r-lg;
+            border-width: 1px;
+            border-color: Theme.border-subtle;
+            background: Theme.bg-surface;
+            HorizontalLayout {
+                padding-left: Theme.space-4;
+                padding-right: Theme.space-3;
+                spacing: Theme.space-2;
+                cross-axis-alignment: center;
+                VerticalLayout {
+                    width: 210px; spacing: 2px; alignment: center;
+                    Text { text: "第 " + root.current-week + " 周"; color: Theme.text-1; font-size: Theme.font-18; font-weight: 700; }
+                    Text { text: root.week-title; color: Theme.text-3; font-size: Theme.font-11; overflow: elide; }
+                }
+                IconButton { icon: Icons.left; size: 30px; borderless: true; clicked => { root.change-week(-1); } }
+                GhostButton { text: root.current-week == root.actual-week ? "本周" : "回到本周"; clicked => { root.goto-current-week(); } }
+                IconButton { icon: Icons.right; size: 30px; borderless: true; clicked => { root.change-week(1); } }
+                Rectangle {
+                    height: 28px; min-width: 92px; border-radius: Theme.pill-radius-26;
+                    background: Theme.accent-subtle;
+                    HorizontalLayout { padding-left: Theme.space-2; padding-right: Theme.space-2; spacing: Theme.space-1; cross-axis-alignment: center;
+                        SvgIcon { source: Icons.list; size: 13px; tint: Theme.accent; }
+                        Text { text: root.active-count + " 门课"; color: Theme.accent; font-size: Theme.font-11; font-weight: 600; vertical-alignment: center; }
+                    }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                Text { text: "开学日"; color: Theme.text-3; font-size: Theme.font-11; vertical-alignment: center; }
+                term-input := LineEdit { width: 118px; text: root.term-start; placeholder-text: "YYYY-MM-DD"; }
+                GhostButton {
+                    text: "应用";
+                    clicked => {
+                        root.page-message = root.set-term-start(term-input.text);
+                    }
+                }
+                add-course-button := PrimaryButton { text: "新建课程"; icon: Icons.plus; show-icon: true; clicked => { root.open-new(); } }
+            }
+        }
+
+        if root.page-message != "": Text {
+            height: 20px; text: root.page-message; color: Theme.danger; font-size: Theme.font-11; horizontal-alignment: right;
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+            border-radius: Theme.r-lg;
+            border-width: 1px;
+            border-color: Theme.border-subtle;
+            background: Theme.bg-surface;
+            clip: true;
+            VerticalLayout {
+                spacing: 0px;
+                Rectangle {
+                    height: 48px;
+                    background: Theme.bg-surface-2;
+                    HorizontalLayout {
+                        spacing: 0px;
+                        Rectangle { width: 66px; border-width: 1px; border-color: Theme.border-subtle;
+                            Text { text: "节次"; color: Theme.text-3; font-size: Theme.font-10; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                        for label[i] in ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]: Rectangle {
+                            horizontal-stretch: 1; min-width: 92px; border-width: 1px; border-color: Theme.border-subtle;
+                            background: (i == 5 || i == 6) ? Theme.holiday-bg.with-alpha(35%) : transparent;
+                            Text { text: label; color: (i == 5 || i == 6) ? Theme.weekend : Theme.text-2; font-size: Theme.font-12; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                    }
+                }
+                Flickable {
+                    vertical-stretch: 1;
+                    interactive: true;
+                    viewport-width: max(self.width, 710px);
+                    viewport-height: 12 * 58px;
+                    timetable := Rectangle {
+                        width: max(parent.width, 710px);
+                        height: 12 * 58px;
+                        background: Theme.bg-surface;
+                        for period in 12: Rectangle {
+                            x: 0px; y: period * 58px; width: parent.width; height: 58px;
+                            background: Math.mod(period, 2) == 0 ? Theme.bg-surface : Theme.bg-surface-2.with-alpha(45%);
+                            border-width: 1px; border-color: Theme.border-subtle;
+                            Text { x: 0px; width: 66px; height: parent.height; text: "第 " + (period + 1) + " 节"; color: Theme.text-3; font-size: Theme.font-10; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                        for separator in 8: Rectangle {
+                            x: 66px + separator * ((parent.width - 66px) / 7);
+                            y: 0px; width: 1px; height: parent.height; background: Theme.border-subtle;
+                        }
+                        for course in root.courses: CourseCard {
+                            visible: root.current-week >= course.start-week && root.current-week <= course.end-week;
+                            x: 66px + (course.weekday - 1) * ((parent.width - 66px) / 7) + 4px;
+                            y: (course.start-period - 1) * 58px + 4px;
+                            width: ((parent.width - 66px) / 7) - 8px;
+                            height: course.period-count * 58px - 8px;
+                            course: course;
+                            clicked => {
+                                root.editor-id = course.id;
+                                root.editor-title = course.title;
+                                root.editor-teacher = course.teacher;
+                                root.editor-location = course.location;
+                                root.editor-weekday = course.weekday;
+                                root.editor-start-period = course.start-period;
+                                root.editor-period-count = course.period-count;
+                                root.editor-start-week = course.start-week;
+                                root.editor-end-week = course.end-week;
+                                root.editor-color-index = course.color-index;
+                                root.editor-error = "";
+                                root.editor-open = true;
+                            }
+                        }
+                    }
+                }
+            }
+            if root.courses.length == 0: Rectangle {
+                width: 360px; height: 150px;
+                x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+                VerticalLayout { spacing: Theme.space-2; alignment: center;
+                    SvgIcon { source: Icons.calendar; size: 34px; tint: Theme.text-3; }
+                    Text { text: "还没有课程"; color: Theme.text-1; font-size: Theme.font-16; font-weight: 600; horizontal-alignment: center; }
+                    Text { text: "新建第一门课，周视图会自动按节次排布"; color: Theme.text-3; font-size: Theme.font-11; horizontal-alignment: center; }
+                    PrimaryButton { width: 104px; text: "新建课程"; clicked => { root.open-new(); } }
+                }
+            }
+        }
+    }
+
+    if root.editor-open: Rectangle {
+        x: 0px; y: 0px; width: parent.width; height: parent.height;
+        background: Theme.bg-scrim;
+        close-touch := TouchArea { clicked => { root.editor-open = false; } }
+        editor-panel := Rectangle {
+            width: 540px; height: 410px;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            border-radius: Theme.r-xl;
+            border-width: 1px;
+            border-color: Theme.border-default;
+            background: Theme.bg-surface;
+            drop-shadow-color: Theme.shadow-3-color-a;
+            drop-shadow-blur: Theme.shadow-3-blur-a;
+            panel-touch := TouchArea { }
+            VerticalLayout {
+                spacing: 0px;
+                Rectangle {
+                    height: 54px; border-width: 1px; border-color: Theme.border-subtle;
+                    HorizontalLayout { padding-left: Theme.space-4; padding-right: Theme.space-2; cross-axis-alignment: center;
+                        Text { text: root.editor-id > 0 ? "编辑课程" : "新建课程"; color: Theme.text-1; font-size: Theme.font-18; font-weight: 700; horizontal-stretch: 1; vertical-alignment: center; }
+                        IconButton { icon: Icons.close; size: 30px; borderless: true; clicked => { root.editor-open = false; } }
+                    }
+                }
+                VerticalLayout {
+                    padding: Theme.space-4;
+                    spacing: Theme.space-3;
+                    name-input := LineEdit { text: root.editor-title; placeholder-text: "课程名称（必填）"; }
+                    HorizontalLayout { spacing: Theme.space-2;
+                        teacher-input := LineEdit { text: root.editor-teacher; placeholder-text: "教师"; horizontal-stretch: 1; }
+                        location-input := LineEdit { text: root.editor-location; placeholder-text: "教室 / 地点"; horizontal-stretch: 1; }
+                    }
+                    VerticalLayout { spacing: Theme.space-1;
+                        Text { text: "上课星期"; color: Theme.text-3; font-size: Theme.font-10; }
+                        HorizontalLayout { spacing: Theme.space-1;
+                            for label[i] in ["一", "二", "三", "四", "五", "六", "日"]: Rectangle {
+                                horizontal-stretch: 1; height: 30px; border-radius: Theme.r-md;
+                                border-width: 1px; border-color: root.editor-weekday == i + 1 ? Theme.accent : Theme.border-default;
+                                background: root.editor-weekday == i + 1 ? Theme.accent-subtle : (weekday-touch.has-hover ? Theme.bg-hover : Theme.bg-surface-2);
+                                weekday-touch := TouchArea { mouse-cursor: pointer; clicked => { root.editor-weekday = i + 1; } }
+                                Text { text: "周" + label; color: root.editor-weekday == i + 1 ? Theme.accent : Theme.text-2; font-size: Theme.font-11; font-weight: root.editor-weekday == i + 1 ? 600 : 400; horizontal-alignment: center; vertical-alignment: center; }
+                            }
+                        }
+                    }
+                    HorizontalLayout { spacing: Theme.space-2;
+                        start-step := ValueStepper { horizontal-stretch: 1; label: "开始节次"; value <=> root.editor-start-period; maximum: 12; }
+                        count-step := ValueStepper { horizontal-stretch: 1; label: "连续节数"; value <=> root.editor-period-count; maximum: 6; }
+                        first-week-step := ValueStepper { horizontal-stretch: 1; label: "开始周"; value <=> root.editor-start-week; maximum: 30; }
+                        last-week-step := ValueStepper { horizontal-stretch: 1; label: "结束周"; value <=> root.editor-end-week; maximum: 30; }
+                    }
+                    HorizontalLayout { height: 30px; spacing: Theme.space-2; cross-axis-alignment: center;
+                        Text { text: "课程颜色"; color: Theme.text-3; font-size: Theme.font-10; width: 58px; vertical-alignment: center; }
+                        for color-index in 8: Rectangle {
+                            width: 26px; height: 26px; border-radius: Theme.pill-radius-26;
+                            border-width: root.editor-color-index == color-index ? 3px : 0px;
+                            border-color: Theme.bg-surface;
+                            background: root.color-at(color-index);
+                            drop-shadow-color: root.editor-color-index == color-index ? Theme.text-2 : transparent;
+                            drop-shadow-blur: root.editor-color-index == color-index ? 2px : 0px;
+                            color-touch := TouchArea { mouse-cursor: pointer; clicked => { root.editor-color-index = color-index; } }
+                        }
+                        Rectangle { horizontal-stretch: 1; }
+                        Text { text: "第 " + root.editor-start-week + "–" + root.editor-end-week + " 周"; color: Theme.text-2; font-size: Theme.font-11; vertical-alignment: center; }
+                    }
+                    Text { height: 20px; text: root.editor-error; color: Theme.danger; font-size: Theme.font-11; vertical-alignment: center; overflow: elide; }
+                }
+                Rectangle { vertical-stretch: 1; }
+                Rectangle {
+                    height: 58px; background: Theme.bg-surface-2; border-width: 1px; border-color: Theme.border-subtle;
+                    HorizontalLayout { padding-left: Theme.space-4; padding-right: Theme.space-4; spacing: Theme.space-2; cross-axis-alignment: center;
+                        if root.editor-id > 0: delete-course-button := DangerGhostButton { text: "删除课程"; clicked => { root.delete-course(root.editor-id); root.editor-open = false; } }
+                        Rectangle { horizontal-stretch: 1; }
+                        GhostButton { width: 80px; text: "取消"; clicked => { root.editor-open = false; } }
+                        save-course-button := PrimaryButton {
+                            width: 72px;
+                            text: "保存";
+                            clicked => {
+                                root.editor-error = root.save-course(root.editor-id, name-input.text, teacher-input.text, location-input.text,
+                                    root.editor-weekday, root.editor-start-period, root.editor-period-count,
+                                    root.editor-start-week, root.editor-end-week, root.editor-color-index);
+                                if (root.editor-error == "") { root.editor-open = false; }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

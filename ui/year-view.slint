@@ -1,0 +1,134 @@
+import { Theme } from "design-system.slint";
+import { CalendarDay } from "calendar-view.slint";
+
+export struct YearMonth {
+    month: int,
+    title: string,
+    days: [CalendarDay],
+}
+
+component YearDayCell inherits Rectangle {
+    in property <CalendarDay> data;
+
+    min-height: 26px;
+    vertical-stretch: 1;
+    border-radius: 4px;
+    background: data.is-today ? Theme.today-bg : transparent;
+
+    Text {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: data.special-text == "" ? parent.height : 12px;
+        text: data.day;
+        color: data.is-today ? Theme.today-text : (!data.in-current-month ? Theme.text-muted : (data.is-holiday || data.is-weekend ? Theme.weekend-text : Theme.text-secondary));
+        font-size: data.special-text == "" ? Theme.font-11 : Theme.font-10-5;
+        font-weight: data.is-today ? 700 : 400;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    if data.in-current-month && data.special-text != "": Text {
+        x: 0px;
+        y: 14px;
+        width: parent.width;
+        height: 10px;
+        text: data.special-text;
+        color: data.is-today ? Theme.today-text : (data.is-holiday ? Theme.holiday-text : Theme.jieqi);
+        font-size: Theme.font-8-5;
+        font-weight: 500;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    if data.has-events && data.in-current-month: Rectangle {
+        x: parent.width - 5px;
+        y: 2px;
+        width: 3px;
+        height: 3px;
+        border-radius: 1.5px;
+        background: data.is-today ? Theme.today-text : Theme.accent;
+    }
+}
+
+component YearMonthCard inherits Rectangle {
+    in property <YearMonth> month;
+    in property <bool> week-starts-sunday;
+    callback select-date(int, int, int);
+
+    min-height: 0px;
+    vertical-stretch: 1;
+    horizontal-stretch: 1;
+    background: Theme.panel-bg;
+    border-radius: Theme.radius-md;
+    border-width: 1px;
+    border-color: Theme.panel-border;
+
+    VerticalLayout {
+        padding: Theme.gap-sm;
+        spacing: 2px;
+        Text {
+            text: month.title;
+            color: Theme.text-primary;
+            font-size: Theme.font-15;
+            font-weight: 700;
+        }
+        HorizontalLayout {
+            height: 16px;
+            spacing: 1px;
+            for label in week-starts-sunday ? ["日", "一", "二", "三", "四", "五", "六"] : ["一", "二", "三", "四", "五", "六", "日"]: Text {
+                text: label;
+                horizontal-stretch: 1;
+                horizontal-alignment: center;
+                color: Theme.text-muted;
+                font-size: Theme.font-10;
+            }
+        }
+        for week-index in 6: HorizontalLayout {
+            spacing: 1px;
+            horizontal-stretch: 1;
+            vertical-stretch: 1;
+            for col in 7: YearDayCell {
+                horizontal-stretch: 1;
+                data: month.days[week-index * 7 + col];
+                touch := TouchArea {
+                    clicked => {
+                        if (month.days[week-index * 7 + col].in-current-month) {
+                            select-date(0, month.month, month.days[week-index * 7 + col].day);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component YearView inherits Rectangle {
+    min-height: 560px;
+    in property <int> year;
+    in property <[YearMonth]> months;
+    in property <bool> week-starts-sunday;
+    callback prev-year();
+    callback next-year();
+    callback goto-today();
+    callback select-date(int, int, int);
+
+    background: Theme.panel-bg;
+    border-radius: Theme.radius-lg;
+    border-width: 1px;
+    border-color: Theme.panel-border;
+
+    VerticalLayout {
+        padding: Theme.space-2;
+        spacing: Theme.space-2;
+        for row in 3: HorizontalLayout {
+            spacing: Theme.gap-md;
+            horizontal-stretch: 1;
+            vertical-stretch: 1;
+            for col in 4: YearMonthCard {
+                month: months[row * 4 + col];
+                week-starts-sunday: week-starts-sunday;
+                select-date(y, m, d) => { select-date(year, m, d); }
+            }
+        }
+    }
+}

@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="TimeHub">
+  <rect width="1024" height="1024" rx="272" fill="#2E6BE6"/>
+  <path fill="#FFFFFF" d="M176 286h300v100H376v352H276V386H176V286zm344 0h100v170h128V286h100v452H748V560H620v178H520V286z"/>
+</svg>

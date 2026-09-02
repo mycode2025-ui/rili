@@ -1,0 +1,76 @@
+{
+  "view-mode": 2,
+  "visual-theme": 1,
+  "events-for-day": [
+    {
+      "id": 1,
+      "title": "研发评审会",
+      "time-text": "10:00",
+      "meta-text": "会议室 5 · 1 小时 · 已结束",
+      "color": "#2e6be6",
+      "start-minutes": 600,
+      "duration-minutes": 60,
+      "all-day": false,
+      "lane": 0,
+      "lane-count": 1
+    },
+    {
+      "id": 2,
+      "title": "供应商电话会议",
+      "time-text": "15:30",
+      "meta-text": "腾讯会议 · 已结束",
+      "color": "#c77700",
+      "start-minutes": 930,
+      "duration-minutes": 30,
+      "all-day": false,
+      "lane": 0,
+      "lane-count": 1
+    },
+    {
+      "id": 3,
+      "title": "读书 30 分钟",
+      "time-text": "20:00",
+      "meta-text": "下一场",
+      "color": "#0e9f6e",
+      "start-minutes": 1200,
+      "duration-minutes": 30,
+      "all-day": false,
+      "lane": 0,
+      "lane-count": 1
+    }
+  ],
+  "todos-for-day": [
+    {
+      "id": 1,
+      "title": "整理 BMS 故障注入用例",
+      "done": true,
+      "priority": 0
+    },
+    {
+      "id": 2,
+      "title": "回复量产烧录问题邮件",
+      "done": true,
+      "priority": 0
+    },
+    {
+      "id": 3,
+      "title": "提交 NUC980 内核配置变更",
+      "done": true,
+      "priority": 0
+    },
+    {
+      "id": 4,
+      "title": "核对 9 月排班表",
+      "done": false,
+      "priority": 1
+    },
+    {
+      "id": 5,
+      "title": "准备季度 OKR 材料",
+      "done": false,
+      "priority": 2
+    }
+  ],
+  "status-left-text": "已同步 · 2 分钟前",
+  "status-right-text": "最后更新 22:53"
+}

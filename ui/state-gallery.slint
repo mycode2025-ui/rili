@@ -1,0 +1,66 @@
+import { Theme } from "theme.slint";
+import { Icons, SvgIcon } from "icons.slint";
+
+export { Theme }
+
+component StateButton inherits Rectangle {
+    in property <string> label;
+    in property <image> icon;
+    callback clicked();
+    height: 30px; min-width: 80px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface;
+    TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    HorizontalLayout { padding-left: Theme.space-3; padding-right: Theme.space-3; spacing: 6px; cross-axis-alignment: center; SvgIcon { source: root.icon; size: 13px; tint: Theme.text-2; } Text { text: root.label; color: Theme.text-1; font-size: Theme.font-12; vertical-alignment: center; } }
+}
+
+component StateCard inherits Rectangle {
+    in property <string> title;
+    in property <string> description;
+    in property <image> icon;
+    in property <bool> error;
+    in property <string> primary-action;
+    in property <string> secondary-action: "";
+    callback action(string);
+    width: 308px; height: 248px; border-radius: Theme.r-lg; border-width: 1px; border-color: Theme.border-subtle; background: Theme.bg-surface;
+    VerticalLayout {
+        padding: Theme.space-5; spacing: Theme.space-3;
+        Rectangle { width: 44px; height: 44px; border-radius: Theme.r-lg; background: error ? Theme.danger-bg : Theme.bg-surface-2; SvgIcon { source: root.icon; size: 20px; tint: error ? Theme.danger : Theme.text-3; x: 12px; y: 12px; } }
+        Text { text: root.title; color: Theme.text-1; font-size: Theme.font-13-5; font-weight: 600; }
+        Text { text: root.description; color: Theme.text-3; font-size: Theme.font-12; wrap: word-wrap; }
+        Rectangle { vertical-stretch: 1; }
+        HorizontalLayout { spacing: Theme.space-2; if root.primary-action != "": StateButton { label: root.primary-action; icon: error ? Icons.reload : root.icon; clicked => { root.action(root.primary-action); } } if root.secondary-action != "": StateButton { label: root.secondary-action; icon: Icons.clock; clicked => { root.action(root.secondary-action); } } Rectangle { horizontal-stretch: 1; } }
+    }
+}
+
+component LoadingCard inherits Rectangle {
+    width: 308px; height: 248px; border-radius: Theme.r-lg; border-width: 1px; border-color: Theme.border-subtle; background: Theme.bg-surface;
+    VerticalLayout {
+        padding: Theme.space-5; spacing: Theme.space-3;
+        Rectangle { width: 44px; height: 44px; border-radius: Theme.r-lg; background: Theme.bg-surface-2; SvgIcon { source: Icons.sync; size: 20px; tint: Theme.text-3; x: 12px; y: 12px; } }
+        Text { text: "正在同步…"; color: Theme.text-1; font-size: Theme.font-13-5; font-weight: 600; }
+        Text { text: "从云端拉取最新日程、待办与订阅日历。"; color: Theme.text-3; font-size: Theme.font-12; wrap: word-wrap; }
+        Rectangle { height: 16px; width: 238px; border-radius: Theme.r-sm; background: Theme.bg-surface-2; }
+        Rectangle { height: 12px; width: 170px; border-radius: Theme.r-sm; background: Theme.bg-surface-2; }
+        Rectangle { height: 12px; width: 238px; border-radius: Theme.r-sm; background: Theme.bg-surface-2; }
+        Rectangle { vertical-stretch: 1; }
+    }
+}
+
+export component StateGallery inherits Rectangle {
+    callback action(string);
+    background: Theme.bg-app;
+    HorizontalLayout {
+        width: parent.width; height: parent.height; padding: Theme.space-4; spacing: Theme.space-4;
+        StateCard { title: "暂无排班"; description: "本周还没有排班计划。点击下方按钮创建你的第一个班次。"; icon: Icons.calendar; primary-action: "新建排班"; action(value) => { root.action(value); } }
+        StateCard { title: "暂无生日提醒"; description: "添加联系人的出生日期后，这里会展示即将到来的生日与纪念日。"; icon: Icons.heart; primary-action: "导入联系人"; action(value) => { root.action(value); } }
+        StateCard { title: "Outlook 同步失败"; description: "无法连接到 Outlook 服务，日程可能不是最新。请检查网络或重新登录。"; icon: Icons.alert-alt; error: true; primary-action: "重新登录"; secondary-action: "稍后重试"; action(value) => { root.action(value); } }
+        LoadingCard { }
+    }
+}
+
+export component StateGalleryWindow inherits Window {
+    default-font-family: Theme.font-family;
+    icon: Icons.app-logo;
+    width: 1280px; height: 280px; no-frame: true; background: Theme.bg-app;
+    callback action(string);
+    StateGallery { width: parent.width; height: parent.height; action(value) => { root.action(value); } }
+}

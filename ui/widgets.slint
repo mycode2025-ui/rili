@@ -1,0 +1,301 @@
+import { Theme } from "theme.slint";
+import { Icons, SvgIcon } from "icons.slint";
+
+export component PrimaryButton inherits Rectangle {
+    in property <string> text;
+    in property <image> icon;
+    in property <bool> show-icon: false;
+    in property <bool> enabled: true;
+    callback clicked <=> touch.clicked;
+
+    height: 32px;
+    min-width: 56px;
+    border-radius: Theme.r-md;
+    background: !enabled ? Theme.bg-hover : (touch.pressed ? Theme.accent-pressed : (touch.has-hover ? Theme.accent-hover : Theme.accent));
+    opacity: enabled ? 1 : 0.4;
+
+    touch := TouchArea { enabled: root.enabled; mouse-cursor: pointer; }
+
+    HorizontalLayout {
+        padding-left: Theme.space-3;
+        padding-right: Theme.space-3;
+        spacing: Theme.space-2;
+        alignment: center;
+        cross-axis-alignment: center;
+        if root.show-icon: SvgIcon { source: root.icon; size: 16px; tint: Theme.on-accent; }
+        Text {
+            text: root.text;
+            color: Theme.on-accent;
+            font-weight: 600;
+            font-size: Theme.font-13;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component GhostButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> selected: false;
+    in property <bool> enabled: true;
+    callback clicked <=> touch.clicked;
+
+    height: 32px;
+    min-width: 40px;
+    border-radius: Theme.r-md;
+    border-width: 1px;
+    border-color: selected ? Theme.accent : Theme.border-default;
+    background: selected ? Theme.accent-subtle : (touch.pressed ? Theme.bg-selected : (touch.has-hover ? Theme.bg-hover : Theme.bg-surface));
+    opacity: enabled ? 1 : 0.4;
+
+    touch := TouchArea { enabled: root.enabled; mouse-cursor: pointer; }
+
+    HorizontalLayout {
+        padding-left: Theme.space-3;
+        padding-right: Theme.space-3;
+        Text {
+            text: root.text;
+            color: selected ? Theme.accent : Theme.text-1;
+            font-weight: selected ? 600 : 400;
+            font-size: Theme.font-13;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+    }
+}
+
+export component DangerGhostButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    callback clicked <=> touch.clicked;
+
+    height: 26px;
+    min-width: 36px;
+    border-radius: Theme.r-sm;
+    border-width: 1px;
+    border-color: Theme.danger;
+    background: touch.pressed ? Theme.danger : (touch.has-hover ? Theme.danger-bg : Theme.bg-surface);
+    opacity: enabled ? 1 : 0.4;
+
+    touch := TouchArea { enabled: root.enabled; mouse-cursor: pointer; }
+
+    HorizontalLayout {
+        padding-left: Theme.space-2;
+        padding-right: Theme.space-2;
+        Text {
+            text: root.text;
+            color: touch.pressed ? Theme.on-accent : Theme.danger;
+            font-size: Theme.font-12;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+    }
+}
+
+export component IconButton inherits Rectangle {
+    in property <image> icon;
+    in property <length> size: 30px;
+    in property <length> icon-size: 16px;
+    in property <bool> borderless: false;
+    in property <bool> enabled: true;
+    callback clicked <=> touch.clicked;
+
+    width: size;
+    height: size;
+    border-radius: Theme.r-md;
+    border-width: borderless ? 0px : 1px;
+    border-color: Theme.border-default;
+    background: touch.pressed ? Theme.bg-selected : (touch.has-hover ? Theme.bg-hover : (borderless ? transparent : Theme.bg-surface));
+    opacity: enabled ? 1 : 0.4;
+
+    touch := TouchArea { enabled: root.enabled; mouse-cursor: pointer; }
+    SvgIcon {
+        source: root.icon;
+        size: root.icon-size;
+        tint: touch.has-hover ? Theme.text-1 : Theme.text-2;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+    }
+}
+
+export component ThemeCheckBox inherits Rectangle {
+    in property <string> text;
+    in property <bool> checked: false;
+    in property <bool> enabled: true;
+    callback toggled(bool);
+
+    height: 32px;
+    opacity: enabled ? 1 : 0.4;
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.toggled(!root.checked); }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.space-2;
+        alignment: start;
+        cross-axis-alignment: center;
+        box := Rectangle {
+            width: 16px;
+            height: 16px;
+            border-radius: 5px;
+            border-width: 1px;
+            border-color: root.checked ? Theme.accent : Theme.border-strong;
+            background: root.checked ? Theme.accent : Theme.bg-surface;
+            if root.checked: SvgIcon {
+                source: Icons.check;
+                size: 12px;
+                tint: Theme.on-accent;
+                x: 2px;
+                y: 2px;
+            }
+        }
+        Text {
+            text: root.text;
+            color: Theme.text-1;
+            font-size: Theme.font-13;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component NavButton inherits Rectangle {
+    in property <string> label;
+    in property <image> icon;
+    in property <string> badge: "";
+    in property <bool> selected: false;
+    in property <bool> enabled: true;
+    callback clicked();
+
+    height: 34px;
+    border-radius: Theme.r-md;
+    background: selected ? Theme.bg-selected : (touch.pressed ? Theme.bg-selected : (touch.has-hover ? Theme.bg-hover : transparent));
+    opacity: enabled ? 1 : 0.4;
+    accessible-role: button;
+    accessible-label: root.label;
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    if root.selected: Rectangle {
+        width: 3px;
+        height: 18px;
+        x: 0px;
+        y: (parent.height - self.height) / 2;
+        border-radius: 2px;
+        background: Theme.accent;
+    }
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 9px;
+        Rectangle {
+            width: 16px;
+            height: parent.height;
+            SvgIcon {
+                source: root.icon;
+                size: 16px;
+                tint: root.selected ? Theme.accent : Theme.text-2;
+                x: 0px;
+                y: (parent.height - self.height) / 2;
+            }
+        }
+        Text {
+            height: parent.height;
+            text: root.label;
+            color: root.selected ? Theme.accent : Theme.text-2;
+            font-size: Theme.font-13;
+            font-weight: root.selected ? 600 : 400;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+        if root.badge != "": Rectangle {
+            height: parent.height;
+            min-width: 18px;
+            Rectangle {
+                y: (parent.height - self.height) / 2;
+                width: parent.width;
+                height: 18px;
+                border-radius: Theme.pill-radius-18;
+                background: root.selected ? Theme.accent-subtle : Theme.bg-surface-2;
+                HorizontalLayout {
+                    padding-left: 5px;
+                    padding-right: 5px;
+                    Text { text: root.badge; color: root.selected ? Theme.accent : Theme.text-3; font-size: Theme.font-10; vertical-alignment: center; horizontal-alignment: center; }
+                }
+            }
+        }
+    }
+}
+
+export component Dropdown inherits Rectangle {
+    in property <[string]> model;
+    in property <int> current-index: 0;
+    in property <length> item-width: 110px;
+    in property <bool> enabled: true;
+    callback selected(int);
+
+    width: item-width;
+    height: 32px;
+    border-radius: Theme.r-md;
+    border-width: 1px;
+    border-color: Theme.border-default;
+    background: touch.pressed ? Theme.bg-selected : (touch.has-hover ? Theme.bg-hover : Theme.bg-surface);
+    opacity: enabled ? 1 : 0.4;
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { popup.show(); }
+    }
+
+    HorizontalLayout {
+        padding-left: Theme.space-2;
+        padding-right: Theme.space-2;
+        cross-axis-alignment: center;
+        Text {
+            text: root.current-index >= 0 && root.current-index < root.model.length ? root.model[root.current-index] : "";
+            color: Theme.text-1;
+            font-size: Theme.font-12;
+            horizontal-stretch: 1;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        SvgIcon { source: Icons.down; size: 14px; tint: Theme.text-3; }
+    }
+
+    popup := PopupWindow {
+        width: root.item-width;
+        y: root.height;
+        Rectangle {
+            background: Theme.bg-surface;
+            border-width: 1px;
+            border-color: Theme.border-default;
+            border-radius: Theme.r-md;
+            VerticalLayout {
+                for entry[i] in root.model: Rectangle {
+                    height: 30px;
+                    background: item-touch.has-hover ? Theme.bg-hover : transparent;
+                    item-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.selected(i); popup.close(); }
+                    }
+                    Text {
+                        text: entry;
+                        color: i == root.current-index ? Theme.accent : Theme.text-1;
+                        font-weight: i == root.current-index ? 600 : 400;
+                        font-size: Theme.font-12;
+                        vertical-alignment: center;
+                        horizontal-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+}

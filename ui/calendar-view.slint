@@ -1,0 +1,209 @@
+import { Theme } from "design-system.slint";
+
+export struct EventTag {
+    id: int,
+    title: string,
+    color: color,
+}
+
+export struct CalendarDay {
+    day: int,
+    in-current-month: bool,
+    is-today: bool,
+    is-weekend: bool,
+    is-holiday: bool,
+    is-makeup-workday: bool,
+    lunar-text: string,
+    /// 年视图使用的节日/节气短标签；普通日期为空。
+    special-text: string,
+    has-events: bool,
+    /// 本周所在的 ISO 周数，只在 `show-week-numbers` 打开时使用，每行只看第 0 列的值。
+    week-number: int,
+    /// 当天日程的彩色标签预览（按分类日历的颜色着色），最多显示几条，超出的数量放进 extra-count。
+    event-tags: [EventTag],
+    extra-count: int,
+}
+
+component DayCell inherits Rectangle {
+    in property <CalendarDay> data;
+    in property <bool> selected;
+    callback clicked <=> touch.clicked;
+    callback open-event(int);
+
+    border-radius: 0px;
+    border-width: 1px;
+    border-color: Theme.divider;
+    background: data.is-today ? Theme.accent-soft : (selected ? Theme.accent-soft : (data.in-current-month ? Theme.panel-bg : Theme.panel-bg-secondary));
+
+    touch := TouchArea { }
+
+    VerticalLayout {
+        padding: Theme.space-2;
+        spacing: Theme.space-1;
+        alignment: start;
+
+        HorizontalLayout {
+            spacing: 3px;
+            Rectangle {
+                min-width: 22px;
+                height: 22px;
+                border-radius: Theme.pill-radius-22;
+                background: data.is-today ? Theme.today-bg : transparent;
+                Text {
+                    text: data.day;
+                    font-size: Theme.font-13;
+                    font-weight: data.is-today ? 700 : 400;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    color: {
+                        if (data.is-today) { Theme.today-text }
+                        else if (!data.in-current-month) { Theme.text-muted }
+                        else if (data.is-holiday) { Theme.holiday-text }
+                        else if (data.is-weekend) { Theme.weekend-text }
+                        else { Theme.text-primary }
+                    };
+                }
+            }
+            Text {
+                text: data.lunar-text;
+                font-size: Theme.font-11;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                overflow: elide;
+                color: data.is-today ? Theme.accent : (data.in-current-month ? Theme.text-secondary : Theme.text-muted);
+            }
+            // 调休上班日/法定假日角标
+            if data.is-makeup-workday: Rectangle {
+                width: 16px;
+                height: 16px;
+                border-radius: 8px;
+                background: Theme.workday-badge;
+                Text { text: "班"; font-size: Theme.font-9; color: Theme.on-accent; horizontal-alignment: center; vertical-alignment: center; }
+            }
+            if data.is-holiday && data.in-current-month: Rectangle {
+                width: 16px;
+                height: 16px;
+                border-radius: 8px;
+                background: Theme.holiday-text;
+                Text { text: "休"; font-size: Theme.font-9; color: Theme.on-accent; horizontal-alignment: center; vertical-alignment: center; }
+            }
+        }
+
+        for tag in data.event-tags: Rectangle {
+            height: 18px;
+            border-radius: Theme.r-sm;
+            border-width: 1px;
+            border-color: tag.color;
+            background: tag.color.with-alpha(15%);
+            TouchArea { mouse-cursor: pointer; clicked => { root.open-event(tag.id); } }
+            HorizontalLayout {
+                padding-left: 4px;
+                padding-right: 4px;
+                spacing: 3px;
+                Rectangle {
+                    width: 3px;
+                    border-radius: 1.5px;
+                    background: tag.color;
+                }
+                Text {
+                    text: tag.title;
+                    font-size: Theme.font-11;
+                    color: tag.color.darker(25%);
+                    overflow: elide;
+                    horizontal-stretch: 1;
+                    vertical-alignment: center;
+                }
+            }
+        }
+        if data.extra-count > 0: Text {
+            text: "+" + data.extra-count + " 更多";
+            font-size: Theme.font-11;
+            color: Theme.text-muted;
+        }
+    }
+}
+
+export component CalendarView inherits Rectangle {
+    in property <string> month-title;
+    in property <[CalendarDay]> days;
+    in property <int> selected-day;
+    in property <bool> week-starts-sunday: false;
+    in property <bool> show-week-numbers: false;
+    callback prev-month();
+    callback next-month();
+    callback goto-today();
+    callback select-day(int);
+    callback open-event(int);
+
+    background: Theme.panel-bg;
+    border-radius: Theme.radius-lg;
+    border-width: 1px;
+    border-color: Theme.panel-border;
+
+    VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+
+        // 星期表头（周一起始：一二三四五六日；周日起始：日一二三四五六）
+        Rectangle {
+            height: 36px;
+            background: Theme.panel-bg;
+            border-width: 1px;
+            border-color: Theme.panel-border;
+            if show-week-numbers: Text {
+                x: 0px;
+                y: 0px;
+                width: 32px;
+                height: parent.height;
+                text: "周";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Theme.text-muted;
+                font-size: Theme.font-sm;
+            }
+            for label[i] in week-starts-sunday
+                ? ["日", "一", "二", "三", "四", "五", "六"]
+                : ["一", "二", "三", "四", "五", "六", "日"]: Text {
+                x: (root.show-week-numbers ? 32px : 0px) + i * ((parent.width - (root.show-week-numbers ? 32px : 0px)) / 7);
+                y: 0px;
+                width: (parent.width - (root.show-week-numbers ? 32px : 0px)) / 7;
+                height: parent.height;
+                text: label;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: (week-starts-sunday ? i == 0 : i >= 5) ? Theme.weekend-text : Theme.text-secondary;
+                font-size: Theme.font-12;
+            }
+        }
+
+        // 6 行 x 7 列日期网格（可选左侧周数列）
+        for week-index in 6: Rectangle {
+            vertical-stretch: 1;
+            if show-week-numbers: Text {
+                x: 0px;
+                y: 0px;
+                width: 32px;
+                height: parent.height;
+                text: days[week-index * 7].week-number;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Theme.text-muted;
+                font-size: Theme.font-sm;
+            }
+            for col in 7: DayCell {
+                x: (root.show-week-numbers ? 32px : 0px) + col * ((parent.width - (root.show-week-numbers ? 32px : 0px)) / 7);
+                y: 0px;
+                width: (parent.width - (root.show-week-numbers ? 32px : 0px)) / 7;
+                height: parent.height;
+                data: days[week-index * 7 + col];
+                selected: days[week-index * 7 + col].day == selected-day && days[week-index * 7 + col].in-current-month;
+                clicked => {
+                    if (days[week-index * 7 + col].in-current-month) {
+                        select-day(days[week-index * 7 + col].day);
+                    }
+                }
+                open-event(id) => { root.open-event(id); }
+            }
+        }
+    }
+}

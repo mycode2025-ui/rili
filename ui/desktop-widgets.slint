@@ -1,0 +1,683 @@
+import { CalendarDay, CalendarView } from "calendar-view.slint";
+import { EventItem, TodoItem } from "side-panel.slint";
+import { Theme } from "theme.slint";
+import { Icons, SvgIcon } from "icons.slint";
+import { CountdownItem, DesktopCard, CardTitle, WidgetCreatePanel, WidgetDay, WidgetWeekday, EventRow, CountdownRow, FocusButton, WidgetTodoRow } from "widget.slint";
+import { ScrollView } from "std-widgets.slint";
+
+export { Theme }
+
+component WindowDragStrip inherits TouchArea {
+    callback drag-requested();
+    callback drag-finished();
+    mouse-cursor: default;
+    changed pressed => {
+        if self.pressed {
+            root.drag-requested();
+        } else {
+            root.drag-finished();
+        }
+    }
+}
+
+component FutureEventRow inherits Rectangle {
+    in property <EventItem> event;
+    callback clicked();
+    height: 38px;
+    border-radius: 10px;
+    background: touch.has-hover ? Theme.widget-glass-hover : Theme.widget-row;
+    HorizontalLayout {
+        padding-left: Theme.space-2; padding-right: Theme.space-2; spacing: Theme.space-2; cross-axis-alignment: center;
+        Rectangle { width: 3px; height: 22px; border-radius: 2px; background: event.color; }
+        Text { width: 76px; text: event.meta-text; color: Theme.widget-text-3; font-size: Theme.font-10-5; vertical-alignment: center; overflow: elide; }
+        Text { text: event.title; color: Theme.widget-text-1; font-size: Theme.font-12; font-weight: 600; vertical-alignment: center; overflow: elide; }
+    }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+component CalendarActionButton inherits Rectangle {
+    in property <image> icon;
+    in property <string> label;
+    callback clicked <=> touch.clicked;
+    width: label == "" ? 28px : 50px;
+    height: 28px;
+    border-radius: Theme.r-md;
+    border-width: label == "" ? 0px : 1px;
+    border-color: Theme.widget-glass-border;
+    background: touch.has-hover ? Theme.widget-glass-hover : transparent;
+    if label == "": SvgIcon {
+        source: root.icon;
+        size: 14px;
+        tint: Theme.widget-text-2;
+        x: 7px;
+        y: 7px;
+    }
+    if label != "": Text {
+        text: root.label;
+        color: Theme.widget-text-2;
+        font-size: Theme.font-11;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    touch := TouchArea { mouse-cursor: pointer; }
+}
+
+export component CalendarWidgetWindow inherits Window {
+    title: "TimeHub 月历";
+    default-font-family: Theme.font-family;
+    icon: Icons.app-logo;
+    preferred-width: 304px;
+    preferred-height: 280px;
+    min-width: 304px;
+    min-height: 280px;
+    max-width: 1400px;
+    max-height: 960px;
+    no-frame: true;
+    always-on-top: pinned;
+    background: transparent;
+
+    in property <string> month-title;
+    in property <[CalendarDay]> days;
+    in property <int> selected-day;
+    in-out property <bool> pinned: false;
+    out property <bool> expanded: root.width >= 680px && root.height >= 480px;
+    callback begin-window-drag();
+    callback end-window-drag();
+    callback begin-window-resize();
+    callback end-window-resize();
+    callback toggle-window-size();
+    callback pin-changed(bool);
+    callback open-widget-settings(string);
+    callback open-main-view(string, int);
+    callback select-day(int);
+    callback request-new-event();
+    callback remove-widget();
+    callback prev-month();
+    callback next-month();
+    callback goto-today();
+
+    DesktopCard {
+        width: parent.width;
+        height: parent.height;
+        if !root.expanded: VerticalLayout {
+            padding: Theme.space-3;
+            spacing: 2px;
+            CardTitle {
+                title: root.month-title;
+                icon: Icons.calendar;
+                pinned: root.pinned;
+                show-add: true;
+                show-remove: true;
+                show-expand: true;
+                expanded: root.expanded;
+                drag-requested => { root.begin-window-drag(); }
+                add-clicked => { root.request-new-event(); }
+                remove-clicked => { root.remove-widget(); }
+                expand-clicked => { root.toggle-window-size(); }
+                pin-clicked => { root.pinned = !root.pinned; root.pin-changed(root.pinned); }
+                settings-clicked => { root.open-widget-settings("calendar"); }
+            }
+            HorizontalLayout {
+                height: 22px;
+                spacing: 2px;
+                for label[i] in ["一", "二", "三", "四", "五", "六", "日"]: WidgetWeekday {
+                    label: label;
+                    weekend: i >= 5;
+                }
+            }
+            for week in 6: HorizontalLayout {
+                height: 30px;
+                spacing: 2px;
+                for col in 7: WidgetDay {
+                    day: root.days[week * 7 + col];
+                    selected: root.days[week * 7 + col].day == root.selected-day && root.days[week * 7 + col].in-current-month;
+                    clicked => {
+                        root.select-day(root.days[week * 7 + col].day);
+                        root.open-main-view("calendar", root.days[week * 7 + col].day);
+                    }
+                }
+            }
+        }
+        if root.expanded: VerticalLayout {
+            padding: Theme.space-3;
+            spacing: Theme.space-2;
+            CardTitle {
+                title: root.month-title;
+                icon: Icons.calendar;
+                pinned: root.pinned;
+                show-add: true;
+                show-remove: true;
+                show-expand: true;
+                expanded: root.expanded;
+                drag-requested => { root.begin-window-drag(); }
+                add-clicked => { root.request-new-event(); }
+                remove-clicked => { root.remove-widget(); }
+                expand-clicked => { root.toggle-window-size(); }
+                pin-clicked => { root.pinned = !root.pinned; root.pin-changed(root.pinned); }
+                settings-clicked => { root.open-widget-settings("calendar"); }
+            }
+            HorizontalLayout {
+                height: 30px;
+                spacing: Theme.space-1;
+                cross-axis-alignment: center;
+                CalendarActionButton { icon: Icons.left; clicked => { root.prev-month(); } }
+                CalendarActionButton { label: "今天"; clicked => { root.goto-today(); } }
+                CalendarActionButton { icon: Icons.right; clicked => { root.next-month(); } }
+                Rectangle { horizontal-stretch: 1; }
+                Text {
+                    text: "完整月历 · 右下角可调整大小";
+                    color: Theme.widget-text-3;
+                    font-size: Theme.font-10-5;
+                    vertical-alignment: center;
+                }
+            }
+            CalendarView {
+                vertical-stretch: 1;
+                month-title: root.month-title;
+                days: root.days;
+                selected-day: root.selected-day;
+                select-day(day) => {
+                    root.select-day(day);
+                    root.open-main-view("calendar", day);
+                }
+                open-event(id) => { root.open-main-view("event", id); }
+            }
+        }
+    }
+    WindowDragStrip { x: 12px; y: 12px; width: parent.width - 164px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+    Rectangle {
+        x: parent.width - 22px;
+        y: parent.height - 22px;
+        width: 22px;
+        height: 22px;
+        background: resize-touch.has-hover ? Theme.widget-glass-hover : transparent;
+        Rectangle { x: 7px; y: 15px; width: 9px; height: 2px; border-radius: 1px; background: Theme.widget-text-3; }
+        Rectangle { x: 14px; y: 8px; width: 2px; height: 9px; border-radius: 1px; background: Theme.widget-text-3; }
+        resize-touch := TouchArea {
+            mouse-cursor: pointer;
+            changed pressed => {
+                if (self.pressed) { root.begin-window-resize(); }
+                else { root.end-window-resize(); }
+            }
+        }
+    }
+}
+
+export component EventsWidgetWindow inherits Window {
+    title: "TimeHub 日程";
+    default-font-family: Theme.font-family;
+    icon: Icons.app-logo;
+    preferred-width: 304px;
+    min-width: 304px;
+    max-width: 304px;
+    preferred-height: Math.min(520px, Math.max(280px, 128px + (root.today-events.length + root.upcoming-events.length) * 42px));
+    min-height: 240px;
+    max-height: 620px;
+    no-frame: true;
+    always-on-top: pinned;
+    background: transparent;
+
+    in property <[EventItem]> today-events;
+    in property <[EventItem]> upcoming-events;
+    in property <int> current-minutes;
+    in-out property <bool> pinned: false;
+    callback begin-window-drag();
+    callback end-window-drag();
+    callback pin-changed(bool);
+    callback open-widget-settings(string);
+    callback open-main-view(string, int);
+    callback request-new-event();
+    callback remove-widget();
+    callback begin-window-resize();
+
+    DesktopCard {
+        width: parent.width;
+        height: parent.height;
+        VerticalLayout {
+            padding: Theme.space-3;
+            spacing: 6px;
+            CardTitle {
+                title: "日程";
+                icon: Icons.clock;
+                pinned: root.pinned;
+                show-add: true;
+                show-remove: true;
+                drag-requested => { root.begin-window-drag(); }
+                add-clicked => { root.request-new-event(); }
+                remove-clicked => { root.remove-widget(); }
+                pin-clicked => { root.pinned = !root.pinned; root.pin-changed(root.pinned); }
+                settings-clicked => { root.open-widget-settings("events"); }
+            }
+            ScrollView {
+                vertical-stretch: 1;
+                VerticalLayout {
+                    spacing: 6px;
+                    Text { height: 18px; text: "今天 · " + root.today-events.length + " 项"; color: Theme.widget-text-3; font-size: Theme.font-10-5; font-weight: 600; vertical-alignment: center; }
+                    for event in root.today-events: EventRow {
+                        event: event;
+                        current-minutes: root.current-minutes;
+                        clicked => { root.open-main-view("event", event.id); }
+                    }
+                    if root.today-events.length == 0: Text { height: 28px; text: "今天没有安排"; color: Theme.widget-text-3; font-size: Theme.font-11; horizontal-alignment: center; vertical-alignment: center; }
+                    if root.upcoming-events.length > 0: Text { height: 18px; text: "接下来"; color: Theme.widget-text-3; font-size: Theme.font-10-5; font-weight: 600; vertical-alignment: center; }
+                    for event in root.upcoming-events: FutureEventRow {
+                        event: event;
+                        clicked => { root.open-main-view("event", event.id); }
+                    }
+                }
+            }
+            Rectangle {
+                height: 20px;
+                background: more-touch.has-hover ? Theme.widget-glass-hover : transparent;
+                HorizontalLayout {
+                    padding-left: Theme.space-1;
+                    spacing: Theme.space-1;
+                    cross-axis-alignment: center;
+                    SvgIcon { source: Icons.arrow-right; size: 14px; tint: Theme.widget-text-3; }
+                    Text {
+                        text: "在 TimeHub 中查看全部 " + (root.today-events.length + root.upcoming-events.length) + " 项";
+                        color: Theme.widget-text-3;
+                        font-size: Theme.font-11;
+                        vertical-alignment: center;
+                    }
+                }
+                more-touch := TouchArea { mouse-cursor: pointer; clicked => { root.open-main-view("today", 0); } }
+            }
+        }
+    }
+    WindowDragStrip { x: 12px; y: 12px; width: parent.width - 136px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+    Rectangle {
+        x: (parent.width - 52px) / 2; y: parent.height - 10px; width: 52px; height: 10px; background: transparent;
+        Rectangle { x: 14px; y: 4px; width: 24px; height: 2px; border-radius: 1px; background: Theme.widget-text-3; opacity: resize-touch.has-hover ? 0.9 : 0.45; }
+        resize-touch := TouchArea { changed pressed => { if (self.pressed) { root.begin-window-resize(); } } }
+    }
+}
+
+export component CountdownWidgetWindow inherits Window {
+    title: "TimeHub 倒数日";
+    default-font-family: Theme.font-family;
+    icon: Icons.app-logo;
+    width: 304px;
+    height: 280px;
+    no-frame: true;
+    always-on-top: pinned;
+    background: transparent;
+
+    in property <[CountdownItem]> countdowns;
+    in-out property <bool> pinned: false;
+    in-out property <bool> create-open: false;
+    in-out property <string> create-title: "";
+    in-out property <string> create-date: "";
+    in-out property <string> create-status: "";
+    callback begin-window-drag();
+    callback end-window-drag();
+    callback pin-changed(bool);
+    callback open-widget-settings(string);
+    callback open-main-view(string, int);
+    callback create-countdown(string, string);
+    callback remove-widget();
+
+    DesktopCard {
+        width: parent.width;
+        height: parent.height;
+        VerticalLayout {
+            padding: Theme.space-3;
+            spacing: Theme.space-2;
+            CardTitle {
+                title: "倒数日";
+                icon: Icons.timer;
+                pinned: root.pinned;
+                show-add: true;
+                show-remove: true;
+                drag-requested => { root.begin-window-drag(); }
+                add-clicked => { root.create-title = ""; root.create-status = ""; root.create-open = true; }
+                remove-clicked => { root.remove-widget(); }
+                pin-clicked => { root.pinned = !root.pinned; root.pin-changed(root.pinned); }
+                settings-clicked => { root.open-widget-settings("countdown"); }
+            }
+            for item[i] in root.countdowns: CountdownRow {
+                visible: i < 3;
+                item: item;
+                clicked => { root.open-main-view("countdown", item.id); }
+            }
+            if root.countdowns.length == 0: Text {
+                text: "暂无倒数日";
+                color: Theme.widget-text-3;
+                font-size: Theme.font-11;
+                horizontal-alignment: center;
+            }
+        }
+        if root.create-open: WidgetCreatePanel {
+            x: 10px; y: 42px; width: parent.width - 20px; height: parent.height - 52px;
+            heading: "新建倒数日"; title-label: "倒数日名称"; detail-label: "日期";
+            draft-title <=> root.create-title; draft-detail <=> root.create-date; status-text: root.create-status;
+            cancel => { root.create-open = false; root.create-status = ""; }
+            save(title, date) => { root.create-countdown(title, date); }
+        }
+    }
+    WindowDragStrip { x: 12px; y: 12px; width: parent.width - 136px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+}
+
+export component ClockWidgetWindow inherits Window {
+    title: "TimeHub 时钟";
+    default-font-family: Theme.font-family;
+    icon: Icons.app-logo;
+    width: 304px;
+    height: 190px;
+    no-frame: true;
+    always-on-top: pinned;
+    background: transparent;
+
+    in property <string> current-time-main;
+    in property <string> current-seconds;
+    in property <string> today-date-text;
+    in property <string> today-lunar-text;
+    in property <float> day-progress;
+    in property <string> day-progress-text;
+    in property <string> day-remaining-text;
+    in-out property <bool> pinned: false;
+    in-out property <bool> create-open: false;
+    in-out property <string> create-title: "";
+    in-out property <string> create-time: "";
+    in-out property <string> create-status: "";
+    callback begin-window-drag();
+    callback end-window-drag();
+    callback pin-changed(bool);
+    callback open-widget-settings(string);
+    callback open-main-view(string, int);
+    callback create-reminder(string, string);
+    callback remove-widget();
+
+    DesktopCard {
+        width: parent.width;
+        height: parent.height;
+        CardTitle {
+            x: 14px;
+            y: 12px;
+            width: parent.width - 28px;
+            title: "时钟";
+            icon: Icons.clock;
+            pinned: root.pinned;
+            show-add: true;
+            show-remove: true;
+            drag-requested => { root.begin-window-drag(); }
+            add-clicked => { root.create-title = ""; root.create-status = ""; root.create-open = true; }
+            remove-clicked => { root.remove-widget(); }
+            pin-clicked => { root.pinned = !root.pinned; root.pin-changed(root.pinned); }
+            settings-clicked => { root.open-widget-settings("clock"); }
+        }
+        Text { x: 16px; y: 46px; text: root.current-time-main; color: Theme.widget-text-1; font-size: Theme.font-42; font-weight: 200; }
+        Text { x: 142px; y: 67px; text: root.current-seconds; color: Theme.widget-text-3; font-size: Theme.font-16; }
+        Text { x: 16px; y: 101px; text: root.today-date-text; color: Theme.widget-text-2; font-size: Theme.font-12-5; }
+        Text { x: 150px; y: 103px; text: root.today-lunar-text; color: Theme.widget-text-3; font-size: Theme.font-11; }
+        Rectangle {
+            x: 16px; y: 130px; width: parent.width - 32px; height: 8px; border-radius: 4px; background: Theme.widget-row;
+            clip: true;
+            Rectangle {
+                x: 0px; y: 0px;
+                width: parent.width * root.day-progress;
+                height: parent.height;
+                border-radius: 4px;
+                background: Theme.widget-accent;
+            }
+        }
+        Text { x: 16px; y: 147px; text: root.day-progress-text; color: Theme.widget-text-2; font-size: Theme.font-11; font-weight: 500; }
+        Text { x: 160px; y: 147px; width: 128px; text: root.day-remaining-text; horizontal-alignment: right; color: Theme.widget-text-2; font-size: Theme.font-11; }
+        TouchArea { x: 0px; y: 40px; width: parent.width; height: parent.height - 40px; mouse-cursor: pointer; clicked => { root.open-main-view("today", 0); } }
+        if root.create-open: WidgetCreatePanel {
+            x: 10px; y: 40px; width: parent.width - 20px; height: parent.height - 50px;
+            heading: "新建提醒"; title-label: "提醒内容"; detail-label: "时间";
+            draft-title <=> root.create-title; draft-detail <=> root.create-time; status-text: root.create-status;
+            cancel => { root.create-open = false; root.create-status = ""; }
+            save(title, time) => { root.create-reminder(title, time); }
+        }
+    }
+    WindowDragStrip { x: 14px; y: 12px; width: parent.width - 138px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+}
+
+export component FocusWidgetWindow inherits Window {
+    title: "TimeHub 专注计时";
+    default-font-family: Theme.font-family;
+    icon: Icons.app-logo;
+    width: 304px;
+    height: 218px;
+    no-frame: true;
+    always-on-top: pinned;
+    background: transparent;
+
+    in property <string> focus-time-text;
+    in property <string> focus-task;
+    in property <bool> focus-running;
+    in property <float> focus-progress;
+    in property <int> focus-round;
+    in property <int> focus-total-minutes;
+    in-out property <bool> pinned: false;
+    in-out property <bool> create-open: false;
+    in-out property <string> create-title: "";
+    in-out property <string> create-minutes: "25";
+    in-out property <string> create-status: "";
+    callback begin-window-drag();
+    callback end-window-drag();
+    callback pin-changed(bool);
+    callback open-widget-settings(string);
+    callback focus-toggle();
+    callback focus-start();
+    callback focus-complete();
+    callback create-focus(string, string);
+    callback remove-widget();
+
+    DesktopCard {
+        width: parent.width;
+        height: parent.height;
+        CardTitle {
+            x: 14px; y: 12px; width: parent.width - 28px;
+            title: "专注计时";
+            icon: Icons.target;
+            pinned: root.pinned;
+            show-add: true;
+            show-remove: true;
+            drag-requested => { root.begin-window-drag(); }
+            add-clicked => { root.create-title = ""; root.create-status = ""; root.create-open = true; }
+            remove-clicked => { root.remove-widget(); }
+            pin-clicked => { root.pinned = !root.pinned; root.pin-changed(root.pinned); }
+            settings-clicked => { root.open-widget-settings("focus"); }
+        }
+        Rectangle {
+            x: 16px; y: 50px; width: 96px; height: 96px; border-radius: 48px;
+            background: @conic-gradient(Theme.widget-accent 0deg, Theme.widget-accent root.focus-progress * 360deg, Theme.widget-row root.focus-progress * 360deg, Theme.widget-row 360deg);
+            Rectangle { x: 5px; y: 5px; width: 86px; height: 86px; border-radius: 43px; background: Theme.widget-glass; }
+            Text { x: 8px; y: 25px; width: 80px; text: root.focus-time-text; color: Theme.widget-text-1; font-size: Theme.font-19; font-weight: 600; horizontal-alignment: center; }
+            Text { x: 8px; y: 52px; width: 80px; text: "剩余"; color: Theme.widget-text-3; font-size: Theme.font-10; horizontal-alignment: center; }
+        }
+        Text { x: 128px; y: 61px; width: 158px; text: root.focus-task; color: Theme.widget-text-1; font-size: Theme.font-13; overflow: elide; }
+        Text { x: 128px; y: 85px; width: 158px; text: "第 " + root.focus-round + " 轮 · 每轮 25 分钟"; color: Theme.widget-text-3; font-size: Theme.font-11; overflow: elide; }
+        Text { x: 128px; y: 105px; width: 158px; text: "已专注 " + root.focus-total-minutes + " 分钟"; color: Theme.widget-text-3; font-size: Theme.font-11; }
+        HorizontalLayout {
+            x: 128px; y: 129px; width: 60px; height: 8px; spacing: 5px;
+            for i in 4: Rectangle { width: 8px; height: 8px; border-radius: 4px; border-width: 1px; border-color: i < 3 ? Theme.widget-accent : Theme.widget-glass-border; background: i < 3 ? Theme.widget-accent : Theme.widget-row; }
+        }
+        HorizontalLayout {
+            x: 16px; y: 166px; width: parent.width - 32px; height: 30px; spacing: Theme.space-2;
+            FocusButton { horizontal-stretch: 1; label: root.focus-running ? "暂停" : "继续"; icon: root.focus-running ? Icons.pause : Icons.play; clicked => { root.focus-toggle(); } }
+            FocusButton { horizontal-stretch: 1; label: "提前完成"; icon: Icons.check; clicked => { root.focus-complete(); } }
+            FocusButton { horizontal-stretch: 1; label: root.focus-running ? "继续" : "开始"; icon: Icons.play; primary: true; clicked => { root.focus-start(); } }
+        }
+        if root.create-open: WidgetCreatePanel {
+            x: 10px; y: 42px; width: parent.width - 20px; height: parent.height - 52px;
+            heading: "新建专注任务"; title-label: "任务名称"; detail-label: "时长（分钟）";
+            draft-title <=> root.create-title; draft-detail <=> root.create-minutes; status-text: root.create-status;
+            cancel => { root.create-open = false; root.create-status = ""; }
+            save(title, minutes) => { root.create-focus(title, minutes); }
+        }
+    }
+    WindowDragStrip { x: 14px; y: 12px; width: parent.width - 138px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+}
+
+export component TodoWidgetWindow inherits Window {
+    title: "TimeHub 今日待办";
+    default-font-family: Theme.font-family;
+    icon: Icons.app-logo;
+    width: 304px;
+    height: 226px;
+    no-frame: true;
+    always-on-top: pinned;
+    background: transparent;
+
+    in property <[TodoItem]> today-todos;
+    in property <int> todo-completed-count;
+    in-out property <bool> pinned: false;
+    in-out property <bool> create-open: false;
+    in-out property <string> create-title: "";
+    in-out property <string> create-status: "";
+    callback begin-window-drag();
+    callback end-window-drag();
+    callback pin-changed(bool);
+    callback open-widget-settings(string);
+    callback toggle-todo(int);
+    callback add-widget-todo();
+    callback create-todo(string);
+    callback remove-widget();
+
+    DesktopCard {
+        width: parent.width;
+        height: parent.height;
+        CardTitle {
+            x: 14px; y: 12px; width: parent.width - 28px;
+            title: "今日待办";
+            icon: Icons.check;
+            pinned: root.pinned;
+            show-add: true;
+            show-remove: true;
+            drag-requested => { root.begin-window-drag(); }
+            add-clicked => { root.create-title = ""; root.create-status = ""; root.create-open = true; }
+            remove-clicked => { root.remove-widget(); }
+            pin-clicked => { root.pinned = !root.pinned; root.pin-changed(root.pinned); }
+            settings-clicked => { root.open-widget-settings("todo"); }
+        }
+        Rectangle {
+            x: 14px; y: 48px; width: parent.width - 28px; height: 5px; border-radius: 3px; background: Theme.widget-row;
+            Rectangle { width: parent.width * (root.today-todos.length == 0 ? 0 : root.todo-completed-count * 1.0 / root.today-todos.length); height: parent.height; border-radius: 3px; background: Theme.widget-accent; }
+        }
+        Text { x: 14px; y: 60px; text: "已完成 " + root.todo-completed-count + " / " + root.today-todos.length; color: Theme.widget-text-3; font-size: Theme.font-10-5; }
+        Text { x: 258px; y: 60px; width: 32px; text: root.today-todos.length == 0 ? "0%" : round(root.todo-completed-count * 100 / root.today-todos.length) + "%"; horizontal-alignment: right; color: Theme.widget-text-3; font-size: Theme.font-10-5; }
+        VerticalLayout {
+            x: 10px; y: 82px; width: parent.width - 20px; height: parent.height - 82px; spacing: 0px;
+            for todo[i] in root.today-todos: WidgetTodoRow {
+                visible: i < 4;
+                todo: todo;
+                tag-text: i == 2 ? "家庭" : (i == 3 ? "习惯" : "");
+                toggled(id) => { root.toggle-todo(id); }
+            }
+            Rectangle {
+                height: 28px; border-radius: 9px; border-width: 1.5px; border-color: add-touch.has-hover ? Theme.widget-accent : Theme.widget-glass-border;
+                HorizontalLayout {
+                    alignment: center; cross-axis-alignment: center; spacing: 5px;
+                    SvgIcon { source: Icons.plus; size: 14px; tint: add-touch.has-hover ? Theme.widget-accent : Theme.widget-text-3; }
+                    Text { text: "添加待办"; color: add-touch.has-hover ? Theme.widget-accent : Theme.widget-text-3; font-size: Theme.font-11-5; vertical-alignment: center; }
+                }
+                add-touch := TouchArea { mouse-cursor: pointer; clicked => { root.create-title = ""; root.create-status = ""; root.create-open = true; } }
+            }
+        }
+        if root.create-open: WidgetCreatePanel {
+            x: 10px; y: 42px; width: parent.width - 20px; height: parent.height - 52px;
+            heading: "新建今日待办"; title-label: "待办标题"; show-detail: false;
+            draft-title <=> root.create-title; status-text: root.create-status;
+            cancel => { root.create-open = false; root.create-status = ""; }
+            save(title, detail) => { root.create-todo(title); }
+        }
+    }
+    WindowDragStrip { x: 14px; y: 12px; width: parent.width - 138px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+}
+
+export component NotesWidgetWindow inherits Window {
+    title: "TimeHub 便签";
+    default-font-family: Theme.font-family;
+    icon: Icons.app-logo;
+    width: 304px;
+    height: 280px;
+    no-frame: true;
+    always-on-top: pinned;
+    background: transparent;
+
+    in property <int> note-id;
+    in-out property <string> note-title: "";
+    in-out property <string> note-content: "";
+    in-out property <bool> editing-dirty: false;
+    in-out property <string> save-status: "";
+    in-out property <bool> pinned: false;
+    callback begin-window-drag();
+    callback end-window-drag();
+    callback pin-changed(bool);
+    callback open-widget-settings(string);
+    callback create-note-card();
+    callback save-note(int, string, string);
+    callback delete-note(int);
+
+    DesktopCard {
+        width: parent.width;
+        height: parent.height;
+        CardTitle {
+            x: 14px; y: 12px; width: parent.width - 28px;
+            title: root.note-title == "" ? "新便签" : root.note-title;
+            icon: Icons.note;
+            pinned: root.pinned;
+            show-add: true;
+            show-remove: true;
+            drag-requested => { root.begin-window-drag(); }
+            add-clicked => { root.create-note-card(); }
+            remove-clicked => { root.delete-note(root.note-id); }
+            pin-clicked => { root.pinned = !root.pinned; root.pin-changed(root.pinned); }
+            settings-clicked => { root.open-widget-settings("notes"); }
+        }
+        Rectangle {
+            x: 14px; y: 48px; width: parent.width - 28px; height: 34px;
+            border-radius: Theme.r-md; border-width: 1px;
+            border-color: title-input.has-focus ? Theme.widget-accent : Theme.widget-glass-border;
+            background: Theme.bg-surface-2;
+            Text { x: 10px; width: parent.width - 20px; height: parent.height; visible: root.note-title == ""; text: "便签标题"; color: Theme.widget-text-3; font-size: Theme.font-11-5; vertical-alignment: center; }
+            title-input := TextInput {
+                x: 10px; width: parent.width - 20px; height: parent.height;
+                text <=> root.note-title; color: Theme.widget-text-1; font-size: Theme.font-12; font-weight: 600;
+                vertical-alignment: center; selection-foreground-color: Theme.widget-on-accent; selection-background-color: Theme.widget-accent;
+                edited => { root.editing-dirty = true; root.save-status = ""; }
+            }
+        }
+        Rectangle {
+            x: 14px; y: 90px; width: parent.width - 28px; height: 138px;
+            border-radius: Theme.r-md; border-width: 1px;
+            border-color: content-input.has-focus ? Theme.widget-accent : Theme.widget-glass-border;
+            background: Theme.bg-surface-2;
+            Text { x: 10px; y: 8px; width: parent.width - 20px; visible: root.note-content == ""; text: "在这里输入便签正文…"; color: Theme.widget-text-3; font-size: Theme.font-11; }
+            content-input := TextInput {
+                x: 10px; y: 8px; width: parent.width - 20px; height: parent.height - 16px;
+                text <=> root.note-content; color: Theme.widget-text-1; font-size: Theme.font-12; wrap: word-wrap;
+                selection-foreground-color: Theme.widget-on-accent; selection-background-color: Theme.widget-accent;
+                edited => { root.editing-dirty = true; root.save-status = ""; }
+            }
+        }
+        Text {
+            x: 16px; y: 241px; width: 170px; height: 26px;
+            text: root.save-status != "" ? root.save-status : (root.editing-dirty ? "有未保存的修改" : "已保存");
+            color: root.editing-dirty ? Theme.widget-danger : Theme.widget-text-3;
+            font-size: Theme.font-10-5; vertical-alignment: center;
+        }
+        Rectangle {
+            x: parent.width - 86px; y: 239px; width: 72px; height: 30px;
+            border-radius: Theme.r-md;
+            background: root.editing-dirty ? Theme.widget-accent : Theme.widget-row;
+            Text { text: "保存内容"; color: root.editing-dirty ? Theme.widget-on-accent : Theme.widget-text-3; font-size: Theme.font-11; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+            save-touch := TouchArea {
+                enabled: root.editing-dirty;
+                mouse-cursor: root.editing-dirty ? pointer : default;
+                clicked => {
+                    if root.editing-dirty {
+                        root.save-note(root.note-id, root.note-title, root.note-content);
+                        root.editing-dirty = false;
+                        root.save-status = "已保存";
+                    }
+                }
+            }
+        }
+    }
+    WindowDragStrip { x: 14px; y: 12px; width: parent.width - 138px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+}

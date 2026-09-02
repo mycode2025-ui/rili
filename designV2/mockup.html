@@ -1,0 +1,2027 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TimeHub Desktop · 界面设计方案高保真原型 V2.0</title>
+<style>
+/* ============================================================
+   TimeHub Design Tokens
+   —— 所有界面元素只允许引用变量，禁止裸写颜色值
+   ============================================================ */
+:root{
+  --bg-app:#F3F5F9; --bg-surface:#FFFFFF; --bg-surface-2:#F7F8FB; --bg-sidebar:#F7F8FB;
+  --bg-hover:#EEF1F7; --bg-selected:#E8F0FE; --bg-scrim:rgba(16,20,30,.32);
+  --border-subtle:#E6E9F0; --border-default:#D8DDE8; --border-strong:#B9C0D0;
+  --text-1:#1B1F2A; --text-2:#5A6273; --text-3:#8A92A5; --text-disabled:#B4BAC7;
+  --accent:#2E6BE6; --accent-hover:#1F5BD1; --accent-pressed:#1A4FB8; --accent-subtle:#E8F0FE; --on-accent:#FFFFFF;
+  --danger:#D93A49; --danger-bg:#FDECEE; --warning:#C77700; --warning-bg:#FFF4E5;
+  --success:#0E9F6E; --success-bg:#E6F6EF; --info:#2E6BE6;
+  --weekend:#B4544A; --holiday:#D93A49; --holiday-bg:#FDECEE;
+  --workday-adj:#C77700; --workday-adj-bg:#FFF4E5; --jieqi:#0E9F6E; --lunar:#8A92A5;
+  --c-blue:#2E6BE6; --c-green:#0E9F6E; --c-orange:#C77700; --c-red:#D93A49;
+  --c-purple:#7C4DFF; --c-cyan:#0891B2; --c-pink:#DB2777; --c-lime:#65A30D;
+  --r-sm:4px; --r-md:8px; --r-lg:12px; --r-xl:16px; --r-pill:999px;
+  --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-5:20px; --s-6:24px; --s-8:32px;
+  --shadow-1:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.10);
+  --shadow-2:0 4px 8px rgba(16,24,40,.06),0 2px 4px rgba(16,24,40,.06);
+  --shadow-3:0 12px 24px rgba(16,24,40,.10),0 4px 8px rgba(16,24,40,.06);
+  --ease-std:cubic-bezier(.33,0,.67,1);
+  --h-titlebar:48px; --h-toolbar:56px; --w-sidebar:240px; --w-inspector:320px; --h-status:28px;
+}
+html[data-theme="dark"]{
+  --bg-app:#14161C; --bg-surface:#1C1F27; --bg-surface-2:#232733; --bg-sidebar:#181B22;
+  --bg-hover:#262B36; --bg-selected:#1E2A45; --bg-scrim:rgba(0,0,0,.55);
+  --border-subtle:#2A2F3C; --border-default:#363C4A; --border-strong:#4A5163;
+  --text-1:#E8EAF0; --text-2:#A2A9BA; --text-3:#6F7789; --text-disabled:#4E5666;
+  --accent:#6C9BFF; --accent-hover:#85ACFF; --accent-pressed:#4E82F0; --accent-subtle:#1E2A45; --on-accent:#0B1020;
+  --danger:#FF6B78; --danger-bg:#3A1E24; --warning:#E9A23B; --warning-bg:#3A2E18;
+  --success:#4ADE9B; --success-bg:#16342A; --info:#6C9BFF;
+  --weekend:#E0837A; --holiday:#FF6B78; --holiday-bg:#3A1E24;
+  --workday-adj:#E9A23B; --workday-adj-bg:#3A2E18; --jieqi:#4ADE9B; --lunar:#6F7789;
+  --shadow-1:0 1px 2px rgba(0,0,0,.40);
+  --shadow-2:0 4px 10px rgba(0,0,0,.45);
+  --shadow-3:0 16px 32px rgba(0,0,0,.55);
+}
+
+/* ============================ 基础重置 ============================ */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:#0E1117; color:var(--text-1);
+  font-family:"Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI","PingFang SC",system-ui,-apple-system,sans-serif;
+  font-size:13px; line-height:20px; -webkit-font-smoothing:antialiased;
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input,select{font:inherit;color:inherit}
+.ic{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.6;
+    stroke-linecap:round;stroke-linejoin:round}
+.ic-20{width:20px;height:20px}
+.ic-14{width:14px;height:14px}
+
+/* ============================ 原型导航条（非产品界面） ============================ */
+.proto-bar{
+  position:sticky;top:0;z-index:100;display:flex;align-items:center;gap:var(--s-2);
+  padding:10px 16px;background:#151922;border-bottom:1px solid #262C3A;flex-wrap:wrap;
+}
+.proto-bar .brand{color:#E8EAF0;font-weight:600;font-size:13px;margin-right:8px}
+.proto-bar .brand small{color:#7C869B;font-weight:400;margin-left:6px;font-size:11px}
+.pbtn{
+  padding:5px 11px;border-radius:var(--r-pill);color:#A9B2C4;font-size:12px;
+  background:#1E242F;border:1px solid #2A313F;transition:all .15s var(--ease-std);
+}
+.pbtn:hover{background:#28303E;color:#E8EAF0}
+.pbtn.on{background:#2E6BE6;border-color:#2E6BE6;color:#fff;font-weight:600}
+.proto-sp{flex:1}
+.proto-bar .hint{color:#6B7488;font-size:11px}
+
+/* ============================ 舞台 / 画面切换 ============================ */
+.stage{padding:24px;display:flex;justify-content:center;overflow:auto}
+.stage-inner{transform-origin:top center;transition:transform .2s var(--ease-std)}
+.screen[hidden]{display:none}
+.screen-head{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
+.screen-head h2{font-size:14px;font-weight:600;color:#E8EAF0}
+.screen-head p{font-size:12px;color:#7C869B}
+
+/* ============================ 窗口外框 ============================ */
+.win-wrap{position:relative}
+.win{
+  width:1280px;height:820px;display:flex;flex-direction:column;
+  background:var(--bg-app);border-radius:var(--r-xl);overflow:hidden;
+  box-shadow:0 24px 64px rgba(0,0,0,.55),0 0 0 1px var(--border-default);
+}
+.titlebar{
+  height:var(--h-titlebar);flex:none;display:flex;align-items:center;gap:var(--s-3);
+  padding-left:var(--s-4);background:var(--bg-sidebar);border-bottom:1px solid var(--border-subtle);
+}
+.tb-logo{width:22px;height:22px;border-radius:6px;background:var(--accent);color:var(--on-accent);
+  display:grid;place-items:center;font-size:11px;font-weight:700}
+.tb-name{font-size:13px;font-weight:600;color:var(--text-1)}
+.tb-search{
+  margin-left:var(--s-5);width:320px;height:30px;display:flex;align-items:center;gap:7px;
+  padding:0 10px;border-radius:var(--r-pill);background:var(--bg-surface);
+  border:1px solid var(--border-default);color:var(--text-3);font-size:12px;
+}
+.tb-search .kbd{
+  margin-left:auto;font-size:10px;padding:1px 5px;border-radius:var(--r-sm);
+  background:var(--bg-surface-2);border:1px solid var(--border-subtle);color:var(--text-3);
+}
+.tb-sp{flex:1}
+.tb-icon{width:30px;height:30px;border-radius:var(--r-md);display:grid;place-items:center;color:var(--text-2)}
+.tb-icon:hover{background:var(--bg-hover);color:var(--text-1)}
+.tb-sep{width:1px;height:20px;background:var(--border-default);margin:0 2px}
+.avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#7C4DFF,#2E6BE6);
+  color:#fff;font-size:11px;font-weight:600;display:grid;place-items:center}
+.win-btns{display:flex;align-items:center;gap:2px}
+.win-btn{width:40px;height:var(--h-titlebar);display:grid;place-items:center;color:var(--text-2)}
+.win-btn:hover{background:var(--bg-hover)}
+.win-btn.close:hover{background:#D93A49;color:#fff}
+
+.win-body{flex:1;display:flex;min-height:0}
+
+/* ============================ 侧边栏 ============================ */
+.sidebar{
+  width:var(--w-sidebar);flex:none;display:flex;flex-direction:column;
+  background:var(--bg-sidebar);border-right:1px solid var(--border-subtle);
+}
+.side-pad{padding:var(--s-3)}
+.btn-primary{
+  width:100%;height:34px;border-radius:var(--r-md);background:var(--accent);color:var(--on-accent);
+  font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;
+  box-shadow:var(--shadow-1);transition:background .12s var(--ease-std);
+}
+.btn-primary:hover{background:var(--accent-hover)}
+.nav{display:flex;flex-direction:column;gap:2px;margin-top:var(--s-3)}
+.nav-item{
+  height:34px;display:flex;align-items:center;gap:10px;padding:0 10px;border-radius:var(--r-md);
+  color:var(--text-2);font-size:13px;position:relative;
+}
+.nav-item:hover{background:var(--bg-hover);color:var(--text-1)}
+.nav-item.on{background:var(--accent-subtle);color:var(--accent);font-weight:600}
+.nav-item.on::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;
+  border-radius:0 3px 3px 0;background:var(--accent)}
+.nav-item .badge{margin-left:auto;font-size:11px;color:var(--text-3);font-variant-numeric:tabular-nums}
+.nav-item.on .badge{color:var(--accent)}
+.side-sec{margin-top:var(--s-5)}
+.side-sec-t{font-size:11px;font-weight:600;color:var(--text-3);letter-spacing:.06em;
+  padding:0 10px;margin-bottom:6px;display:flex;align-items:center}
+.side-sec-t .sp{flex:1}
+.side-sec-t .mini{width:20px;height:20px;border-radius:var(--r-sm);display:grid;place-items:center;color:var(--text-3)}
+.mini-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;padding:0 6px}
+.mini-cal .hd{height:20px;display:grid;place-items:center;font-size:10px;color:var(--text-3)}
+.mini-cal .d{height:26px;display:grid;place-items:center;font-size:11px;border-radius:var(--r-sm);
+  color:var(--text-1);font-variant-numeric:tabular-nums}
+.mini-cal .d.out{color:var(--text-disabled)}
+.mini-cal .d.we{color:var(--weekend)}
+.mini-cal .d.today{background:var(--accent);color:var(--on-accent);font-weight:700}
+.cal-list{display:flex;flex-direction:column;gap:1px;margin-top:6px}
+.cal-row{height:28px;display:flex;align-items:center;gap:8px;padding:0 10px;border-radius:var(--r-sm);color:var(--text-1)}
+.cal-row:hover{background:var(--bg-hover)}
+.cbx{width:14px;height:14px;border-radius:4px;flex:none;display:grid;place-items:center;color:#fff}
+.cbx i{width:8px;height:8px;border-style:solid;border-color:currentColor;border-width:0 2px 2px 0;
+  transform:rotate(45deg) translate(-1px,-1px)}
+.cbx.off{background:transparent!important;border:1.5px solid var(--border-strong)}
+.cbx.off i{display:none}
+.cal-row .n{flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-row .tag{font-size:10px;color:var(--text-3);border:1px solid var(--border-default);
+  border-radius:var(--r-sm);padding:0 4px}
+.cd-card{margin:0 10px;padding:10px;border-radius:var(--r-md);background:var(--bg-surface);
+  border:1px solid var(--border-subtle)}
+.cd-card .t{font-size:12px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cd-card .v{font-size:18px;font-weight:700;color:var(--text-1);font-variant-numeric:tabular-nums;margin-top:2px}
+.cd-card .v span{font-size:11px;font-weight:500;color:var(--text-3);margin-left:3px}
+
+/* ============================ 主区 / 工具栏 ============================ */
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.toolbar{
+  height:var(--h-toolbar);flex:none;display:flex;align-items:center;gap:var(--s-3);
+  padding:0 var(--s-5);background:var(--bg-surface);border-bottom:1px solid var(--border-subtle);
+}
+.date-nav{display:flex;align-items:center;gap:2px}
+.icon-btn{width:30px;height:30px;border-radius:var(--r-md);display:grid;place-items:center;color:var(--text-2)}
+.icon-btn:hover{background:var(--bg-hover);color:var(--text-1)}
+.btn-ghost{height:30px;padding:0 12px;border-radius:var(--r-md);color:var(--text-1);font-size:13px;
+  display:flex;align-items:center;gap:6px}
+.btn-ghost:hover{background:var(--bg-hover)}
+.period-title{font-size:18px;font-weight:700;color:var(--text-1)}
+.tb-sp2{flex:1}
+.seg{display:flex;background:var(--bg-surface-2);border:1px solid var(--border-default);
+  border-radius:var(--r-md);padding:2px;gap:2px}
+.seg button{height:26px;padding:0 12px;border-radius:6px;font-size:12px;color:var(--text-2)}
+.seg button:hover{color:var(--text-1)}
+.seg button.on{background:var(--bg-surface);color:var(--text-1);font-weight:600;box-shadow:var(--shadow-1)}
+.content{flex:1;display:flex;min-height:0}
+.view-area{flex:1;display:flex;flex-direction:column;min-width:0;padding:var(--s-4)}
+.statusbar{
+  height:var(--h-status);flex:none;display:flex;align-items:center;gap:var(--s-3);
+  padding:0 var(--s-4);background:var(--bg-sidebar);border-top:1px solid var(--border-subtle);
+  font-size:11px;color:var(--text-3);
+}
+.statusbar .dot{width:6px;height:6px;border-radius:50%;background:var(--success)}
+.statusbar .sp{flex:1}
+
+/* ============================ 月视图 ============================ */
+.mgrid{flex:1;display:flex;flex-direction:column;background:var(--bg-surface);
+  border:1px solid var(--border-subtle);border-radius:var(--r-lg);overflow:hidden}
+.mhead{display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--border-subtle)}
+.mhead div{padding:8px 10px;font-size:12px;color:var(--text-2);font-weight:600}
+.mhead div.we{color:var(--weekend)}
+.mbody{flex:1;display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:repeat(6,1fr)}
+.mcell{
+  border-right:1px solid var(--border-subtle);border-bottom:1px solid var(--border-subtle);
+  padding:5px 6px;display:flex;flex-direction:column;gap:2px;min-height:0;overflow:hidden;
+}
+.mcell:nth-child(7n){border-right:none}
+.mcell:nth-child(n+36){border-bottom:none}
+.mcell:hover{background:var(--bg-hover)}
+.mcell.today{background:var(--accent-subtle)}
+.mcell.today:hover{background:var(--accent-subtle)}
+.mcell.out{background:var(--bg-surface-2)}
+.mcell.out .dnum{color:var(--text-disabled)}
+.cell-top{display:flex;align-items:center;gap:4px}
+.dnum{
+  min-width:22px;height:22px;padding:0 5px;border-radius:var(--r-pill);display:grid;place-items:center;
+  font-size:13px;color:var(--text-1);font-variant-numeric:tabular-nums;
+}
+.dnum.we{color:var(--weekend)}
+.dnum.today{background:var(--accent);color:var(--on-accent);font-weight:700}
+.badge{font-size:10px;line-height:14px;padding:0 4px;border-radius:3px;font-weight:600;flex:none}
+.badge.hol{background:var(--holiday-bg);color:var(--holiday)}
+.badge.wk{background:var(--workday-adj-bg);color:var(--workday-adj)}
+.lunar{font-size:11px;color:var(--lunar);padding-left:2px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.lunar.jq{color:var(--jieqi);font-weight:600}
+.lunar.fest{color:var(--holiday);font-weight:600}
+.ev-list{display:flex;flex-direction:column;gap:2px;margin-top:2px;min-height:0}
+.ev{display:flex;align-items:center;gap:5px;height:18px;padding:0 5px;border-radius:var(--r-sm);
+  font-size:11px;color:var(--text-1);background:var(--bg-surface-2);overflow:hidden}
+.ev .bar{width:3px;height:10px;border-radius:2px;flex:none}
+.ev .tm{color:var(--text-2);font-variant-numeric:tabular-nums;flex:none}
+.ev .tt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.more{font-size:11px;color:var(--text-3);padding-left:5px}
+.more:hover{color:var(--accent)}
+
+/* ============================ 右侧检查器 ============================ */
+.inspector{
+  width:var(--w-inspector);flex:none;display:flex;flex-direction:column;
+  background:var(--bg-surface);border-left:1px solid var(--border-subtle);
+}
+.insp-head{padding:var(--s-4) var(--s-4) var(--s-2)}
+.insp-date{font-size:16px;font-weight:700;color:var(--text-1)}
+.insp-sub{font-size:12px;color:var(--text-2);margin-top:2px}
+.insp-sec{padding:0 var(--s-4) var(--s-4)}
+.insp-sec-t{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;
+  color:var(--text-3);letter-spacing:.06em;margin:var(--s-3) 0 8px}
+.insp-sec-t .sp{flex:1}
+.agenda{display:flex;flex-direction:column;gap:2px}
+.ag-row{display:flex;gap:10px;padding:7px 8px;border-radius:var(--r-md);align-items:flex-start}
+.ag-row:hover{background:var(--bg-hover)}
+.ag-row .rail{width:3px;border-radius:2px;align-self:stretch;flex:none}
+.ag-row .when{font-size:11px;color:var(--text-3);font-variant-numeric:tabular-nums;width:34px;flex:none}
+.ag-row .what{flex:1;min-width:0}
+.ag-row .what b{font-weight:600;color:var(--text-1);font-size:13px;display:block;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ag-row .what small{color:var(--text-3);font-size:11px}
+.chip{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:var(--r-pill);
+  background:var(--bg-surface-2);border:1px solid var(--border-default);font-size:11px;color:var(--text-2)}
+.chip.on{background:var(--accent-subtle);border-color:transparent;color:var(--accent);font-weight:600}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.todo-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--r-md)}
+.todo-row:hover{background:var(--bg-hover)}
+.todo-row .box{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--border-strong);
+  flex:none;display:grid;place-items:center}
+.todo-row .box.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.todo-row .box.on i{width:7px;height:7px;border-style:solid;border-color:currentColor;
+  border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.todo-row .tx{flex:1;font-size:13px;color:var(--text-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.todo-row.done .tx{color:var(--text-disabled);text-decoration:line-through}
+.todo-row .meta{font-size:11px;color:var(--text-3);flex:none}
+
+/* ============================ 周视图 ============================ */
+.wview{flex:1;display:flex;flex-direction:column;background:var(--bg-surface);
+  border:1px solid var(--border-subtle);border-radius:var(--r-lg);overflow:hidden}
+.w-head{display:flex;border-bottom:1px solid var(--border-subtle);flex:none}
+.w-gutter{width:64px;flex:none;border-right:1px solid var(--border-subtle)}
+.w-day{flex:1;text-align:center;padding:7px 0;border-right:1px solid var(--border-subtle)}
+.w-day:last-child{border-right:none}
+.w-day .wd{font-size:11px;color:var(--text-3)}
+.w-day .dd{font-size:16px;font-weight:700;color:var(--text-1);font-variant-numeric:tabular-nums;
+  width:26px;height:26px;margin:1px auto 0;line-height:26px;border-radius:50%}
+.w-day.today .dd{background:var(--accent);color:var(--on-accent)}
+.w-day.we .wd,.w-day.we .dd{color:var(--weekend)}
+.w-allday{display:flex;border-bottom:1px solid var(--border-subtle);flex:none}
+.w-allday .lb{width:64px;flex:none;font-size:10px;color:var(--text-3);padding:8px 6px;
+  border-right:1px solid var(--border-subtle)}
+.w-allday .cells{flex:1;display:flex}
+.w-allday .cells > div{flex:1;border-right:1px solid var(--border-subtle);padding:5px 3px}
+.w-allday .cells > div:last-child{border-right:none}
+.w-ad{height:22px;border-radius:var(--r-sm);padding:0 6px;font-size:11px;line-height:22px;
+  color:#fff;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.w-scroll{flex:1;overflow:hidden;position:relative}
+.w-grid{position:relative}
+.w-row{height:40px;display:flex;border-bottom:1px solid var(--border-subtle)}
+.w-row .hh{width:64px;flex:none;font-size:11px;color:var(--text-3);text-align:right;padding-right:8px;
+  transform:translateY(-7px);font-variant-numeric:tabular-nums}
+.w-row .ln{flex:1;display:flex}
+.w-row .ln > div{flex:1;border-right:1px solid var(--border-subtle)}
+.w-row .ln > div:last-child{border-right:none}
+.w-row.off .ln{background:var(--bg-surface-2)}
+.w-events{position:absolute;left:64px;right:0;top:0;bottom:0;display:flex;transform:translateY(480px)}
+.w-col{flex:1;position:relative}
+.w-col.today-col{background:rgba(46,107,230,.05)}
+html[data-theme="dark"] .w-col.today-col{background:rgba(108,155,255,.08)}
+.w-ev{position:absolute;left:3px;right:3px;border-radius:var(--r-sm);padding:3px 7px;
+  font-size:11px;line-height:15px;overflow:hidden;box-shadow:var(--shadow-1);
+  background:var(--bg-surface-2);border:1px solid var(--border-subtle);
+  transition:box-shadow .12s var(--ease-std)}
+.w-ev:hover{box-shadow:var(--shadow-2)}
+.w-ev b{font-weight:600;font-size:12px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-1)}
+.w-ev .in{color:var(--text-2)}
+.w-ev .bdr{position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px}
+.w-ev .in{padding-left:5px}
+.now-line{position:absolute;left:0;right:0;height:1px;background:var(--danger);z-index:5}
+.now-line::before{content:"";position:absolute;left:-4px;top:-3.5px;width:8px;height:8px;
+  border-radius:50%;background:var(--danger)}
+.now-tag{position:absolute;left:-60px;top:-9px;font-size:10px;font-weight:700;color:#fff;
+  background:var(--danger);border-radius:3px;padding:1px 4px;font-variant-numeric:tabular-nums}
+
+/* ============================ 今天页 ============================ */
+.today-wrap{flex:1;display:flex;flex-direction:column;gap:var(--s-4);min-height:0}
+.card{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--r-lg);
+  box-shadow:var(--shadow-1)}
+.hero{display:flex;align-items:center;gap:var(--s-6);padding:var(--s-5)}
+.hero .big{font-size:64px;line-height:1;font-weight:700;color:var(--text-1);
+  font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.hero .meta{display:flex;flex-direction:column;gap:2px}
+.hero .meta .l1{font-size:20px;font-weight:600;color:var(--text-1)}
+.hero .meta .l2{font-size:13px;color:var(--text-2)}
+.hero .facts{margin-left:auto;display:flex;gap:var(--s-6)}
+.fact .k{font-size:11px;color:var(--text-3)}
+.fact .v{font-size:20px;font-weight:700;color:var(--text-1);font-variant-numeric:tabular-nums}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:var(--s-4);min-height:0;flex:1}
+.card-h{display:flex;align-items:center;gap:8px;padding:var(--s-3) var(--s-4);
+  border-bottom:1px solid var(--border-subtle)}
+.card-h .t{font-size:13px;font-weight:600;color:var(--text-1)}
+.card-h .sp{flex:1}
+.card-b{padding:var(--s-3) var(--s-4) var(--s-4)}
+.next-up{
+  display:flex;align-items:center;gap:10px;margin:var(--s-3) var(--s-4) 0;
+  padding:9px 12px;border-radius:var(--r-md);background:var(--accent-subtle);color:var(--accent);
+  font-size:12px;font-weight:600;
+}
+.next-up .sp{flex:1}
+.cd-row{display:flex;gap:var(--s-3)}
+.cd-item{flex:1;padding:12px;border-radius:var(--r-md);border:1px solid var(--border-subtle);
+  background:var(--bg-surface-2)}
+.cd-item .t{font-size:12px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cd-item .v{font-size:22px;font-weight:700;color:var(--text-1);font-variant-numeric:tabular-nums;margin-top:2px}
+.cd-item .v small{font-size:11px;font-weight:500;color:var(--text-3);margin-left:3px}
+.cd-item .d{font-size:11px;color:var(--text-3);margin-top:2px}
+.prog{margin-top:var(--s-4)}
+.prog .pl{display:flex;font-size:12px;color:var(--text-2);margin-bottom:6px}
+.prog .pl .sp{flex:1}
+.prog .bar{height:8px;border-radius:var(--r-pill);background:var(--bg-surface-2);overflow:hidden;
+  border:1px solid var(--border-subtle)}
+.prog .bar i{display:block;height:100%;background:var(--accent);border-radius:var(--r-pill)}
+
+/* ============================ 四象限 ============================ */
+.quad-wrap{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:var(--s-3)}
+.quad{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--r-lg);
+  display:flex;flex-direction:column;overflow:hidden}
+.quad-h{display:flex;align-items:center;gap:8px;padding:10px var(--s-3);border-bottom:1px solid var(--border-subtle)}
+.quad-h .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.quad-h .t{font-size:13px;font-weight:600;color:var(--text-1)}
+.quad-h .s{font-size:11px;color:var(--text-3)}
+.quad-h .cnt{margin-left:auto;font-size:11px;color:var(--text-3);
+  background:var(--bg-surface-2);border-radius:var(--r-pill);padding:1px 7px}
+.quad-b{flex:1;padding:var(--s-2);display:flex;flex-direction:column;gap:6px;overflow:hidden}
+.task{display:flex;gap:8px;padding:8px 10px;border-radius:var(--r-md);border:1px solid var(--border-subtle);
+  background:var(--bg-surface)}
+.task:hover{box-shadow:var(--shadow-2);border-color:var(--border-default)}
+.task .box{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--border-strong);
+  flex:none;display:grid;place-items:center;margin-top:2px}
+.task .box.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.task .box.on i{width:7px;height:7px;border-style:solid;border-color:currentColor;
+  border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.task .body{flex:1;min-width:0}
+.task .tt{font-size:13px;color:var(--text-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.task .mt{display:flex;gap:8px;align-items:center;margin-top:4px}
+.task .mt span{font-size:11px;color:var(--text-3)}
+.task .mt .red{color:var(--danger)}
+.drop-hint{border:1.5px dashed var(--border-strong);border-radius:var(--r-md);height:38px;
+  display:grid;place-items:center;color:var(--text-3);font-size:11px}
+
+/* ============================ 快速面板 ============================ */
+.qp-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.qp{
+  width:460px;height:640px;background:var(--bg-surface);border:1px solid var(--border-default);
+  border-radius:var(--r-xl);box-shadow:var(--shadow-3);display:flex;overflow:hidden;
+}
+.qp-l{width:224px;flex:none;border-right:1px solid var(--border-subtle);display:flex;flex-direction:column}
+.qp-r{flex:1;display:flex;flex-direction:column}
+.qp-date{padding:var(--s-4) var(--s-4) var(--s-3)}
+.qp-d1{font-size:44px;line-height:1;font-weight:700;color:var(--text-1);font-variant-numeric:tabular-nums}
+.qp-d2{font-size:13px;color:var(--text-2);margin-top:4px}
+.qp-sum{display:flex;gap:6px;margin:var(--s-2) var(--s-4) 0}
+.qp-sum .s{flex:1;text-align:center;padding:7px 0;border-radius:var(--r-md);
+  background:var(--bg-surface-2);border:1px solid var(--border-subtle)}
+.qp-sum .s .v{font-size:16px;font-weight:700;color:var(--text-1);font-variant-numeric:tabular-nums}
+.qp-sum .s .k{font-size:10px;color:var(--text-3)}
+.qp-list{flex:1;padding:var(--s-3)}
+.qp-lg{font-size:11px;font-weight:600;color:var(--text-3);letter-spacing:.06em;margin:0 4px 6px}
+.qp-clock{font-size:34px;font-weight:700;color:var(--text-1);font-variant-numeric:tabular-nums;
+  padding:var(--s-4) var(--s-4) 0;display:flex;align-items:baseline;gap:6px}
+.qp-clock small{font-size:13px;font-weight:500;color:var(--text-3)}
+.qp-wx{display:flex;align-items:center;gap:8px;padding:6px var(--s-4) var(--s-3);
+  font-size:12px;color:var(--text-2)}
+.qp-nav{height:42px;border-top:1px solid var(--border-subtle);display:flex;align-items:center;
+  justify-content:space-around;flex:none}
+.qp-nav button{width:32px;height:32px;border-radius:var(--r-md);display:grid;place-items:center;color:var(--text-3)}
+.qp-nav button:hover{background:var(--bg-hover);color:var(--text-1)}
+.taskbar{height:42px;background:rgba(28,31,39,.94);border-radius:var(--r-lg);display:flex;
+  align-items:center;gap:8px;padding:0 14px;color:#C9D0DE;font-size:11px;box-shadow:var(--shadow-2)}
+
+/* ============================ 对话框 ============================ */
+.scrim{position:absolute;inset:0;background:var(--bg-scrim);display:grid;place-items:center;
+  border-radius:var(--r-xl)}
+.dlg{width:520px;background:var(--bg-surface);border-radius:var(--r-xl);box-shadow:var(--shadow-3);
+  border:1px solid var(--border-default);overflow:hidden}
+.dlg-h{display:flex;align-items:center;gap:8px;padding:var(--s-4) var(--s-5) var(--s-3)}
+.dlg-h .t{font-size:15px;font-weight:700;color:var(--text-1);flex:1}
+.dlg-b{padding:0 var(--s-5) var(--s-4);display:flex;flex-direction:column;gap:var(--s-3)}
+.fld{display:flex;flex-direction:column;gap:5px}
+.fld label{font-size:11px;color:var(--text-3)}
+.inp{height:34px;border-radius:var(--r-md);border:1px solid var(--border-default);
+  background:var(--bg-surface-2);padding:0 10px;color:var(--text-1);font-size:13px;display:flex;
+  align-items:center;gap:8px}
+.inp.focus{border-color:var(--accent);background:var(--bg-surface);box-shadow:0 0 0 3px var(--accent-subtle)}
+.inp .ph{color:var(--text-3)}
+.inp .sp{flex:1}
+.inp .tail{font-size:11px;color:var(--text-3)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:var(--s-3)}
+.nlp{margin-top:2px;padding:9px 10px;border-radius:var(--r-md);background:var(--success-bg);
+  border:1px solid rgba(14,159,110,.28);color:var(--success);font-size:11px}
+.nlp .chips{margin-top:6px;display:flex;gap:5px;flex-wrap:wrap}
+.nlp .chips span{background:var(--bg-surface);border:1px solid var(--border-default);
+  border-radius:var(--r-sm);padding:1px 6px;color:var(--text-2);font-size:11px}
+.fold{border-top:1px solid var(--border-subtle);padding-top:var(--s-3)}
+.fold summary{cursor:pointer;font-size:12px;color:var(--text-2);display:flex;align-items:center;gap:6px;
+  list-style:none}
+.fold summary::-webkit-details-marker{display:none}
+.fold[open] summary .ar{transform:rotate(90deg)}
+.fold .fb{margin-top:var(--s-3);display:flex;flex-direction:column;gap:var(--s-3)}
+.dlg-f{display:flex;align-items:center;gap:var(--s-2);padding:var(--s-3) var(--s-5);
+  border-top:1px solid var(--border-subtle);background:var(--bg-surface-2)}
+.dlg-f .sp{flex:1}
+.btn{height:32px;padding:0 14px;border-radius:var(--r-md);font-size:13px;display:inline-flex;
+  align-items:center;gap:6px;border:1px solid var(--border-default);color:var(--text-1);
+  background:var(--bg-surface)}
+.btn:hover{background:var(--bg-hover)}
+.btn.p{background:var(--accent);color:var(--on-accent);border-color:transparent;font-weight:600}
+.btn.p:hover{background:var(--accent-hover)}
+.switch{width:36px;height:20px;border-radius:var(--r-pill);background:var(--border-strong);
+  position:relative;flex:none}
+.switch.on{background:var(--accent)}
+.switch i{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;
+  background:#fff;box-shadow:var(--shadow-1)}
+.switch.on i{transform:translateX(16px)}
+
+/* ============================ 设置 ============================ */
+.set-body{flex:1;display:flex;min-height:0}
+.set-nav{width:200px;flex:none;border-right:1px solid var(--border-subtle);padding:var(--s-3);
+  background:var(--bg-sidebar);display:flex;flex-direction:column;gap:1px}
+.set-nav .i{height:32px;display:flex;align-items:center;gap:9px;padding:0 10px;border-radius:var(--r-md);
+  font-size:13px;color:var(--text-2)}
+.set-nav .i:hover{background:var(--bg-hover);color:var(--text-1)}
+.set-nav .i.on{background:var(--accent-subtle);color:var(--accent);font-weight:600}
+.set-main{flex:1;padding:var(--s-6)}
+.set-h{font-size:18px;font-weight:700;color:var(--text-1);margin-bottom:var(--s-5)}
+.set-grp{margin-bottom:var(--s-6)}
+.set-grp h4{font-size:12px;color:var(--text-3);font-weight:600;letter-spacing:.05em;margin-bottom:10px}
+.opt-row{display:flex;align-items:center;gap:var(--s-4);padding:11px 0;border-bottom:1px solid var(--border-subtle)}
+.opt-row:last-child{border-bottom:none}
+.opt-row .lb{flex:1}
+.opt-row .lb .t{font-size:13px;color:var(--text-1)}
+.opt-row .lb .d{font-size:11px;color:var(--text-3);margin-top:2px}
+.theme-cards{display:flex;gap:var(--s-3)}
+.tcard{width:116px;border:1.5px solid var(--border-default);border-radius:var(--r-lg);overflow:hidden}
+.tcard.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-subtle)}
+.tcard .pv{height:62px;padding:6px;display:flex;flex-direction:column;gap:4px}
+.tcard .pv .l1{height:8px;border-radius:3px;width:60%}
+.tcard .pv .l2{height:16px;border-radius:4px}
+.tcard .pv .l3{height:8px;border-radius:3px;width:80%}
+.tcard .nm{font-size:12px;color:var(--text-1);padding:6px 8px;border-top:1px solid var(--border-subtle);
+  display:flex;align-items:center;gap:5px}
+.tcard .nm .ck{margin-left:auto;color:var(--accent)}
+.tcard.light .pv{background:#F3F5F9}
+.tcard.light .pv .l1{background:#1B1F2A}
+.tcard.light .pv .l2{background:#E6E9F0}
+.tcard.light .pv .l3{background:#E6E9F0}
+.tcard.dark .pv{background:#14161C}
+.tcard.dark .pv .l1{background:#E8EAF0}
+.tcard.dark .pv .l2{background:#232733}
+.tcard.dark .pv .l3{background:#2A2F3C}
+.tcard.auto .pv{background:linear-gradient(100deg,#F3F5F9 50%,#14161C 50%)}
+.tcard.auto .pv .l1{background:#8A92A5}
+.tcard.auto .pv .l2{background:#D8DDE8}
+.tcard.auto .pv .l3{background:#4A5163}
+.swatch-row{display:flex;gap:10px;align-items:center}
+.sw{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff}
+.sw.on{box-shadow:0 0 0 2px var(--bg-surface),0 0 0 4px currentColor}
+
+/* ============================ 桌面挂件 ============================ */
+.wall{width:1280px;height:820px;border-radius:var(--r-xl);position:relative;overflow:hidden;
+  background:
+    radial-gradient(1100px 620px at 12% 8%, #2A3A6B 0%, transparent 60%),
+    radial-gradient(900px 700px at 88% 20%, #6B2A5A 0%, transparent 62%),
+    radial-gradient(1000px 800px at 60% 96%, #14364A 0%, transparent 60%),
+    linear-gradient(160deg,#0F1420 0%,#1B2233 55%,#0D1119 100%);
+  border:1px solid var(--border-default);
+}
+.wall .tip{position:absolute;left:24px;bottom:20px;color:rgba(255,255,255,.5);font-size:11px}
+.wg{position:absolute;background:rgba(255,255,255,.94);color:#1B1F2A;border-radius:var(--r-xl);
+  box-shadow:0 18px 40px rgba(0,0,0,.45);overflow:hidden}
+.wg.dark{background:rgba(28,31,39,.90);color:#E8EAF0}
+.wg-h{display:flex;align-items:center;gap:6px;padding:9px 11px;font-size:11px;font-weight:600;
+  color:#5A6273;border-bottom:1px solid rgba(0,0,0,.06)}
+.wg.dark .wg-h{color:#A2A9BA;border-bottom-color:rgba(255,255,255,.07)}
+.wg-h .sp{flex:1}
+.wg-h button{width:20px;height:20px;border-radius:4px;display:grid;place-items:center;color:#8A92A5}
+.wg-b{padding:10px 11px}
+.wg-b .t{font-size:12px;color:#5A6273}
+.wg .wg-b .big{font-size:26px;font-weight:700;color:#1B1F2A;font-variant-numeric:tabular-nums}
+.wg.dark .wg-b .big{color:#E8EAF0}
+.wg-b .sub{font-size:11px;color:#8A92A5}
+.wg-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-top:6px}
+.wg-cal .h{font-size:9px;color:#8A92A5;text-align:center}
+.wg-cal .d{height:20px;display:grid;place-items:center;font-size:10px;border-radius:4px;
+  font-variant-numeric:tabular-nums}
+.wg-cal .d.o{color:#B4BAC7}
+.wg-cal .d.t{background:#2E6BE6;color:#fff;font-weight:700}
+.wg-ev{display:flex;gap:6px;align-items:center;padding:5px 0;font-size:11px}
+.wg-ev .rail{width:3px;height:14px;border-radius:2px;flex:none}
+.wg-ev .tm{color:#8A92A5;font-variant-numeric:tabular-nums}
+.wg-ev .tt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ============================ 状态一览 ============================ */
+.states{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s-4);width:1280px}
+.st{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--r-lg);
+  height:300px;display:flex;flex-direction:column;overflow:hidden}
+.st-h{padding:9px var(--s-4);border-bottom:1px solid var(--border-subtle);font-size:12px;
+  font-weight:600;color:var(--text-2)}
+.st-b{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:var(--s-3);padding:var(--s-4);text-align:center}
+.st-b .ill{width:56px;height:56px;border-radius:var(--r-lg);display:grid;place-items:center;
+  background:var(--bg-surface-2);color:var(--text-3)}
+.st-b .t{font-size:13px;font-weight:600;color:var(--text-1)}
+.st-b .d{font-size:11px;color:var(--text-3);max-width:190px}
+.err-box{margin:0 var(--s-4);padding:12px;border-radius:var(--r-md);background:var(--danger-bg);
+  border:1px solid rgba(217,58,73,.28)}
+.err-box .t{font-size:12px;font-weight:700;color:var(--danger);display:flex;align-items:center;gap:6px}
+.err-box .d{font-size:11px;color:var(--text-2);margin-top:5px}
+.err-box .a{display:flex;gap:6px;margin-top:9px}
+.sk{width:100%;padding:var(--s-4);display:flex;flex-direction:column;gap:10px}
+.sk-l{height:12px;border-radius:4px;background:linear-gradient(90deg,var(--bg-surface-2) 25%,
+  var(--bg-hover) 37%,var(--bg-surface-2) 63%);background-size:400% 100%}
+.sk-l.w70{width:70%} .sk-l.w50{width:50%} .sk-l.w90{width:90%} .sk-l.h24{height:24px}
+
+/* ============================ 设计标注 ============================ */
+.anno{position:absolute;width:20px;height:20px;border-radius:50%;background:var(--accent);
+  color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;
+  box-shadow:0 0 0 3px rgba(46,107,230,.25);z-index:20;pointer-events:none}
+.legend{width:1280px;margin-top:14px;background:var(--bg-surface);border:1px solid var(--border-subtle);
+  border-radius:var(--r-lg);padding:var(--s-4)}
+.legend h4{font-size:12px;color:var(--text-3);letter-spacing:.06em;margin-bottom:10px}
+.legend ol{display:grid;grid-template-columns:repeat(3,1fr);gap:7px 20px;list-style:none;counter-reset:lg}
+.legend li{font-size:12px;color:var(--text-2);display:flex;gap:8px;counter-increment:lg}
+.legend li::before{content:counter(lg);width:18px;height:18px;flex:none;border-radius:50%;
+  background:var(--accent-subtle);color:var(--accent);font-size:10px;font-weight:700;
+  display:grid;place-items:center}
+
+/* ============================ 画面 4：待办 · 四象限 ============================ */
+.quad-wrap{flex:1;display:flex;flex-direction:column;padding:var(--s-4);gap:var(--s-3);min-width:0}
+.quad-grid{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:var(--s-4);min-height:0}
+.quad{display:flex;flex-direction:column;border:1px solid var(--border-subtle);border-radius:var(--r-lg);
+  background:var(--bg-surface);overflow:hidden;min-height:0}
+.quad-h{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border-subtle)}
+.quad-h .qtag{width:4px;height:16px;border-radius:2px;flex:none}
+.quad-h .t{font-size:13px;font-weight:600;color:var(--text-1)}
+.quad-h .cnt{font-size:11px;color:var(--text-3);font-variant-numeric:tabular-nums}
+.quad-h .sp{flex:1}
+.quad-h .add{width:24px;height:24px;border-radius:var(--r-sm);display:grid;place-items:center;color:var(--text-3)}
+.quad-h .add:hover{background:var(--bg-hover);color:var(--text-1)}
+.quad-b{flex:1;padding:8px;display:flex;flex-direction:column;gap:2px;overflow:hidden}
+.qtask{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:var(--r-md)}
+.qtask:hover{background:var(--bg-hover)}
+.qtask .box{width:15px;height:15px;border-radius:4px;border:1.5px solid var(--border-strong);flex:none;display:grid;place-items:center}
+.qtask .box i{width:7px;height:7px;border-style:solid;border-color:currentColor;border-width:0 2px 2px 0;
+  transform:rotate(45deg) translate(-1.5px,-1.5px);display:none}
+.qtask.done .box{background:var(--accent);border-color:var(--accent);color:#fff}
+.qtask.done .box i{display:block}
+.qtask .tx{flex:1;font-size:12.5px;color:var(--text-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qtask.done .tx{color:var(--text-disabled);text-decoration:line-through}
+.qtask .flag{width:12px;height:12px;flex:none}
+.qtask .chip{font-size:10px;color:var(--text-3);border:1px solid var(--border-default);padding:1px 6px;
+  border-radius:999px;flex:none;font-variant-numeric:tabular-nums}
+.qtask .chip.urgent{color:var(--danger);border-color:transparent;background:var(--danger-bg)}
+.drop-hint{border:1.5px dashed var(--border-strong);border-radius:var(--r-md);margin:4px 8px 6px;height:34px;
+  display:grid;place-items:center;color:var(--text-3);font-size:11.5px}
+.quad.q1 .qtag{background:var(--c-red)}
+.quad.q2 .qtag{background:var(--c-orange)}
+.quad.q3 .qtag{background:var(--c-blue)}
+.quad.q4 .qtag{background:var(--c-green)}
+.quad.q1 .qtask .flag{color:var(--c-red)}
+.quad.q2 .qtask .flag{color:var(--c-orange)}
+.quad.q3 .qtask .flag{color:var(--c-blue)}
+.quad.q4 .qtask .flag{color:var(--c-green)}
+
+/* ============================ 画面 5：快速面板 ============================ */
+.qp-scene{display:flex;justify-content:center;padding:20px 0 0}
+.qp{width:460px;background:var(--bg-surface);border:1px solid var(--border-default);
+  border-radius:var(--r-xl);box-shadow:var(--shadow-3);display:flex;flex-direction:column;overflow:hidden}
+.qp-head{padding:18px 20px 14px;border-bottom:1px solid var(--border-subtle)}
+.qp-date{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.qp-date .d1{font-size:22px;font-weight:700;color:var(--text-1);font-variant-numeric:tabular-nums}
+.qp-date .d2{font-size:13px;color:var(--text-2)}
+.qp-date .d3{font-size:12px;color:var(--lunar)}
+.qp-date .sp{flex:1}
+.qp-sum{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.qp-sum .pill{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-2);
+  background:var(--bg-surface-2);border:1px solid var(--border-subtle);padding:4px 10px;border-radius:999px}
+.qp-sum .pill b{color:var(--text-1);font-variant-numeric:tabular-nums}
+.qp-body{flex:1;display:flex;min-height:0}
+.qp-left{flex:1.15;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0;border-right:1px solid var(--border-subtle)}
+.qp-right{flex:1;padding:14px 16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.qp-sec-t{font-size:11px;font-weight:600;color:var(--text-3);letter-spacing:.05em}
+.qp-clock{font-size:32px;line-height:40px;font-weight:600;color:var(--text-1);font-variant-numeric:tabular-nums;letter-spacing:.5px}
+.qp-clock small{font-size:14px;color:var(--text-2);font-weight:600;margin-left:3px}
+.qp-weather{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2)}
+.qp-weather b{color:var(--text-1);font-size:13px;font-variant-numeric:tabular-nums}
+.qp-ev{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:var(--r-md);border:1px solid var(--border-subtle)}
+.qp-ev .bar{width:3px;height:26px;border-radius:2px;flex:none}
+.qp-ev .tm{font-size:11px;color:var(--text-3);font-variant-numeric:tabular-nums;flex:none}
+.qp-ev .tt{font-size:12px;color:var(--text-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qp-nav{display:flex;justify-content:space-around;padding:10px 0;border-top:1px solid var(--border-subtle);background:var(--bg-surface-2)}
+.qp-nav button{width:44px;height:34px;border-radius:var(--r-md);display:grid;place-items:center;color:var(--text-3)}
+.qp-nav button:hover{background:var(--bg-hover);color:var(--text-1)}
+.qp-nav button.on{color:var(--accent);background:var(--accent-subtle)}
+
+/* ============================ 画面 6：新建日程对话框 ============================ */
+.dlg-scene{display:flex;justify-content:center;padding:30px 0 0}
+.dlg-scrim{display:inline-block;background:var(--bg-scrim);border-radius:24px;padding:64px 120px}
+.dlg{width:480px;background:var(--bg-surface);border-radius:var(--r-xl);box-shadow:var(--shadow-3);
+  display:flex;flex-direction:column;overflow:hidden}
+.dlg-h{display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border-subtle)}
+.dlg-h .t{font-size:15px;font-weight:600;color:var(--text-1)}
+.dlg-h .sp{flex:1}
+.dlg-h .x{width:28px;height:28px;border-radius:var(--r-md);display:grid;place-items:center;color:var(--text-2)}
+.dlg-h .x:hover{background:var(--bg-hover);color:var(--text-1)}
+.dlg-b{padding:16px 18px 14px;display:flex;flex-direction:column;gap:14px}
+.f-title{width:100%;border:none;outline:none;font-size:18px;font-weight:600;color:var(--text-1);background:transparent}
+.f-title::placeholder{color:var(--text-disabled)}
+.nl-box{border:1px solid var(--border-default);border-radius:var(--r-md);background:var(--bg-surface-2);padding:8px 10px}
+.nl-box .row{display:flex;align-items:center;gap:8px}
+.nl-box .row svg{color:var(--text-3)}
+.nl-box input{border:none;outline:none;background:transparent;font-size:13px;color:var(--text-1);flex:1;min-width:0}
+.btn-mini{font-size:11px;color:var(--accent);background:var(--accent-subtle);border-radius:var(--r-sm);padding:2px 10px;flex:none}
+.parse{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.parse .tag{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-2);background:var(--bg-surface);
+  border:1px solid var(--border-subtle);padding:2px 8px;border-radius:999px}
+.parse .tag b{color:var(--text-1)}
+.parse .tag.ok{color:var(--success);border-color:transparent;background:var(--success-bg)}
+.frow{display:flex;align-items:center;gap:10px}
+.frow .lab{width:48px;font-size:12px;color:var(--text-2);flex:none}
+.frow .ctl{flex:1;display:flex;align-items:center;gap:8px;min-width:0}
+.finput{height:30px;padding:0 10px;border:1px solid var(--border-default);border-radius:var(--r-md);
+  font-size:12.5px;color:var(--text-1);background:var(--bg-surface);display:flex;align-items:center;gap:6px}
+.finput svg{color:var(--text-3)}
+.fsel{height:30px;padding:0 10px;border:1px solid var(--border-default);border-radius:var(--r-md);
+  font-size:12.5px;color:var(--text-1);background:var(--bg-surface);display:flex;align-items:center;
+  justify-content:space-between;gap:6px;cursor:pointer}
+.fsel svg{color:var(--text-3)}
+.toggle{width:32px;height:18px;border-radius:999px;background:var(--accent);position:relative;flex:none}
+.toggle::after{content:"";position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:2px;right:2px}
+.toggle.off{background:var(--border-strong)}
+.toggle.off::after{right:auto;left:2px}
+.chip-row{display:flex;gap:6px;flex-wrap:wrap}
+.chipx{display:flex;align-items:center;gap:4px;font-size:11.5px;height:24px;padding:0 10px;border-radius:999px;
+  border:1px solid var(--border-default);color:var(--text-2);background:var(--bg-surface)}
+.chipx.on{border-color:var(--accent);color:var(--accent);background:var(--accent-subtle)}
+.more-link{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--accent);align-self:flex-start}
+.dlg-f{display:flex;justify-content:flex-end;gap:8px;padding:14px 18px;border-top:1px solid var(--border-subtle)}
+.btn{height:30px;padding:0 14px;border-radius:var(--r-md);font-size:12.5px;display:inline-flex;align-items:center;gap:6px}
+.btn-save{background:var(--accent);color:var(--on-accent);font-weight:600}
+.btn-save:hover{background:var(--accent-hover)}
+
+/* ============================ 画面 7：设置 ============================ */
+.set-body{display:flex;flex:1;min-height:0}
+.set-nav{width:180px;border-right:1px solid var(--border-subtle);background:var(--bg-sidebar);
+  padding:12px 8px;display:flex;flex-direction:column;gap:2px;flex:none}
+.set-nav .si{display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:var(--r-md);
+  font-size:12.5px;color:var(--text-2)}
+.set-nav .si:hover{background:var(--bg-hover);color:var(--text-1)}
+.set-nav .si.on{background:var(--accent-subtle);color:var(--accent);font-weight:600}
+.set-main{flex:1;padding:20px 24px;overflow:auto;display:flex;flex-direction:column;gap:2px;min-width:0}
+.set-title{font-size:15px;font-weight:600;color:var(--text-1)}
+.set-desc{font-size:12px;color:var(--text-3);margin-top:2px;margin-bottom:8px}
+.theme-cards{display:flex;gap:10px}
+.tcard{flex:1;border:1.5px solid var(--border-default);border-radius:var(--r-lg);padding:12px;cursor:pointer;background:var(--bg-surface)}
+.tcard.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-subtle)}
+.tcard .prev{height:64px;border-radius:var(--r-md);margin-bottom:8px;border:1px solid var(--border-subtle);display:flex;overflow:hidden}
+.tcard .prev i{flex:1}
+.tcard .n{font-size:12.5px;color:var(--text-1);display:flex;align-items:center;gap:6px}
+.tcard .n .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex:none}
+.tprev-light{background:#F3F5F9}
+.tprev-light i:nth-child(1){background:#FFFFFF}
+.tprev-dark{background:#14161C}
+.tprev-dark i:nth-child(1){background:#1C1F27}
+.tprev-auto{background:linear-gradient(90deg,#F3F5F9 50%,#14161C 50%)}
+.tprev-auto i:nth-child(1){background:transparent}
+.accent-dots{display:flex;gap:10px}
+.adot{width:22px;height:22px;border-radius:50%;position:relative;cursor:pointer;flex:none}
+.adot.on::after{content:"";position:absolute;inset:-3px;border:2px solid var(--accent);border-radius:50%}
+.set-row{display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--border-subtle)}
+.set-row .info{flex:1;min-width:0}
+.set-row .info .t{font-size:13px;color:var(--text-1)}
+.set-row .info .d{font-size:11.5px;color:var(--text-3);margin-top:1px}
+.set-row .ctl{display:flex;align-items:center;gap:12px}
+.stepper{display:flex;align-items:center;gap:2px;border:1px solid var(--border-default);border-radius:var(--r-md);overflow:hidden}
+.stepper button{width:28px;height:28px;display:grid;place-items:center;color:var(--text-2)}
+.stepper button:hover{background:var(--bg-hover)}
+.stepper .v{width:44px;text-align:center;font-size:12px;color:var(--text-1);font-variant-numeric:tabular-nums}
+.dens{display:flex;gap:8px}
+.dens button{height:28px;padding:0 12px;border-radius:var(--r-md);border:1px solid var(--border-default);font-size:12px;color:var(--text-2)}
+.dens button:hover{color:var(--text-1)}
+.dens button.on{border-color:var(--accent);color:var(--accent);background:var(--accent-subtle);font-weight:600}
+.switch{width:36px;height:20px;border-radius:999px;background:var(--border-strong);position:relative;flex:none;transition:background .15s var(--ease-std)}
+.switch::after{content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;left:2px;transition:left .15s var(--ease-std)}
+.switch.on{background:var(--accent)}
+.switch.on::after{left:18px}
+.set-preview{width:150px;height:84px;border:1px solid var(--border-subtle);border-radius:var(--r-md);
+  overflow:hidden;flex:none;background:var(--bg-surface-2);padding:10px;display:flex;flex-direction:column;gap:6px}
+.set-preview .lp{height:8px;border-radius:3px;background:var(--border-default)}
+.set-preview .lp.a{width:80%}.set-preview .lp.b{width:55%}.set-preview .lp.c{width:65%}
+
+/* ============================ 画面 8：桌面挂件 ============================ */
+.desk{width:1280px;height:700px;border-radius:var(--r-lg);overflow:hidden;position:relative;
+  background:linear-gradient(135deg,#22304F 0%,#2C3A5E 42%,#1A2338 100%)}
+.desk::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(620px 300px at 10% 18%,rgba(110,140,255,.20),transparent 62%),
+  radial-gradient(520px 280px at 86% 72%,rgba(255,150,120,.14),transparent 62%),
+  radial-gradient(300px 200px at 50% 90%,rgba(74,222,155,.08),transparent 60%)}
+.wgt{position:absolute;background:rgba(28,31,39,.74);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid rgba(255,255,255,.10);border-radius:16px;box-shadow:0 16px 32px rgba(0,0,0,.45);color:#E8EAF0}
+.wgt-h{display:flex;align-items:center;gap:6px;padding:12px 14px 0;font-size:12px;color:#A2A9BA}
+.wgt-h .sp{flex:1}
+.wgt-h button{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:#6F7789}
+.wgt-h button:hover{background:rgba(255,255,255,.10);color:#E8EAF0}
+.wgt-cal{left:44px;top:48px;width:304px;padding-bottom:14px}
+.wgt-cal .mc{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:10px 12px 0}
+.wgt-cal .hd{height:22px;display:grid;place-items:center;font-size:10px;color:#6F7789}
+.wgt-cal .d{height:30px;display:grid;place-items:center;font-size:11.5px;border-radius:8px;color:#E8EAF0}
+.wgt-cal .d.out{color:#4E5666}
+.wgt-cal .d.we{color:#E0837A}
+.wgt-cal .d.today{background:#6C9BFF;color:#0B1020;font-weight:700}
+.wgt-evs{left:396px;top:130px;width:304px;padding-bottom:14px}
+.wgt-evs .wl{display:flex;flex-direction:column;gap:6px;padding:10px 12px 0}
+.wgt-evs .e{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:10px;background:rgba(255,255,255,.06)}
+.wgt-evs .e .bar{width:3px;height:22px;border-radius:2px;flex:none}
+.wgt-evs .e .tm{font-size:11px;color:#6F7789;font-variant-numeric:tabular-nums;flex:none}
+.wgt-evs .e .tt{font-size:12px;color:#E8EAF0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.wgt-cd{right:44px;top:64px;width:252px;padding-bottom:14px}
+.wgt-cd .cd-list{display:flex;flex-direction:column;gap:10px;padding:12px 14px 0}
+.wgt-cd .c{display:flex;align-items:center;gap:12px}
+.wgt-cd .c .num{width:46px;height:46px;border-radius:12px;background:rgba(108,155,255,.16);color:#85ACFF;
+  font-size:18px;font-weight:700;display:grid;place-items:center;font-variant-numeric:tabular-nums;flex:none}
+.wgt-cd .c .num small{font-size:10px;font-weight:500;margin-left:1px}
+.wgt-cd .c .t{font-size:12px;color:#E8EAF0}
+.wgt-cd .c .d{font-size:10.5px;color:#6F7789;margin-top:1px}
+
+/* ============================ 画面 9：空状态 & 错误状态 ============================ */
+.states{width:1280px;display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.state-card{border:1px solid var(--border-subtle);border-radius:var(--r-lg);background:var(--bg-surface);
+  padding:20px;display:flex;flex-direction:column;gap:10px;min-height:248px}
+.state-ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;color:var(--text-3);
+  background:var(--bg-surface-2);margin-bottom:2px}
+.state-ic.err{color:var(--danger);background:var(--danger-bg)}
+.state-t{font-size:13.5px;font-weight:600;color:var(--text-1)}
+.state-d{font-size:12px;color:var(--text-3);line-height:18px}
+.state-actions{display:flex;gap:8px;margin-top:auto}
+</style>
+</head>
+<body>
+<!-- ===================== 图标精灵（全部内联，零外部依赖） ===================== -->
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></symbol>
+  <symbol id="i-today" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/><path d="M8.5 14.5l2.5 2.5 4.5-5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.8 2.7L16.5 9"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M15 3H5.5A2.5 2.5 0 0 0 3 5.5v13A2.5 2.5 0 0 0 5.5 21h13a2.5 2.5 0 0 0 2.5-2.5V9z"/><path d="M15 3v6h6"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.4 5.8a5.2 5.2 0 0 0-7.4 0L12 6.8l-1-1a5.2 5.2 0 1 0-7.4 7.4l8.4 8.4 8.4-8.4a5.2 5.2 0 0 0 0-7.4z"/></symbol>
+  <symbol id="i-tools" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1.5 14h5M9.5 8h5M17.5 16h5"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.1 14.6a1.6 1.6 0 0 0 .32 1.77l.06.06a1.9 1.9 0 1 1-2.7 2.7l-.06-.06a1.6 1.6 0 0 0-1.77-.32 1.6 1.6 0 0 0-.97 1.47v.17a1.9 1.9 0 1 1-3.8 0v-.09a1.6 1.6 0 0 0-1.05-1.47 1.6 1.6 0 0 0-1.77.32l-.06.06a1.9 1.9 0 1 1-2.7-2.7l.06-.06a1.6 1.6 0 0 0 .32-1.77 1.6 1.6 0 0 0-1.47-.97H3.4a1.9 1.9 0 1 1 0-3.8h.09A1.6 1.6 0 0 0 4.96 8a1.6 1.6 0 0 0-.32-1.77l-.06-.06a1.9 1.9 0 1 1 2.7-2.7l.06.06A1.6 1.6 0 0 0 9.11 3.6a1.6 1.6 0 0 0 .97-1.47v-.17a1.9 1.9 0 1 1 3.8 0v.09a1.6 1.6 0 0 0 .97 1.47 1.6 1.6 0 0 0 1.77-.32l.06-.06a1.9 1.9 0 1 1 2.7 2.7l-.06.06a1.6 1.6 0 0 0-.32 1.77v.08a1.6 1.6 0 0 0 1.47.97h.17a1.9 1.9 0 1 1 0 3.8h-.09a1.6 1.6 0 0 0-1.47.97z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20.5 20.5L16 16"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2M12 19.5v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2.5 12h2M19.5 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18.5h10a3.6 3.6 0 0 0 .3-7.2 5.6 5.6 0 0 0-10.7 1.3A3.5 3.5 0 0 0 7 18.5z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6.8V12l3.2 2"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18.5 8.5a6.5 6.5 0 1 0-13 0c0 7-2.5 8.5-2.5 8.5h18s-2.5-1.5-2.5-8.5M13.8 20.5a2 2 0 0 1-3.6 0"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 16.5V22"/><path d="M8.5 2.5h7l-1.2 6.4 3.2 3.1v2.2H6.5v-2.2l3.2-3.1z"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3.5 11.3V5.5a2 2 0 0 1 2-2h5.8l8.7 8.7a2 2 0 0 1 0 2.8l-5.8 5.8a2 2 0 0 1-2.8 0L3.5 14a2 2 0 0 1 0-2.7z"/><circle cx="7.8" cy="7.8" r="1.4"/></symbol>
+  <symbol id="i-min" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-max" viewBox="0 0 24 24"><rect x="5.5" y="5.5" width="13" height="13" rx="1.5"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-sync" viewBox="0 0 24 24"><path d="M4.2 12a7.8 7.8 0 0 1 13.3-5.5L20 8.8"/><path d="M20 4.2v4.6h-4.6"/><path d="M19.8 12a7.8 7.8 0 0 1-13.3 5.5L4 15.2"/><path d="M4 19.8v-4.6h4.6"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M4.5 21.5V3M4.5 3.5h13l-2.6 4.6L17.5 13h-13"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.8"/><circle cx="12" cy="12" r="4.8"/><circle cx="12" cy="12" r="1.3"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13.5" r="7.8"/><path d="M12 9.5v4l2.6 1.8M9.5 2.5h5"/></symbol>
+  <symbol id="i-glass" viewBox="0 0 24 24"><path d="M7 2.5h10M7 21.5h10M7 2.5v4l5 5.5 5-5.5v-4M7 21.5v-4l5-5.5 5 5.5v4"/></symbol>
+  <symbol id="i-cake" viewBox="0 0 24 24"><path d="M3.5 20.5h17v-6.2a3 3 0 0 0-3-3h-11a3 3 0 0 0-3 3z"/><path d="M12 11.3V8M8.8 11.3V7.4M15.2 11.3V7.4"/><path d="M12 5.2V3"/></symbol>
+  <symbol id="i-gift" viewBox="0 0 24 24"><rect x="3" y="8.5" width="18" height="4" rx="1"/><path d="M5.2 12.5v8.5h13.6v-8.5M12 8.5v12.5"/><path d="M12 8.5S9.4 8.5 8 7a2.4 2.4 0 0 1 4-1.6A2.4 2.4 0 0 1 16 7c-1.4 1.5-4 1.5-4 1.5z"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9L1.9 18.1A2 2 0 0 0 3.6 21h16.8a2 2 0 0 0 1.7-2.9L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9.5v4M12 17.2h.01"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M11 3l1.7 4.4L17 9l-4.3 1.6L11 15l-1.7-4.4L5 9l4.3-1.6z"/><path d="M18 14.5l.8 2.1 2.2.9-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.9z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3.5 20.5h17"/><rect x="5.5" y="12" width="3.4" height="6" rx="1"/><rect x="10.3" y="7.5" width="3.4" height="10.5" rx="1"/><rect x="15.1" y="3.5" width="3.4" height="14.5" rx="1"/></symbol>
+  <symbol id="i-layout" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M3.5 9.5h17M10 9.5V21"/></symbol>
+  <symbol id="i-arrow-r" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+</svg>
+
+<!-- ===================== 原型导航条（不属于产品界面） ===================== -->
+<div class="proto-bar">
+  <div class="brand">TimeHub Desktop<small>UI 设计方案 · 高保真原型 V2.0</small></div>
+  <button class="pbtn on" data-go="s1">1 月视图</button>
+  <button class="pbtn" data-go="s2">2 周视图</button>
+  <button class="pbtn" data-go="s3">3 今天</button>
+  <button class="pbtn" data-go="s4">4 四象限</button>
+  <button class="pbtn" data-go="s5">5 快速面板</button>
+  <button class="pbtn" data-go="s6">6 新建日程</button>
+  <button class="pbtn" data-go="s7">7 设置</button>
+  <button class="pbtn" data-go="s8">8 桌面挂件</button>
+  <button class="pbtn" data-go="s9">9 状态一览</button>
+  <span class="proto-sp"></span>
+  <span class="hint">主题</span>
+  <button class="pbtn on" id="btn-light">浅色</button>
+  <button class="pbtn" id="btn-dark">深色</button>
+  <span class="hint">缩放</span>
+  <button class="pbtn on" data-scale="1">100%</button>
+  <button class="pbtn" data-scale="0.78">78%</button>
+  <button class="pbtn" data-scale="0.62">62%</button>
+</div>
+
+<div class="stage">
+<div class="stage-inner" id="stage">
+<!-- =====================================================
+     画面 1：主窗口 · 月视图（默认）
+     ===================================================== -->
+<section class="screen" id="s1">
+  <div class="screen-head"><h2>① 主窗口 · 月视图</h2><p>三栏骨架：侧边全局导航 / 日历主区 / 右侧日检查器 · 1280×820</p></div>
+  <div class="win-wrap">
+  <div class="win">
+    <div class="titlebar">
+      <div class="tb-logo">TH</div>
+      <span class="tb-name">TimeHub</span>
+      <div class="tb-search"><svg class="ic ic-14"><use href="#i-search"/></svg>
+        <span>搜索日程、待办、便签…</span><span class="kbd">Ctrl K</span></div>
+      <span class="tb-sp"></span>
+      <button class="tb-icon" title="同步"><svg class="ic ic-20"><use href="#i-sync"/></svg></button>
+      <button class="tb-icon" title="通知"><svg class="ic ic-20"><use href="#i-bell"/></svg></button>
+      <button class="tb-icon" title="设置"><svg class="ic ic-20"><use href="#i-gear"/></svg></button>
+      <span class="tb-sep"></span>
+      <div class="avatar">陈</div>
+      <div class="win-btns">
+        <button class="win-btn"><svg class="ic ic-14"><use href="#i-min"/></svg></button>
+        <button class="win-btn"><svg class="ic ic-14"><use href="#i-max"/></svg></button>
+        <button class="win-btn close"><svg class="ic ic-14"><use href="#i-close"/></svg></button>
+      </div>
+    </div>
+
+    <div class="win-body">
+      <!-- 侧边栏 -->
+      <aside class="sidebar">
+        <div class="side-pad">
+          <button class="btn-primary"><svg class="ic"><use href="#i-plus"/></svg>新建</button>
+          <nav class="nav">
+            <div class="nav-item on"><svg class="ic"><use href="#i-today"/></svg>今天<span class="badge">6</span></div>
+            <div class="nav-item"><svg class="ic"><use href="#i-cal"/></svg>日历</div>
+            <div class="nav-item"><svg class="ic"><use href="#i-check"/></svg>待办<span class="badge">12</span></div>
+            <div class="nav-item"><svg class="ic"><use href="#i-note"/></svg>便签</div>
+            <div class="nav-item"><svg class="ic"><use href="#i-heart"/></svg>记录</div>
+            <div class="nav-item"><svg class="ic"><use href="#i-tools"/></svg>工具</div>
+            <div class="nav-item"><svg class="ic"><use href="#i-gear"/></svg>设置</div>
+          </nav>
+        </div>
+
+        <div class="side-sec">
+          <div class="side-sec-t"><span>2026年8月</span><span class="sp"></span>
+            <button class="mini"><svg class="ic ic-14"><use href="#i-left"/></svg></button>
+            <button class="mini"><svg class="ic ic-14"><use href="#i-right"/></svg></button></div>
+          <div class="mini-cal">
+            <div class="hd">一</div><div class="hd">二</div><div class="hd">三</div><div class="hd">四</div>
+            <div class="hd">五</div><div class="hd">六</div><div class="hd">日</div>
+            <div class="d out">27</div><div class="d out">28</div><div class="d out">29</div>
+            <div class="d out">30</div><div class="d out">31</div><div class="d">1</div><div class="d">2</div>
+            <div class="d">3</div><div class="d">4</div><div class="d">5</div><div class="d">6</div>
+            <div class="d">7</div><div class="d">8</div><div class="d">9</div>
+            <div class="d">10</div><div class="d">11</div><div class="d">12</div><div class="d">13</div>
+            <div class="d">14</div><div class="d">15</div><div class="d">16</div>
+            <div class="d">17</div><div class="d">18</div><div class="d">19</div><div class="d">20</div>
+            <div class="d">21</div><div class="d">22</div><div class="d">23</div>
+            <div class="d">24</div><div class="d">25</div><div class="d">26</div><div class="d">27</div>
+            <div class="d">28</div><div class="d">29</div><div class="d we">30</div>
+            <div class="d today">31</div>
+            <div class="d out">1</div><div class="d out">2</div><div class="d out">3</div>
+            <div class="d out">4</div><div class="d out">5</div><div class="d out">6</div>
+          </div>
+        </div>
+
+        <div class="side-sec">
+          <div class="side-sec-t"><span>我的日历</span><span class="sp"></span>
+            <button class="mini"><svg class="ic ic-14"><use href="#i-plus"/></svg></button></div>
+          <div class="cal-list">
+            <div class="cal-row"><span class="cbx" style="background:var(--c-blue)"><i></i></span><span class="n">工作</span></div>
+            <div class="cal-row"><span class="cbx" style="background:var(--c-green)"><i></i></span><span class="n">个人</span></div>
+            <div class="cal-row"><span class="cbx" style="background:var(--c-orange)"><i></i></span><span class="n">家庭</span></div>
+            <div class="cal-row"><span class="cbx" style="background:var(--c-purple)"><i></i></span><span class="n">生日 / 纪念日</span></div>
+            <div class="cal-row"><span class="cbx" style="background:var(--c-cyan)"><i></i></span><span class="n">Outlook</span><span class="tag">云</span></div>
+            <div class="cal-row"><span class="cbx" style="background:var(--c-lime)"><i></i></span><span class="n">节假日</span><span class="tag">订阅</span></div>
+            <div class="cal-row"><span class="cbx off" style="background:var(--c-pink)"><i></i></span><span class="n" style="color:var(--text-3)">健身</span></div>
+          </div>
+        </div>
+
+        <div class="side-sec">
+          <div class="side-sec-t"><span>倒数日</span><span class="sp"></span>
+            <button class="mini"><svg class="ic ic-14"><use href="#i-arrow-r"/></svg></button></div>
+          <div class="cd-card">
+            <div class="t">GridLink EU 量产发布</div>
+            <div class="v">还剩 12<span>天</span></div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 主区 -->
+      <div class="main">
+        <div class="toolbar">
+          <div class="date-nav">
+            <button class="icon-btn"><svg class="ic ic-20"><use href="#i-left"/></svg></button>
+            <button class="btn-ghost">今天</button>
+            <button class="icon-btn"><svg class="ic ic-20"><use href="#i-right"/></svg></button>
+          </div>
+          <span class="period-title">2026年8月</span>
+          <span class="tb-sp2"></span>
+          <div class="seg">
+            <button class="on">月</button><button>周</button><button>日</button><button>三日</button><button>年</button>
+          </div>
+          <button class="icon-btn" title="更多"><svg class="ic ic-20"><use href="#i-more"/></svg></button>
+        </div>
+
+        <div class="content">
+          <div class="view-area">
+            <div class="mgrid">
+              <div class="mhead">
+                <div>一</div><div>二</div><div>三</div><div>四</div><div>五</div>
+                <div class="we">六</div><div class="we">日</div>
+              </div>
+              <div class="mbody" id="monthGrid"></div>
+            </div>
+          </div>
+
+          <aside class="inspector">
+            <div class="insp-head">
+              <div class="insp-date">8月31日 周一</div>
+              <div class="insp-sub">农历七月十九 · 第 243 天 · 第 36 周</div>
+            </div>
+            <div class="insp-sec" style="padding-top:0">
+              <div class="chips">
+                <span class="chip on">日程 3</span><span class="chip">待办 5</span>
+                <span class="chip">便签 2</span>
+                <span class="chip"><svg class="ic ic-14"><use href="#i-plus"/></svg>添加</span>
+              </div>
+            </div>
+            <div class="insp-sec">
+              <div class="insp-sec-t"><span>今日日程</span><span class="sp"></span>
+                <button class="mini"><svg class="ic ic-14"><use href="#i-plus"/></svg></button></div>
+              <div class="agenda">
+                <div class="ag-row"><span class="rail" style="background:var(--c-blue)"></span>
+                  <span class="when">10:00</span>
+                  <span class="what"><b>研发评审会</b><small>会议室 5 · 1 小时</small></span></div>
+                <div class="ag-row"><span class="rail" style="background:var(--c-orange)"></span>
+                  <span class="when">15:30</span>
+                  <span class="what"><b>供应商电话会议</b><small>腾讯会议 · 30 分钟</small></span></div>
+                <div class="ag-row"><span class="rail" style="background:var(--c-green)"></span>
+                  <span class="when">20:00</span>
+                  <span class="what"><b>读书 30 分钟</b><small>每天 · 已连续 18 天</small></span></div>
+              </div>
+            </div>
+            <div class="insp-sec">
+              <div class="insp-sec-t"><span>今日待办</span><span class="sp"></span>
+                <span style="font-size:11px;font-weight:400">3 / 5</span></div>
+              <div>
+                <div class="todo-row done"><span class="box on"><i></i></span><span class="tx">整理 BMS 故障注入用例</span></div>
+                <div class="todo-row done"><span class="box on"><i></i></span><span class="tx">回复量产烧录问题邮件</span></div>
+                <div class="todo-row done"><span class="box on"><i></i></span><span class="tx">提交 NUC980 内核配置变更</span></div>
+                <div class="todo-row"><span class="box"></span><span class="tx">核对 9 月排班表</span>
+                  <span class="meta">今天</span></div>
+                <div class="todo-row"><span class="box"></span><span class="tx">准备季度 OKR 材料</span>
+                  <span class="meta" style="color:var(--danger)">逾期 2 天</span></div>
+              </div>
+            </div>
+            <div class="insp-sec">
+              <div class="insp-sec-t"><span>关联便签</span><span class="sp"></span></div>
+              <div class="todo-row" style="border:1px solid var(--border-subtle);background:var(--bg-surface-2)">
+                <svg class="ic" style="color:var(--text-3)"><use href="#i-note"/></svg>
+                <span class="tx">量产烧录 checklist v3</span>
+                <svg class="ic ic-14" style="color:var(--text-3)"><use href="#i-arrow-r"/></svg>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <div class="statusbar">
+          <span class="dot"></span><span>已同步 · 2 分钟前</span><span>·</span><span>本月 28 个日程</span>
+          <span class="sp"></span>
+          <svg class="ic ic-14"><use href="#i-cloud"/></svg><span>上海 26°C 多云</span>
+          <span>·</span><span>8月31日 22:53</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 设计标注 -->
+  <div class="anno" style="left:104px;top:190px">1</div>
+  <div class="anno" style="left:706px;top:116px">2</div>
+  <div class="anno" style="left:262px;top:212px">3</div>
+  <div class="anno" style="left:436px;top:216px">4</div>
+  <div class="anno" style="left:262px;top:302px">5</div>
+  <div class="anno" style="left:648px;top:566px">6</div>
+  <div class="anno" style="left:982px;top:190px">7</div>
+  <div class="anno" style="left:430px;top:802px">8</div>
+  <div class="anno" style="left:196px;top:64px">9</div>
+  </div>
+
+  <div class="legend">
+    <h4>设计决策标注</h4>
+    <ol>
+      <li><b>侧边全局导航</b>：模块导航下沉到 240px 侧栏，替代原顶栏 9 个平铺 Tab；可折叠为 56px 图标栏</li>
+      <li><b>视图切换回到内容区</b>：分段控件紧邻日期导航右侧，主题 / 周起始 / 周数等设置项全部移出主界面</li>
+      <li><b>「今天」是唯一强色</b>：强调色只用于今天、选中态和主操作，避免强调色泛滥削弱层级</li>
+      <li><b>休 / 班 必须有文字</b>：颜色之外叠加文字徽标，满足"颜色不能是唯一信息载体"的可访问性要求</li>
+      <li><b>农历 / 节气 / 节日 三级降级</b>：节日 &gt; 节气 &gt; 农历，同一行只显示一个，避免信息打架</li>
+      <li><b>日程密度可控</b>：每格最多 3 条 +「+N 更多」，配合紧凑 / 标准 / 宽松三档密度设置</li>
+      <li><b>右侧日检查器</b>：选中日期的"工作面板"，日程 / 待办 / 便签三合一，可折叠</li>
+      <li><b>状态栏承载低优先级信息</b>：同步状态、日程计数、天气、时间，不挤占主区</li>
+      <li><b>全局搜索常驻标题栏</b>：Ctrl+K 直达，不再单独占一个视图页</li>
+    </ol>
+  </div>
+</section>
+<!-- =====================================================
+     画面 2：主窗口 · 周视图
+     ===================================================== -->
+<section class="screen" id="s2" hidden>
+  <div class="screen-head"><h2>② 主窗口 · 周视图</h2><p>全天区独立 + 24h 时间轴 + 当前时间线 + 非工作时间弱化 + 重叠并列</p></div>
+  <div class="win-wrap">
+  <div class="win">
+    <div class="titlebar">
+      <div class="tb-logo">TH</div><span class="tb-name">TimeHub</span>
+      <div class="tb-search"><svg class="ic ic-14"><use href="#i-search"/></svg>
+        <span>搜索日程、待办、便签…</span><span class="kbd">Ctrl K</span></div>
+      <span class="tb-sp"></span>
+      <button class="tb-icon"><svg class="ic ic-20"><use href="#i-sync"/></svg></button>
+      <button class="tb-icon"><svg class="ic ic-20"><use href="#i-bell"/></svg></button>
+      <button class="tb-icon"><svg class="ic ic-20"><use href="#i-gear"/></svg></button>
+      <span class="tb-sep"></span><div class="avatar">陈</div>
+      <div class="win-btns">
+        <button class="win-btn"><svg class="ic ic-14"><use href="#i-min"/></svg></button>
+        <button class="win-btn"><svg class="ic ic-14"><use href="#i-max"/></svg></button>
+        <button class="win-btn close"><svg class="ic ic-14"><use href="#i-close"/></svg></button>
+      </div>
+    </div>
+    <div class="win-body">
+      <aside class="sidebar">
+        <div class="side-pad">
+          <button class="btn-primary"><svg class="ic"><use href="#i-plus"/></svg>新建</button>
+          <nav class="nav">
+            <div class="nav-item"><svg class="ic"><use href="#i-today"/></svg>今天<span class="badge">6</span></div>
+            <div class="nav-item on"><svg class="ic"><use href="#i-cal"/></svg>日历</div>
+            <div class="nav-item"><svg class="ic"><use href="#i-check"/></svg>待办<span class="badge">12</span></div>
+            <div class="nav-item"><svg class="ic"><use href="#i-note"/></svg>便签</div>
+            <div class="nav-item"><svg class="ic"><use href="#i-heart"/></svg>记录</div>
+            <div class="nav-item"><svg class="ic"><use href="#i-tools"/></svg>工具</div>
+            <div class="nav-item"><svg class="ic"><use href="#i-gear"/></svg>设置</div>
+          </nav>
+        </div>
+        <div class="side-sec">
+          <div class="side-sec-t"><span>2026年8月</span><span class="sp"></span>
+            <button class="mini"><svg class="ic ic-14"><use href="#i-left"/></svg></button>
+            <button class="mini"><svg class="ic ic-14"><use href="#i-right"/></svg></button></div>
+          <div class="mini-cal">
+            <div class="hd">一</div><div class="hd">二</div><div class="hd">三</div><div class="hd">四</div>
+            <div class="hd">五</div><div class="hd">六</div><div class="hd">日</div>
+            <div class="d out">27</div><div class="d out">28</div><div class="d out">29</div>
+            <div class="d out">30</div><div class="d out">31</div><div class="d">1</div><div class="d">2</div>
+            <div class="d">3</div><div class="d">4</div><div class="d">5</div><div class="d">6</div>
+            <div class="d">7</div><div class="d">8</div><div class="d">9</div>
+            <div class="d">10</div><div class="d">11</div><div class="d">12</div><div class="d">13</div>
+            <div class="d">14</div><div class="d">15</div><div class="d">16</div>
+            <div class="d">17</div><div class="d">18</div><div class="d">19</div><div class="d">20</div>
+            <div class="d">21</div><div class="d">22</div><div class="d">23</div>
+            <div class="d">24</div><div class="d">25</div><div class="d">26</div><div class="d">27</div>
+            <div class="d">28</div><div class="d">29</div><div class="d we">30</div>
+            <div class="d today">31</div>
+            <div class="d out">1</div><div class="d out">2</div><div class="d out">3</div>
+            <div class="d out">4</div><div class="d out">5</div><div class="d out">6</div>
+          </div>
+        </div>
+        <div class="side-sec">
+          <div class="side-sec-t"><span>我的日历</span><span class="sp"></span>
+            <button class="mini"><svg class="ic ic-14"><use href="#i-plus"/></svg></button></div>
+          <div class="cal-list">
+            <div class="cal-row"><span class="cbx" style="background:var(--c-blue)"><i></i></span><span class="n">工作</span></div>
+            <div class="cal-row"><span class="cbx" style="background:var(--c-green)"><i></i></span><span class="n">个人</span></div>
+            <div class="cal-row"><span class="cbx" style="background:var(--c-orange)"><i></i></span><span class="n">家庭</span></div>
+            <div class="cal-row"><span class="cbx" style="background:var(--c-purple)"><i></i></span><span class="n">生日 / 纪念日</span></div>
+            <div class="cal-row"><span class="cbx" style="background:var(--c-cyan)"><i></i></span><span class="n">Outlook</span><span class="tag">云</span></div>
+            <div class="cal-row"><span class="cbx" style="background:var(--c-lime)"><i></i></span><span class="n">节假日</span><span class="tag">订阅</span></div>
+          </div>
+        </div>
+      </aside>
+
+      <div class="main">
+        <div class="toolbar">
+          <div class="date-nav">
+            <button class="icon-btn"><svg class="ic ic-20"><use href="#i-left"/></svg></button>
+            <button class="btn-ghost">今天</button>
+            <button class="icon-btn"><svg class="ic ic-20"><use href="#i-right"/></svg></button>
+          </div>
+          <span class="period-title">8月31日 – 9月6日</span>
+          <span class="tb-sp2"></span>
+          <div class="seg">
+            <button>月</button><button class="on">周</button><button>日</button><button>三日</button><button>年</button>
+          </div>
+          <button class="icon-btn"><svg class="ic ic-20"><use href="#i-more"/></svg></button>
+        </div>
+
+        <div class="content">
+          <div class="view-area">
+            <div class="wview">
+              <div class="w-head">
+                <div class="w-gutter"></div>
+                <div class="w-day today"><div class="wd">周一</div><div class="dd">31</div></div>
+                <div class="w-day"><div class="wd">周二</div><div class="dd">1</div></div>
+                <div class="w-day"><div class="wd">周三</div><div class="dd">2</div></div>
+                <div class="w-day"><div class="wd">周四</div><div class="dd">3</div></div>
+                <div class="w-day"><div class="wd">周五</div><div class="dd">4</div></div>
+                <div class="w-day we"><div class="wd">周六</div><div class="dd">5</div></div>
+                <div class="w-day we"><div class="wd">周日</div><div class="dd">6</div></div>
+              </div>
+
+              <div class="w-allday">
+                <div class="lb">全天</div>
+                <div class="cells">
+                  <div></div><div></div><div></div><div></div><div></div>
+                  <div><div class="w-ad" style="background:var(--c-lime)">休息</div></div>
+                  <div><div class="w-ad" style="background:var(--c-orange)">家庭日</div></div>
+                </div>
+              </div>
+
+              <div class="w-scroll">
+                <div class="w-grid" style="transform:translateY(-480px)">
+                  <div id="wkRows"></div>
+                  <div class="w-events">
+                    <!-- 周一（今天列） -->
+                    <div class="w-col today-col">
+                      <div class="w-ev" style="top:40px;height:37px" data-c="var(--c-blue)">
+                        <span class="bdr" style="background:var(--c-blue)"></span>
+                        <span class="in"><b>研发评审会</b>13:00–14:00</span></div>
+                      <div class="w-ev" style="top:140px;height:37px" data-c="var(--c-orange)">
+                        <span class="bdr" style="background:var(--c-orange)"></span>
+                        <span class="in"><b>供应商电话</b>15:30–16:30</span></div>
+                      <div class="w-ev" style="top:300px;height:37px" data-c="var(--c-green)">
+                        <span class="bdr" style="background:var(--c-green)"></span>
+                        <span class="in"><b>读书 30 分钟</b>19:30–20:30</span></div>
+                    </div>
+                    <!-- 周二 -->
+                    <div class="w-col">
+                      <div class="w-ev" style="top:80px;height:37px" data-c="var(--c-blue)">
+                        <span class="bdr" style="background:var(--c-blue)"></span>
+                        <span class="in"><b>版本冻结评审</b>14:00–15:00</span></div>
+                      <div class="w-ev" style="top:300px;height:37px" data-c="var(--c-pink)">
+                        <span class="bdr" style="background:var(--c-pink)"></span>
+                        <span class="in"><b>健身</b>19:30–20:30</span></div>
+                    </div>
+                    <!-- 周三 -->
+                    <div class="w-col">
+                      <div class="w-ev" style="top:0px;height:37px" data-c="var(--c-orange)">
+                        <span class="bdr" style="background:var(--c-orange)"></span>
+                        <span class="in"><b>午餐会</b>12:00–13:00</span></div>
+                      <div class="w-ev" style="top:160px;height:57px;left:2px;right:48%" data-c="var(--c-blue)">
+                        <span class="bdr" style="background:var(--c-blue)"></span>
+                        <span class="in"><b>客户端联调</b>16:00–17:30</span></div>
+                      <div class="w-ev" style="top:180px;height:37px;left:52%;right:2px" data-c="var(--c-purple)">
+                        <span class="bdr" style="background:var(--c-purple)"></span>
+                        <span class="in"><b>设计评审</b>16:30–17:30</span></div>
+                    </div>
+                    <!-- 周四 -->
+                    <div class="w-col">
+                      <div class="w-ev" style="top:120px;height:37px" data-c="var(--c-blue)">
+                        <span class="bdr" style="background:var(--c-blue)"></span>
+                        <span class="in"><b>周报同步</b>15:00–16:00</span></div>
+                    </div>
+                    <!-- 周五 -->
+                    <div class="w-col">
+                      <div class="w-ev" style="top:60px;height:57px" data-c="var(--c-blue)">
+                        <span class="bdr" style="background:var(--c-blue)"></span>
+                        <span class="in"><b>季度规划会</b>13:30–15:00</span></div>
+                      <div class="w-ev" style="top:240px;height:37px" data-c="var(--c-orange)">
+                        <span class="bdr" style="background:var(--c-orange)"></span>
+                        <span class="in"><b>团队建设</b>18:00–19:00</span></div>
+                    </div>
+                    <!-- 周六 -->
+                    <div class="w-col"></div>
+                    <!-- 周日 -->
+                    <div class="w-col"></div>
+                    <!-- 当前时间线 22:53 -->
+                    <div class="now-line" style="top:435px"><span class="now-tag">22:53</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="statusbar">
+          <span class="dot"></span><span>已同步 · 2 分钟前</span><span>·</span><span>本周 11 个日程</span>
+          <span class="sp"></span><span>网格 30 分钟</span><span>·</span><span>工作时间 09:00–19:00</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+</section>
+
+<!-- =====================================================
+     画面 3：今天（聚合页）
+     ===================================================== -->
+<section class="screen" id="s3" hidden>
+  <div class="screen-head"><h2>③ 今天 · 聚合页</h2><p>打开软件的第一屏：日期 → 下一场 → 日程 → 待办 → 倒数日 → 年度进度</p></div>
+  <div class="win-wrap">
+  <div class="win">
+    <div class="titlebar">
+      <div class="tb-logo">TH</div><span class="tb-name">TimeHub</span>
+      <div class="tb-search"><svg class="ic ic-14"><use href="#i-search"/></svg>
+        <span>搜索日程、待办、便签…</span><span class="kbd">Ctrl K</span></div>
+      <span class="tb-sp"></span>
+      <button class="tb-icon"><svg class="ic ic-20"><use href="#i-sync"/></svg></button>
+      <button class="tb-icon"><svg class="ic ic-20"><use href="#i-bell"/></svg></button>
+      <button class="tb-icon"><svg class="ic ic-20"><use href="#i-gear"/></svg></button>
+      <span class="tb-sep"></span><div class="avatar">陈</div>
+      <div class="win-btns">
+        <button class="win-btn"><svg class="ic ic-14"><use href="#i-min"/></svg></button>
+        <button class="win-btn"><svg class="ic ic-14"><use href="#i-max"/></svg></button>
+        <button class="win-btn close"><svg class="ic ic-14"><use href="#i-close"/></svg></button>
+      </div>
+    </div>
+    <div class="win-body">
+      <aside class="sidebar">
+        <div class="side-pad">
+          <button class="btn-primary"><svg class="ic"><use href="#i-plus"/></svg>新建</button>
+          <nav class="nav">
+            <div class="nav-item on"><svg class="ic"><use href="#i-today"/></svg>今天<span class="badge">6</span></div>
+            <div class="nav-item"><svg class="ic"><use href="#i-cal"/></svg>日历</div>
+            <div class="nav-item"><svg class="ic"><use href="#i-check"/></svg>待办<span class="badge">12</span></div>
+            <div class="nav-item"><svg class="ic"><use href="#i-note"/></svg>便签</div>
+            <div class="nav-item"><svg class="ic"><use href="#i-heart"/></svg>记录</div>
+            <div class="nav-item"><svg class="ic"><use href="#i-tools"/></svg>工具</div>
+            <div class="nav-item"><svg class="ic"><use href="#i-gear"/></svg>设置</div>
+          </nav>
+        </div>
+        <div class="side-sec">
+          <div class="side-sec-t"><span>今日概览</span></div>
+          <div style="margin:0 10px;display:flex;flex-direction:column;gap:8px">
+            <div class="cd-card"><div class="t">日程</div><div class="v">3<span>个</span></div></div>
+            <div class="cd-card"><div class="t">待办已完成</div><div class="v">3 / 5</div></div>
+            <div class="cd-card"><div class="t">专注时长</div><div class="v">2.5<span>小时</span></div></div>
+          </div>
+        </div>
+      </aside>
+
+      <div class="main">
+        <div class="toolbar">
+          <span class="period-title">今天</span>
+          <span style="font-size:13px;color:var(--text-2)">2026年8月31日 周一</span>
+          <span class="tb-sp2"></span>
+          <button class="btn-ghost"><svg class="ic"><use href="#i-timer"/></svg>番茄钟</button>
+          <button class="btn-ghost"><svg class="ic"><use href="#i-grid"/></svg>自定义卡片</button>
+        </div>
+
+        <div class="content">
+          <div class="view-area">
+            <div class="today-wrap">
+              <div class="card hero">
+                <div class="big">31</div>
+                <div class="meta">
+                  <div class="l1">八月 · 星期一</div>
+                  <div class="l2">农历七月十九 · 丙午年</div>
+                </div>
+                <div class="facts">
+                  <div class="fact"><div class="k">一年中第</div><div class="v">243 天</div></div>
+                  <div class="fact"><div class="k">第几周</div><div class="v">36 周</div></div>
+                  <div class="fact"><div class="k">剩余</div><div class="v">122 天</div></div>
+                  <div class="fact"><div class="k">天气</div><div class="v">26°C</div></div>
+                </div>
+              </div>
+
+              <div class="next-up">
+                <svg class="ic"><use href="#i-clock"/></svg>
+                <span>下一场：读书 30 分钟 · 20:00</span>
+                <span class="sp"></span>
+                <span style="font-weight:500">还有 1 小时 5 分钟</span>
+              </div>
+
+              <div class="two-col">
+                <div class="card" style="display:flex;flex-direction:column">
+                  <div class="card-h"><span class="t">今日日程</span><span class="sp"></span>
+                    <span style="font-size:11px;color:var(--text-3)">3 个</span>
+                    <button class="icon-btn"><svg class="ic ic-14"><use href="#i-plus"/></svg></button></div>
+                  <div class="card-b" style="flex:1">
+                    <div class="agenda">
+                      <div class="ag-row"><span class="rail" style="background:var(--c-blue)"></span>
+                        <span class="when">10:00</span>
+                        <span class="what"><b>研发评审会</b><small>会议室 5 · 1 小时 · 已结束</small></span></div>
+                      <div class="ag-row"><span class="rail" style="background:var(--c-orange)"></span>
+                        <span class="when">15:30</span>
+                        <span class="what"><b>供应商电话会议</b><small>腾讯会议 · 已结束</small></span></div>
+                      <div class="ag-row" style="background:var(--accent-subtle)">
+                        <span class="rail" style="background:var(--c-green)"></span>
+                        <span class="when" style="color:var(--accent)">20:00</span>
+                        <span class="what"><b>读书 30 分钟</b><small style="color:var(--accent)">下一场</small></span></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="card" style="display:flex;flex-direction:column">
+                  <div class="card-h"><span class="t">今日待办</span><span class="sp"></span>
+                    <span style="font-size:11px;color:var(--text-3)">3 / 5</span>
+                    <button class="icon-btn"><svg class="ic ic-14"><use href="#i-plus"/></svg></button></div>
+                  <div class="card-b" style="flex:1">
+                    <div class="todo-row done"><span class="box on"><i></i></span><span class="tx">整理 BMS 故障注入用例</span></div>
+                    <div class="todo-row done"><span class="box on"><i></i></span><span class="tx">回复量产烧录问题邮件</span></div>
+                    <div class="todo-row done"><span class="box on"><i></i></span><span class="tx">提交 NUC980 内核配置变更</span></div>
+                    <div class="todo-row"><span class="box"></span><span class="tx">核对 9 月排班表</span><span class="meta">今天</span></div>
+                    <div class="todo-row"><span class="box"></span><span class="tx">准备季度 OKR 材料</span>
+                      <span class="meta" style="color:var(--danger)">逾期 2 天</span></div>
+                    <div class="prog">
+                      <div class="pl"><span>今日完成率</span><span class="sp"></span><span>60%</span></div>
+                      <div class="bar"><i style="width:60%"></i></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-h"><span class="t">倒数日</span><span class="sp"></span>
+                  <button class="icon-btn"><svg class="ic ic-14"><use href="#i-plus"/></svg></button></div>
+                <div class="card-b">
+                  <div class="cd-row">
+                    <div class="cd-item"><div class="t">GridLink EU 量产发布</div>
+                      <div class="v">12<small>天</small></div><div class="d">2026-09-12</div></div>
+                    <div class="cd-item"><div class="t">国庆假期</div>
+                      <div class="v">31<small>天</small></div><div class="d">2026-10-01</div></div>
+                    <div class="cd-item"><div class="t">女儿生日</div>
+                      <div class="v">45<small>天</small></div><div class="d">2026-10-15 · 农历</div></div>
+                    <div class="cd-item"><div class="t">入职周年</div>
+                      <div class="v">1083<small>天</small></div><div class="d">已过去 · 第 2 周年</div></div>
+                  </div>
+                  <div class="prog">
+                    <div class="pl"><span>2026 年进度</span><span class="sp"></span><span>66.6%</span></div>
+                    <div class="bar"><i style="width:66.6%"></i></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="statusbar">
+          <span class="dot"></span><span>已同步 · 2 分钟前</span>
+          <span class="sp"></span><span>最后更新 22:53</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+</section>
+<!-- ============ 补充图标符号（画面 4~9 用） ============ -->
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-arrow-r" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8.5 6h12M8.5 12h12M8.5 18h12"/><circle cx="4" cy="6" r="1.1" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7 20v-6M12 20V9M17 20v-9"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.4"/><path d="M2.8 20a6.2 6.2 0 0 1 12.4 0"/><circle cx="17.5" cy="9.5" r="2.6"/><path d="M15.5 14.6a5 5 0 0 1 5.7 5.4"/></symbol>
+  <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 2-2 0-.6-.3-1-.6-1.4-.4-.5-.7-.9-.7-1.6 0-1.2 1-2 2-2h2.3A4.7 4.7 0 0 0 21 9.3C21 5.8 17 3 12 3z"/><circle cx="7.5" cy="10.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="12" cy="7.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="16.5" cy="10.5" r="1.1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/><circle cx="12" cy="15.2" r="1.3" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="11" rx="2"/><path d="M6.5 11h.01M10 11h.01M13.5 11h.01M17 11h.01M7 14.5h10"/></symbol>
+  <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5v13c0 1.7 3.6 3 8 3s8-1.3 8-3v-13"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="7.6" r="1.1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5 21.5 20h-19z"/><path d="M12 10v4"/><circle cx="12" cy="16.6" r="1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-reload" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 3.5V8h-4.5"/></symbol>
+</svg>
+
+<!-- =====================================================
+     画面 4：待办 · 四象限
+     ===================================================== -->
+<section class="screen" id="s4" hidden>
+  <div class="screen-head"><h2>④ 待办 · 四象限</h2><p>艾森豪威尔矩阵：紧急 × 重要 · 视图分段（四象限/看板/统计）· 拖拽占位提示</p></div>
+  <div class="win-wrap">
+  <div class="win">
+    <div class="titlebar">
+      <div class="tb-logo">TH</div><span class="tb-name">TimeHub</span>
+      <div class="tb-search"><svg class="ic ic-14"><use href="#i-search"/></svg><span>搜索日程、待办、便签…</span><span class="kbd">Ctrl K</span></div>
+      <span class="tb-sp"></span>
+      <button class="tb-icon" title="同步"><svg class="ic ic-20"><use href="#i-sync"/></svg></button>
+      <span class="tb-sep"></span>
+      <div class="avatar">陈</div>
+      <div class="win-btns">
+        <button class="win-btn"><svg class="ic ic-14"><use href="#i-min"/></svg></button>
+        <button class="win-btn"><svg class="ic ic-14"><use href="#i-max"/></svg></button>
+        <button class="win-btn close"><svg class="ic ic-14"><use href="#i-close"/></svg></button>
+      </div>
+    </div>
+    <div class="win-body">
+      <aside class="sidebar">
+        <div class="side-pad">
+          <button class="btn-primary"><svg class="ic"><use href="#i-plus"/></svg>新建</button>
+          <nav class="nav">
+            <div class="nav-item"><svg class="ic"><use href="#i-today"/></svg>今天<span class="badge">6</span></div>
+            <div class="nav-item"><svg class="ic"><use href="#i-cal"/></svg>日历</div>
+            <div class="nav-item on"><svg class="ic"><use href="#i-check"/></svg>待办<span class="badge">12</span></div>
+            <div class="nav-item"><svg class="ic"><use href="#i-note"/></svg>便签</div>
+            <div class="nav-item"><svg class="ic"><use href="#i-gear"/></svg>设置</div>
+          </nav>
+        </div>
+      </aside>
+      <div class="main">
+        <div class="toolbar">
+          <span class="period-title">待办</span>
+          <span class="tb-sp2"></span>
+          <div class="seg"><button class="on">四象限</button><button>看板</button><button>统计</button></div>
+          <button class="icon-btn" title="更多"><svg class="ic ic-20"><use href="#i-more"/></svg></button>
+        </div>
+        <div class="quad-wrap">
+          <div class="quad-grid">
+            <div class="quad q1">
+              <div class="quad-h"><span class="qtag"></span><span class="t">I 立即做 · 重要且紧急</span><span class="cnt">3</span>
+                <span class="sp"></span><button class="add"><svg class="ic ic-14"><use href="#i-plus"/></svg></button></div>
+              <div class="quad-b">
+                <div class="qtask"><span class="box"></span><span class="tx">修复 NUC980 量产烧录 watchdog 卡死</span>
+                  <svg class="ic ic-14 flag"><use href="#i-flag"/></svg><span class="chip urgent">今天 18:00</span></div>
+                <div class="qtask done"><span class="box"><i></i></span><span class="tx">确认 OTA 签名工具服务器路径</span>
+                  <svg class="ic ic-14 flag"><use href="#i-flag"/></svg><span class="chip">昨天</span></div>
+                <div class="qtask"><span class="box"></span><span class="tx">BMS Gate 4 故障注入测试报告</span>
+                  <svg class="ic ic-14 flag"><use href="#i-flag"/></svg><span class="chip urgent">明早 10:00</span></div>
+                <div class="drop-hint">＋ 拖入任务到「立即做」</div>
+              </div>
+            </div>
+            <div class="quad q2">
+              <div class="quad-h"><span class="qtag"></span><span class="t">II 计划做 · 重要不紧急</span><span class="cnt">5</span>
+                <span class="sp"></span><button class="add"><svg class="ic ic-14"><use href="#i-plus"/></svg></button></div>
+              <div class="quad-b">
+                <div class="qtask"><span class="box"></span><span class="tx">Battery Monitor 电流/电压/功率实时显示</span>
+                  <svg class="ic ic-14 flag"><use href="#i-flag"/></svg><span class="chip">9/4</span></div>
+                <div class="qtask"><span class="box"></span><span class="tx">OTA 签名工具迁移 Slint 框架</span>
+                  <svg class="ic ic-14 flag"><use href="#i-flag"/></svg></div>
+                <div class="qtask"><span class="box"></span><span class="tx">STM32 跑马灯板 PCB 评审</span>
+                  <svg class="ic ic-14 flag"><use href="#i-flag"/></svg><span class="chip">9/8</span></div>
+                <div class="drop-hint">＋ 拖入任务到「计划做」</div>
+              </div>
+            </div>
+            <div class="quad q3">
+              <div class="quad-h"><span class="qtag"></span><span class="t">III 委派 · 紧急不重要</span><span class="cnt">2</span>
+                <span class="sp"></span><button class="add"><svg class="ic ic-14"><use href="#i-plus"/></svg></button></div>
+              <div class="quad-b">
+                <div class="qtask"><span class="box"></span><span class="tx">回复客户 GridLink 询价邮件</span>
+                  <svg class="ic ic-14 flag"><use href="#i-flag"/></svg><span class="chip urgent">今天</span></div>
+                <div class="qtask"><span class="box"></span><span class="tx">帮 QA 确认固件版本号</span>
+                  <svg class="ic ic-14 flag"><use href="#i-flag"/></svg><span class="chip">今天</span></div>
+                <div class="qtask done"><span class="box"><i></i></span><span class="tx">导出 8 月 OKR 进度表</span>
+                  <svg class="ic ic-14 flag"><use href="#i-flag"/></svg></div>
+              </div>
+            </div>
+            <div class="quad q4">
+              <div class="quad-h"><span class="qtag"></span><span class="t">IV 减少 · 不重要不紧急</span><span class="cnt">2</span>
+                <span class="sp"></span><button class="add"><svg class="ic ic-14"><use href="#i-plus"/></svg></button></div>
+              <div class="quad-b">
+                <div class="qtask"><span class="box"></span><span class="tx">整理浏览器书签</span>
+                  <svg class="ic ic-14 flag"><use href="#i-flag"/></svg></div>
+                <div class="qtask done"><span class="box"><i></i></span><span class="tx">看短视频"效率技巧"合集</span>
+                  <svg class="ic ic-14 flag"><use href="#i-flag"/></svg></div>
+                <div class="drop-hint">＋ 拖入任务到「减少」</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="statusbar">
+      <span class="dot"></span><span>已同步 · 2 分钟前</span>
+      <span class="sp"></span><span>共 18 个待办 · 今日完成率 60%</span>
+    </div>
+  </div>
+  </div>
+</section>
+
+<!-- =====================================================
+     画面 5：快速面板（托盘浮层，不套窗口外框）
+     ===================================================== -->
+<section class="screen" id="s5" hidden>
+  <div class="screen-head"><h2>⑤ 快速面板 · Quick Panel</h2><p>托盘单击弹出的浮层 · 460 宽 · 日期/农历/摘要 + 时钟/天气/迷你月历/快捷入口</p></div>
+  <div class="qp-scene">
+    <div class="qp">
+      <div class="qp-head">
+        <div class="qp-date">
+          <span class="d1">8月31日</span><span class="d2">星期一</span>
+          <span class="sp"></span><span class="d3">农历七月十九 · 丙午马年</span>
+        </div>
+        <div class="qp-sum">
+          <span class="pill">日程 <b>3</b></span>
+          <span class="pill">待办 <b>5</b></span>
+          <span class="pill">节日 <b>0</b></span>
+          <span class="pill">倒数日 <b>2</b></span>
+        </div>
+      </div>
+      <div class="qp-body">
+        <div class="qp-left">
+          <div class="qp-sec-t">今日日程</div>
+          <div class="qp-ev"><span class="bar" style="background:var(--c-blue)"></span><span class="tm">09:30</span><span class="tt">研发周会 · 会议室5</span></div>
+          <div class="qp-ev"><span class="bar" style="background:var(--c-green)"></span><span class="tm">12:00</span><span class="tt">午餐 · 和产品团队</span></div>
+          <div class="qp-ev"><span class="bar" style="background:var(--c-red)"></span><span class="tm">15:00</span><span class="tt">PCB 评审 · 跑马灯板</span></div>
+          <div class="qp-ev"><span class="bar" style="background:var(--c-orange)"></span><span class="tm">20:00</span><span class="tt">女儿钢琴课</span></div>
+          <div class="qp-sec-t" style="margin-top:4px">今日待办</div>
+          <div class="qtask"><span class="box"></span><span class="tx">修复量产烧录 watchdog 卡死</span></div>
+          <div class="qtask"><span class="box"></span><span class="tx">BMS Gate 4 报告</span></div>
+          <div class="qtask done"><span class="box"><i></i></span><span class="tx">确认签名工具路径</span></div>
+        </div>
+        <div class="qp-right">
+          <div class="qp-clock">22:53:12<small>秒</small></div>
+          <div class="qp-weather"><svg class="ic ic-20"><use href="#i-cloud"/></svg><span>上海 26°C 多云 · 湿度 68%</span></div>
+          <div class="qp-sec-t">2026年8月</div>
+          <div class="mini-cal">
+            <div class="hd">一</div><div class="hd">二</div><div class="hd">三</div><div class="hd">四</div>
+            <div class="hd">五</div><div class="hd">六</div><div class="hd">日</div>
+            <div class="d out">27</div><div class="d out">28</div><div class="d out">29</div>
+            <div class="d out">30</div><div class="d out">31</div><div class="d">1</div><div class="d">2</div>
+            <div class="d">3</div><div class="d">4</div><div class="d">5</div><div class="d">6</div>
+            <div class="d">7</div><div class="d">8</div><div class="d">9</div>
+            <div class="d">10</div><div class="d">11</div><div class="d">12</div><div class="d">13</div>
+            <div class="d">14</div><div class="d">15</div><div class="d">16</div>
+            <div class="d">17</div><div class="d">18</div><div class="d">19</div><div class="d">20</div>
+            <div class="d">21</div><div class="d">22</div><div class="d">23</div>
+            <div class="d">24</div><div class="d">25</div><div class="d">26</div><div class="d">27</div>
+            <div class="d">28</div><div class="d">29</div><div class="d we">30</div>
+            <div class="d today">31</div>
+            <div class="d out">1</div><div class="d out">2</div><div class="d out">3</div>
+            <div class="d out">4</div><div class="d out">5</div><div class="d out">6</div>
+          </div>
+        </div>
+      </div>
+      <div class="qp-nav">
+        <button class="on" title="今天"><svg class="ic ic-20"><use href="#i-today"/></svg></button>
+        <button title="日历"><svg class="ic ic-20"><use href="#i-cal"/></svg></button>
+        <button title="待办"><svg class="ic ic-20"><use href="#i-check"/></svg></button>
+        <button title="新建"><svg class="ic ic-20"><use href="#i-plus"/></svg></button>
+        <button title="设置"><svg class="ic ic-20"><use href="#i-gear"/></svg></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================
+     画面 6：新建日程对话框（居中模态）
+     ===================================================== -->
+<section class="screen" id="s6" hidden>
+  <div class="screen-head"><h2>⑥ 新建日程 · 自然语言解析</h2><p>居中模态 480 宽 · 智能解析「明天下午3点研发周会 会议室5」→ 标题/时间/地点 chips</p></div>
+  <div class="dlg-scene">
+    <div class="dlg-scrim">
+      <div class="dlg">
+        <div class="dlg-h"><span class="t">新建日程</span><span class="sp"></span>
+          <button class="x"><svg class="ic ic-14"><use href="#i-close"/></svg></button></div>
+        <div class="dlg-b">
+          <input class="f-title" value="研发周会" placeholder="日程标题">
+          <div class="nl-box">
+            <div class="row"><svg class="ic ic-14"><use href="#i-glass"/></svg>
+              <input value="明天下午3点研发周会 会议室5"><button class="btn-mini">解析</button></div>
+            <div class="parse">
+              <span class="tag"><b>标题</b> 研发周会</span>
+              <span class="tag"><b>时间</b> 明天 15:00</span>
+              <span class="tag"><b>地点</b> 会议室5</span>
+              <span class="tag ok">✓ 已识别</span>
+            </div>
+          </div>
+          <div class="frow"><span class="lab">全天</span>
+            <div class="ctl"><span class="toggle"></span></div></div>
+          <div class="frow"><span class="lab">时间</span>
+            <div class="ctl">
+              <span class="finput"><svg class="ic ic-14"><use href="#i-clock"/></svg>明天 15:00</span>
+              <span style="color:var(--text-3);font-size:12px">—</span>
+              <span class="finput"><svg class="ic ic-14"><use href="#i-clock"/></svg>明天 16:00</span>
+            </div></div>
+          <div class="frow"><span class="lab">日历</span>
+            <div class="ctl"><span class="fsel" style="flex:1"><span>工作</span><svg class="ic ic-14"><use href="#i-down"/></svg></span></div></div>
+          <div class="frow"><span class="lab">提醒</span>
+            <div class="ctl chip-row">
+              <span class="chipx on">准时</span><span class="chipx on">提前 10 分钟</span>
+              <span class="chipx">提前 1 小时</span><span class="chipx">当天 09:00</span>
+            </div></div>
+          <div class="frow"><span class="lab">重复</span>
+            <div class="ctl"><span class="fsel" style="flex:1"><span>每周 · 周一</span><svg class="ic ic-14"><use href="#i-down"/></svg></span></div></div>
+          <button class="more-link"><svg class="ic ic-14"><use href="#i-down"/></svg>更多选项 · 地点 / 备注 / 标签 / 时区</button>
+        </div>
+        <div class="dlg-f">
+          <button class="btn btn-ghost">取消</button>
+          <button class="btn btn-save">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================
+     画面 7：设置 · 外观
+     ===================================================== -->
+<section class="screen" id="s7" hidden>
+  <div class="screen-head"><h2>⑦ 设置 · 外观</h2><p>左侧二级导航 + 右侧设置面板 · 主题三选一 / 8 色强调色 / 字号 / 密度 / 动效</p></div>
+  <div class="win-wrap">
+  <div class="win">
+    <div class="titlebar">
+      <div class="tb-logo">TH</div><span class="tb-name">TimeHub</span>
+      <span class="tb-sp"></span>
+      <div class="win-btns">
+        <button class="win-btn"><svg class="ic ic-14"><use href="#i-min"/></svg></button>
+        <button class="win-btn"><svg class="ic ic-14"><use href="#i-max"/></svg></button>
+        <button class="win-btn close"><svg class="ic ic-14"><use href="#i-close"/></svg></button>
+      </div>
+    </div>
+    <div class="win-body">
+      <nav class="set-nav">
+        <div class="si on"><svg class="ic ic-14"><use href="#i-palette"/></svg>外观</div>
+        <div class="si"><svg class="ic ic-14"><use href="#i-cal"/></svg>日历</div>
+        <div class="si"><svg class="ic ic-14"><use href="#i-bell"/></svg>通知</div>
+        <div class="si"><svg class="ic ic-14"><use href="#i-sync"/></svg>同步</div>
+        <div class="si"><svg class="ic ic-14"><use href="#i-lock"/></svg>隐私</div>
+        <div class="si"><svg class="ic ic-14"><use href="#i-keyboard"/></svg>快捷键</div>
+        <div class="si"><svg class="ic ic-14"><use href="#i-db"/></svg>数据</div>
+        <div class="si"><svg class="ic ic-14"><use href="#i-info"/></svg>关于</div>
+      </nav>
+      <div class="set-main">
+        <div>
+          <div class="set-title">外观</div>
+          <div class="set-desc">自定义 TimeHub 在窗口中的显示方式。</div>
+        </div>
+        <div class="set-row">
+          <div class="info"><div class="t">主题</div><div class="d">选择界面配色方案，可跟随系统</div></div>
+          <div class="ctl theme-cards" style="flex:1;max-width:520px">
+            <div class="tcard on"><div class="prev tprev-light"><i></i></div><div class="n"><span class="dot"></span>浅色</div></div>
+            <div class="tcard"><div class="prev tprev-dark"><i></i></div><div class="n"><span class="dot"></span>深色</div></div>
+            <div class="tcard"><div class="prev tprev-auto"><i></i></div><div class="n"><span class="dot"></span>跟随系统</div></div>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="info"><div class="t">强调色</div><div class="d">用于按钮、选中项与日程条配色</div></div>
+          <div class="ctl accent-dots">
+            <span class="adot on" style="background:var(--c-blue)"></span>
+            <span class="adot" style="background:var(--c-green)"></span>
+            <span class="adot" style="background:var(--c-orange)"></span>
+            <span class="adot" style="background:var(--c-red)"></span>
+            <span class="adot" style="background:var(--c-purple)"></span>
+            <span class="adot" style="background:var(--c-cyan)"></span>
+            <span class="adot" style="background:var(--c-pink)"></span>
+            <span class="adot" style="background:var(--c-lime)"></span>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="info"><div class="t">界面字号</div><div class="d">调整日历与列表的字体大小</div></div>
+          <div class="ctl">
+            <div class="stepper"><button>−</button><span class="v">13px</span><button>+</button></div>
+            <div class="set-preview"><span class="lp a"></span><span class="lp b"></span><span class="lp c"></span></div>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="info"><div class="t">界面密度</div><div class="d">控制日程条与列表的行高</div></div>
+          <div class="ctl">
+            <div class="dens"><button>紧凑</button><button class="on">标准</button><button>宽松</button></div>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="info"><div class="t">减淡动效</div><div class="d">关闭视图切换动画与弹入效果</div></div>
+          <div class="ctl"><span class="switch"></span></div>
+        </div>
+      </div>
+    </div>
+    <div class="statusbar">
+      <span class="sp"></span><span>TimeHub 10.0 · 已是最新版本</span>
+    </div>
+  </div>
+  </div>
+</section>
+
+<!-- =====================================================
+     画面 8：桌面挂件（浮动于壁纸）
+     ===================================================== -->
+<section class="screen" id="s8" hidden>
+  <div class="screen-head"><h2>⑧ 桌面挂件</h2><p>半透明磨砂卡片浮于壁纸 · 月历 / 今日日程 / 倒数日 · 右上角图钉置顶与设置</p></div>
+  <div class="desk">
+    <div class="wgt wgt-cal">
+      <div class="wgt-h"><svg class="ic ic-14"><use href="#i-cal"/></svg>2026年8月<span class="sp"></span>
+        <button title="置顶"><svg class="ic ic-14"><use href="#i-pin"/></svg></button>
+        <button title="设置"><svg class="ic ic-14"><use href="#i-gear"/></svg></button></div>
+      <div class="mc">
+        <div class="hd">一</div><div class="hd">二</div><div class="hd">三</div><div class="hd">四</div>
+        <div class="hd">五</div><div class="hd">六</div><div class="hd">日</div>
+        <div class="d out">27</div><div class="d out">28</div><div class="d out">29</div>
+        <div class="d out">30</div><div class="d out">31</div><div class="d">1</div><div class="d">2</div>
+        <div class="d">3</div><div class="d">4</div><div class="d">5</div><div class="d">6</div>
+        <div class="d">7</div><div class="d">8</div><div class="d">9</div>
+        <div class="d">10</div><div class="d">11</div><div class="d">12</div><div class="d">13</div>
+        <div class="d">14</div><div class="d">15</div><div class="d">16</div>
+        <div class="d">17</div><div class="d">18</div><div class="d">19</div><div class="d">20</div>
+        <div class="d">21</div><div class="d">22</div><div class="d">23</div>
+        <div class="d">24</div><div class="d">25</div><div class="d">26</div><div class="d">27</div>
+        <div class="d">28</div><div class="d">29</div><div class="d we">30</div>
+        <div class="d today">31</div>
+        <div class="d out">1</div><div class="d out">2</div><div class="d out">3</div>
+        <div class="d out">4</div><div class="d out">5</div><div class="d out">6</div>
+      </div>
+    </div>
+    <div class="wgt wgt-evs">
+      <div class="wgt-h"><svg class="ic ic-14"><use href="#i-clock"/></svg>今日日程<span class="sp"></span>
+        <button title="置顶"><svg class="ic ic-14"><use href="#i-pin"/></svg></button>
+        <button title="设置"><svg class="ic ic-14"><use href="#i-gear"/></svg></button></div>
+      <div class="wl">
+        <div class="e"><span class="bar" style="background:#6C9BFF"></span><span class="tm">09:30</span><span class="tt">研发周会 · 会议室5</span></div>
+        <div class="e"><span class="bar" style="background:#4ADE9B"></span><span class="tm">12:00</span><span class="tt">午餐 · 和产品团队</span></div>
+        <div class="e"><span class="bar" style="background:#FF6B78"></span><span class="tm">15:00</span><span class="tt">PCB 评审 · 跑马灯板</span></div>
+        <div class="e"><span class="bar" style="background:#E9A23B"></span><span class="tm">20:00</span><span class="tt">女儿钢琴课</span></div>
+      </div>
+    </div>
+    <div class="wgt wgt-cd">
+      <div class="wgt-h"><svg class="ic ic-14"><use href="#i-timer"/></svg>倒数日<span class="sp"></span>
+        <button title="置顶"><svg class="ic ic-14"><use href="#i-pin"/></svg></button>
+        <button title="设置"><svg class="ic ic-14"><use href="#i-gear"/></svg></button></div>
+      <div class="cd-list">
+        <div class="c"><span class="num">12<small>天</small></span><div><div class="t">GridLink EU 量产发布</div><div class="d">2026-09-12</div></div></div>
+        <div class="c"><span class="num">31<small>天</small></span><div><div class="t">国庆假期</div><div class="d">2026-10-01</div></div></div>
+        <div class="c"><span class="num">45<small>天</small></span><div><div class="t">女儿生日</div><div class="d">2026-10-15 · 农历</div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================
+     画面 9：空状态 & 错误状态一览
+     ===================================================== -->
+<section class="screen" id="s9" hidden>
+  <div class="screen-head"><h2>⑨ 空状态 & 错误状态</h2><p>排班空 / 生日空 / Outlook 同步失败（可重试）/ 同步骨架屏</p></div>
+  <div class="states">
+    <div class="state-card">
+      <div class="state-ic"><svg class="ic ic-20"><use href="#i-cal"/></svg></div>
+      <div class="state-t">暂无排班</div>
+      <div class="state-d">本周还没有排班计划。点击下方按钮创建你的第一个班次。</div>
+      <div class="state-actions"><button class="btn btn-ghost">新建排班</button></div>
+    </div>
+    <div class="state-card">
+      <div class="state-ic"><svg class="ic ic-20"><use href="#i-heart"/></svg></div>
+      <div class="state-t">暂无生日提醒</div>
+      <div class="state-d">添加联系人的出生日期后，这里会展示即将到来的生日与纪念日。</div>
+      <div class="state-actions"><button class="btn btn-ghost">导入联系人</button></div>
+    </div>
+    <div class="state-card">
+      <div class="state-ic err"><svg class="ic ic-20"><use href="#i-alert"/></svg></div>
+      <div class="state-t">Outlook 同步失败</div>
+      <div class="state-d">无法连接到 Outlook 服务，日程可能不是最新。请检查网络或重新登录。</div>
+      <div class="state-actions">
+        <button class="btn btn-ghost"><svg class="ic ic-14"><use href="#i-reload"/></svg>重新登录</button>
+        <button class="btn btn-ghost">稍后重试</button>
+      </div>
+    </div>
+    <div class="state-card">
+      <div class="state-ic"><svg class="ic ic-20"><use href="#i-sync"/></svg></div>
+      <div class="state-t">正在同步…</div>
+      <div class="state-d">从云端拉取最新日程、待办与订阅日历。</div>
+      <div class="skel">
+        <div class="sk-l w90 h24"></div><div class="sk-l"></div>
+        <div class="sk-l w70"></div><div class="sk-l"></div><div class="sk-l w50"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>
+</div>
+<script>
+/* 原型导航：画面切换 / 深色浅色 / 缩放 */
+(function(){
+  var screens = document.querySelectorAll('.screen');
+  function go(id){
+    screens.forEach(function(s){ s.hidden = (s.id !== id); });
+    window.scrollTo({top:0});
+  }
+  // 画面切换按钮
+  document.querySelectorAll('.pbtn[data-go]').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('.pbtn[data-go]').forEach(function(x){x.classList.remove('on')});
+      b.classList.add('on');
+      go(b.dataset.go);
+    });
+  });
+  // 初始画面：支持 URL hash 定位（如 mockup.html#s4），便于分享与预览
+  var init = location.hash.slice(1);
+  if (init && document.getElementById(init)) {
+    go(init);
+    var goBtn = document.querySelector('.pbtn[data-go="' + init + '"]');
+    if (goBtn) {
+      document.querySelectorAll('.pbtn[data-go]').forEach(function(x){x.classList.remove('on')});
+      goBtn.classList.add('on');
+    }
+  }
+  window.addEventListener('hashchange', function(){
+    var h = location.hash.slice(1);
+    if (h && document.getElementById(h)) go(h);
+  });
+  // 主题切换
+  var light = document.getElementById('btn-light'), dark = document.getElementById('btn-dark');
+  function setTheme(t){
+    document.documentElement.dataset.theme = t;
+    light.classList.toggle('on', t === 'light');
+    dark.classList.toggle('on', t === 'dark');
+  }
+  light.addEventListener('click', function(){ setTheme('light'); });
+  dark.addEventListener('click', function(){ setTheme('dark'); });
+  // 缩放
+  var stage = document.getElementById('stage');
+  document.querySelectorAll('.pbtn[data-scale]').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('.pbtn[data-scale]').forEach(function(x){x.classList.remove('on')});
+      b.classList.add('on');
+      stage.style.transform = 'scale(' + b.dataset.scale + ')';
+    });
+  });
+
+  /* ============== 月历 7×6 网格生成（2026 年 8 月） ============== */
+  var COLOR_HEX = {
+    'var(--c-blue)':'#2E6BE6','var(--c-green)':'#0E9F6E','var(--c-orange)':'#C77700',
+    'var(--c-red)':'#D93A49','var(--c-purple)':'#7C4DFF','var(--c-cyan)':'#0891B2',
+    'var(--c-pink)':'#DB2777','var(--c-lime)':'#65A30D','var(--c-jieqi)':'#0E9F6E'
+  };
+  function fillBg(c){ var h = COLOR_HEX[c] || '#888'; return h + '26'; } /* 透明度 15% */
+  /* 类别色深化（标题文字用，保证 tint 底上 4.5:1 对比度） */
+  function shade(hex, f){
+    var n = parseInt(hex.slice(1), 16), r = (n>>16)&255, g = (n>>8)&255, b = n&255;
+    r = Math.max(0, Math.min(255, Math.round(r*(1+f)))); g = Math.max(0, Math.min(255, Math.round(g*(1+f))));
+    b = Math.max(0, Math.min(255, Math.round(b*(1+f))));
+    return '#' + ((1<<24) + (r<<16) + (g<<8) + b).toString(16).slice(1);
+  }
+  function deepTxt(c){ return shade(COLOR_HEX[c] || '#2E6BE6', -0.25); }
+  var NOTES = {
+    '2026-09-01':{lunar:'开学'},
+    '2026-09-07':{lunar:'白露',cls:'jq'},
+    '2026-09-10':{lunar:'教师节',cls:'fest'},
+    '2026-09-18':{lunar:'九一八',cls:'fest'},
+    '2026-09-23':{lunar:'秋分',cls:'jq'},
+    '2026-09-27':{badge:'wk'},
+    '2026-09-29':{lunar:'中秋',cls:'fest'},
+    '2026-10-01':{lunar:'国庆',badge:'hol'},
+    '2026-10-02':{badge:'hol'},'2026-10-03':{badge:'hol'},'2026-10-04':{badge:'hol'},
+    '2026-10-05':{badge:'hol'},'2026-10-06':{badge:'hol'},'2026-10-07':{badge:'hol'}
+  };
+  var LUNAR = {'2026-08-31':'农历七月十九','2026-08-30':'七月十八','2026-08-29':'七月十七'};
+  var EVENTS = {
+    '2026-08-31':[
+      {c:'var(--c-blue)',t:'09:30',n:'研发周会'},
+      {c:'var(--c-orange)',t:'15:30',n:'供应商电话'},
+      {c:'var(--c-green)',t:'20:00',n:'读书 30 分钟'}
+    ],
+    '2026-09-01':[
+      {c:'var(--c-purple)',t:'08:30',n:'送女儿上学'},
+      {c:'var(--c-blue)',t:'14:00',n:'项目启动会'},
+      {c:'var(--c-pink)',t:'19:00',n:'健身'}
+    ],
+    '2026-09-02':[
+      {c:'var(--c-cyan)',t:'10:00',n:'供应商来访'},
+      {c:'var(--c-blue)',t:'14:00',n:'PCB 评审'}
+    ],
+    '2026-09-03':[
+      {c:'var(--c-blue)',t:'09:30',n:'研发周会'}
+    ],
+    '2026-09-08':[
+      {c:'var(--c-blue)',t:'09:30',n:'研发周会'},
+      {c:'var(--c-orange)',t:'15:30',n:'供应商电话'},
+      {c:'var(--c-green)',t:'20:00',n:'读书 30 分钟'},
+      {c:'var(--c-pink)',t:'21:00',n:'追剧'}
+    ],
+    '2026-09-12':[
+      {c:'var(--c-red)',t:'',n:'GridLink EU 发布'},
+      {c:'var(--c-blue)',t:'19:00',n:'庆祝晚餐'}
+    ],
+    '2026-09-15':[
+      {c:'var(--c-blue)',t:'09:30',n:'研发周会'},
+      {c:'var(--c-orange)',t:'15:30',n:'供应商电话'}
+    ],
+    '2026-09-22':[
+      {c:'var(--c-blue)',t:'09:30',n:'研发周会'},
+      {c:'var(--c-pink)',t:'19:30',n:'健身'}
+    ],
+    '2026-09-29':[
+      {c:'var(--c-red)',t:'18:00',n:'中秋家宴'}
+    ],
+    '2026-10-01':[{c:'var(--c-red)',t:'',n:'国庆 · 休息'}]
+  };
+  function buildMonth(){
+    var grid = document.getElementById('monthGrid'); if(!grid) return;
+    var Y=2026, M=8, today=31;   /* 2026/8/1=周六，firstWeekday=5（周一=0） */
+    var firstW = 5, dim = 31;
+    var prev = [27,28,29,30,31];   /* 7 月最后 5 天 */
+    var cells = [];
+    for(var i=0;i<firstW;i++) cells.push({d:prev[prev.length-firstW+i], out:true});
+    for(var d=1;d<=dim;d++) cells.push({d:d, out:false});
+    var rest = 42 - cells.length;
+    for(var j=0;j<rest;j++) cells.push({d:j+1, out:true, nextM:true});
+    function pad(n){return n<10?'0'+n:''+n}
+    var html='';
+    for(var i=0;i<cells.length;i++){
+      var c = cells[i];
+      var wd = i % 7;            /* 0=周一 ... 6=周日 */
+      var isWe = (wd===5 || wd===6);
+      var year, mon, day;
+      if(c.nextM){ year=Y; mon=M+1; day=c.d; }
+      else if(c.out){ year=Y; mon=M-1; day=c.d; }
+      else { year=Y; mon=M; day=c.d; }
+      var key = year+'-'+pad(mon)+'-'+pad(day);
+      var note = NOTES[key] || {};
+      var evs = EVENTS[key] || [];
+      var isToday = !c.out && day===today && mon===M && year===Y;
+      html += '<div class="mcell'+(c.out?' out':'')+(isToday?' today':'')+'">';
+      html += '<div class="cell-top">';
+      html += '<div class="dnum'+(isWe?' we':'')+(isToday?' today':'')+'">'+day+'</div>';
+      if(note.badge==='hol') html += '<span class="badge hol">休</span>';
+      else if(note.badge==='wk') html += '<span class="badge wk">班</span>';
+      html += '</div>';
+      if(note.lunar){
+        var lc = note.cls==='jq' ? ' jq' : (note.cls==='fest' ? ' fest' : '');
+        html += '<div class="lunar'+lc+'">'+note.lunar+'</div>';
+      } else if(LUNAR[key]){
+        html += '<div class="lunar">'+LUNAR[key]+'</div>';
+      }
+      if(evs.length){
+        html += '<div class="ev-list">';
+        for(var k=0;k<Math.min(evs.length,3);k++){
+          var ev=evs[k];
+          html += '<div class="ev" style="background:'+fillBg(ev.c)+'">'
+                + '<span class="bar" style="background:'+COLOR_HEX[ev.c]+'"></span>'
+                + '<span class="tm">'+(ev.t||'')+'</span>'
+                + '<span class="tt" style="color:'+deepTxt(ev.c)+'">'+ev.n+'</span></div>';
+        }
+        if(evs.length>3) html += '<div class="more">+ '+(evs.length-3)+' 更多</div>';
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+    grid.innerHTML = html;
+  }
+  buildMonth();
+
+  /* ============== 周视图时间轴 24 行生成（06:00 起，40px/小时） ============== */
+  (function(){
+    var rows = document.getElementById('wkRows'); if(!rows) return;
+    var html = '';
+    for(var i=0;i<24;i++){
+      var hh = i;                          /* 从 00:00 开始，与事件 top 基准一致 */
+      var isOff = (hh < 9 || hh >= 18);    /* 非工作时间 18-09 浅灰 */
+      var lab = (hh < 10 ? '0'+hh : ''+hh) + ':00';
+      html += '<div class="w-row'+(isOff?' off':'')+'">'
+            +   '<div class="hh">'+lab+'</div>'
+            +   '<div class="ln">'
+            +     '<div></div><div></div><div></div><div></div><div></div><div></div><div></div>'
+            +   '</div>'
+            + '</div>';
+    }
+    rows.innerHTML = html;
+
+    /* 当前时间红线（演示数据 22:53；wkRows 从 00:00 起，.w-grid transform=-480 把网格上移 480） */
+    var now = new Date(); var h = now.getHours(), m = now.getMinutes();
+    /* 演示数据固定为 22:53 */
+    var h2 = 22, m2 = 53;
+    var minsFrom0 = h2 * 60 + m2;          /* 22*60+53 = 1373 分钟 */
+    var topInGrid = minsFrom0 * (40/60);   /* 915.3 px（wkRows 内 y） */
+    var top = topInGrid - 480;             /* 抵消 .w-grid 的 translateY(-480)，落到 .w-scroll 坐标 */
+    var line = document.createElement('div');
+    line.className = 'nowline';
+    line.style.cssText = 'position:absolute;left:64px;right:0;top:'+top+'px;height:0;'
+      + 'border-top:1.5px solid var(--danger);z-index:5;pointer-events:none';
+    line.innerHTML = '<span style="position:absolute;left:-6px;top:-5px;width:10px;height:10px;'
+      + 'border-radius:50%;background:var(--danger);box-shadow:0 0 0 3px rgba(217,58,73,.25)"></span>';
+    var scroll = document.querySelector('#s2 .w-scroll');
+    if (scroll) scroll.appendChild(line);
+  })();
+
+  /* ============== 周视图事件块按类别着色 ==============
+     tint 背景（15% alpha）+ 同色系 25% 边框 + 深化标题色，
+     与月视图事件 chip 的色彩语言保持一致 */
+  (function(){
+    var evs = document.querySelectorAll('#s2 .w-ev[data-c]');
+    for(var i=0;i<evs.length;i++){
+      var el = evs[i];
+      var h = COLOR_HEX[el.getAttribute('data-c')] || '#2E6BE6';
+      el.style.background = h + '26';
+      el.style.borderColor = h + '42';
+      var b = el.querySelector('b');
+      if(b) b.style.color = shade(h, -0.25);
+    }
+  })();
+})();
+</script>
+</body>
+</html>

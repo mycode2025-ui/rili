@@ -1,0 +1,273 @@
+// TimeHub V4 design tokens extracted from designV4/mockup.html.
+// This is the only Slint file allowed to contain literal color values.
+
+export global Theme {
+    // 0 = follow system, 1 = light, 2 = dark. Rust updates this preference.
+    in-out property <int> theme-mode: 1;
+    in-out property <bool> system-dark: false;
+    // User-controlled accessibility preferences; defaults preserve the V3 token values exactly.
+    in-out property <int> font-delta: 0;
+    in-out property <int> density-mode: 1;
+    in-out property <bool> reduce-motion: false;
+    // Noto Sans SC has a lighter, more even Chinese texture than the previous
+    // UI font and keeps Chinese, Latin text, and calendar digits visually aligned.
+    out property <string> font-family: "Noto Sans SC";
+    out property <bool> dark: theme-mode == 2 || (theme-mode == 0 && system-dark);
+
+    // :root + html[data-theme="dark"] color tokens (41 semantic colors).
+    out property <color> bg-app: dark ? #14161c : #f3f5f9;
+    out property <color> bg-surface: dark ? #1c1f27 : #ffffff;
+    out property <color> bg-surface-2: dark ? #232733 : #f7f8fb;
+    out property <color> bg-sidebar: dark ? #181b22 : #f7f8fb;
+    out property <color> bg-hover: dark ? #262b36 : #eef1f7;
+    out property <color> bg-selected: dark ? #1e2a45 : #e8f0fe;
+    out property <color> bg-scrim: dark ? rgba(0, 0, 0, 0.55) : rgba(16, 20, 30, 0.32);
+
+    out property <color> border-subtle: dark ? #2a2f3c : #e6e9f0;
+    out property <color> border-default: dark ? #363c4a : #d8dde8;
+    out property <color> border-strong: dark ? #4a5163 : #b9c0d0;
+
+    out property <color> text-1: dark ? #e8eaf0 : #000000;
+    out property <color> text-2: dark ? #a2a9ba : #000000;
+    out property <color> text-3: dark ? #6f7789 : #000000;
+    out property <color> text-disabled: dark ? #4e5666 : #000000;
+
+    in-out property <color> accent: dark ? #6c9bff : #2e6be6;
+    in-out property <color> accent-hover: dark ? #85acff : #1f5bd1;
+    in-out property <color> accent-pressed: dark ? #4e82f0 : #1a4fb8;
+    in-out property <color> accent-subtle: dark ? #1e2a45 : #e8f0fe;
+    out property <color> on-accent: dark ? #0b1020 : #ffffff;
+
+    out property <color> danger: dark ? #ff6b78 : #d93a49;
+    out property <color> danger-bg: dark ? #3a1e24 : #fdecee;
+    out property <color> warning: dark ? #e9a23b : #c77700;
+    out property <color> warning-bg: dark ? #3a2e18 : #fff4e5;
+    out property <color> success: dark ? #4ade9b : #0e9f6e;
+    out property <color> success-bg: dark ? #16342a : #e6f6ef;
+    out property <color> info: dark ? #6c9bff : #2e6be6;
+
+    out property <color> weekend: dark ? #e0837a : #b4544a;
+    out property <color> holiday: dark ? #ff6b78 : #d93a49;
+    out property <color> holiday-bg: dark ? #3a1e24 : #fdecee;
+    out property <color> workday-adj: dark ? #e9a23b : #c77700;
+    out property <color> workday-adj-bg: dark ? #3a2e18 : #fff4e5;
+    out property <color> jieqi: dark ? #4ade9b : #0e9f6e;
+    out property <color> lunar: dark ? #6f7789 : #000000;
+
+    // Calendar category colors are intentionally theme-invariant in the source.
+    out property <color> c-blue: #2e6be6;
+    out property <color> c-green: #0e9f6e;
+    out property <color> c-orange: #c77700;
+    out property <color> c-red: #d93a49;
+    out property <color> c-purple: #7c4dff;
+    out property <color> c-cyan: #0891b2;
+    out property <color> c-pink: #db2777;
+    out property <color> c-lime: #65a30d;
+
+    // Exact spacing scale from --s-*.
+    out property <length> space-1: 4px;
+    out property <length> space-2: density-mode == 0 ? 6px : (density-mode == 2 ? 10px : 8px);
+    out property <length> space-3: density-mode == 0 ? 10px : (density-mode == 2 ? 14px : 12px);
+    out property <length> space-4: density-mode == 0 ? 12px : (density-mode == 2 ? 20px : 16px);
+    out property <length> space-5: 20px;
+    out property <length> space-6: 24px;
+    out property <length> space-8: 32px;
+
+    // Exact corner radius scale from --r-*.
+    out property <length> r-sm: 4px;
+    out property <length> r-md: 8px;
+    out property <length> r-lg: 12px;
+    out property <length> r-xl: 16px;
+    out property <length> r-pill: 999px;
+
+    // CSS clamps --r-pill to half of the control height. Slint does not clamp
+    // a 999px radius the same way, so use these render-equivalent radii for
+    // fixed-height pill controls instead of feeding r-pill to Rectangle.
+    out property <length> pill-radius-8: 4px;
+    out property <length> pill-radius-18: 9px;
+    out property <length> pill-radius-20: 10px;
+    out property <length> pill-radius-22: 11px;
+    out property <length> pill-radius-24: 12px;
+    out property <length> pill-radius-26: 13px;
+    out property <length> pill-radius-30: 15px;
+    // V3 .wgt-focus .ctrl button uses an explicit 9px radius.
+    out property <length> widget-control-radius: 9px;
+
+    // CSS shadow layers expressed as Slint-compatible primitives.
+    out property <color> shadow-1-color-a: dark ? rgba(0, 0, 0, 0.40) : rgba(16, 24, 40, 0.06);
+    out property <color> shadow-1-color-b: dark ? rgba(0, 0, 0, 0.00) : rgba(16, 24, 40, 0.10);
+    out property <length> shadow-1-blur-a: 2px;
+    out property <length> shadow-1-blur-b: 3px;
+    out property <length> shadow-1-y: 1px;
+    out property <color> shadow-2-color-a: dark ? rgba(0, 0, 0, 0.45) : rgba(16, 24, 40, 0.06);
+    out property <color> shadow-2-color-b: dark ? rgba(0, 0, 0, 0.00) : rgba(16, 24, 40, 0.06);
+    out property <length> shadow-2-blur-a: dark ? 10px : 8px;
+    out property <length> shadow-2-blur-b: 4px;
+    out property <length> shadow-2-y-a: 4px;
+    out property <length> shadow-2-y-b: 2px;
+    out property <color> shadow-3-color-a: dark ? rgba(0, 0, 0, 0.55) : rgba(16, 24, 40, 0.10);
+    out property <color> shadow-3-color-b: dark ? rgba(0, 0, 0, 0.00) : rgba(16, 24, 40, 0.06);
+    out property <length> shadow-3-blur-a: dark ? 32px : 24px;
+    out property <length> shadow-3-blur-b: 8px;
+    out property <length> shadow-3-y-a: dark ? 16px : 12px;
+    out property <length> shadow-3-y-b: 4px;
+
+    // Exact product metrics from the source.
+    out property <length> h-titlebar: 48px;
+    out property <length> h-toolbar: 56px;
+    out property <length> w-sidebar: 240px;
+    out property <length> w-inspector: 320px;
+    out property <length> h-status: 28px;
+
+    // All 20 font sizes present in the V2 source.
+    out property <length> font-8-5: 8.5px + font-delta * 1px;
+    out property <length> font-9: 9px + font-delta * 1px;
+    out property <length> font-10: 10px + font-delta * 1px;
+    out property <length> font-10-5: 10.5px + font-delta * 1px;
+    out property <length> font-11: 11px + font-delta * 1px;
+    out property <length> font-11-5: 11.5px + font-delta * 1px;
+    out property <length> font-12: 12px + font-delta * 1px;
+    out property <length> font-12-5: 12.5px + font-delta * 1px;
+    out property <length> font-13: 13px + font-delta * 1px;
+    out property <length> font-13-5: 13.5px + font-delta * 1px;
+    out property <length> font-14: 14px + font-delta * 1px;
+    out property <length> font-15: 15px + font-delta * 1px;
+    out property <length> font-16: 16px + font-delta * 1px;
+    out property <length> font-18: 18px + font-delta * 1px;
+    out property <length> font-19: 19px + font-delta * 1px;
+    out property <length> font-20: 20px + font-delta * 1px;
+    out property <length> font-22: 22px + font-delta * 1px;
+    out property <length> font-26: 26px + font-delta * 1px;
+    out property <length> font-32: 32px + font-delta * 1px;
+    out property <length> font-34: 34px + font-delta * 1px;
+    out property <length> font-42: 42px + font-delta * 1px;
+    out property <length> font-44: 44px + font-delta * 1px;
+    out property <length> font-64: 64px + font-delta * 1px;
+
+    // V3 s8 dual-theme widget variables (--wg-*).
+    out property <color> widget-desktop-a: dark ? #22304f : #a9c0e8;
+    out property <color> widget-desktop-b: dark ? #2c3a5e : #d3e0f4;
+    out property <color> widget-desktop-c: dark ? #1a2338 : #efe3d2;
+    out property <color> widget-glass: dark ? rgba(28, 31, 39, 0.74) : rgba(255, 255, 255, 0.80);
+    out property <color> widget-glass-border: dark ? rgba(255, 255, 255, 0.12) : rgba(255, 255, 255, 0.85);
+    out property <color> widget-glass-hover: dark ? rgba(255, 255, 255, 0.10) : rgba(16, 20, 30, 0.08);
+    out property <color> widget-row: dark ? rgba(255, 255, 255, 0.06) : rgba(16, 20, 30, 0.05);
+    out property <color> widget-accent-bg: dark ? rgba(108, 155, 255, 0.16) : rgba(46, 107, 230, 0.12);
+    out property <color> widget-text-1: dark ? #e8eaf0 : #000000;
+    out property <color> widget-text-2: dark ? #a2a9ba : #000000;
+    out property <color> widget-text-3: dark ? #6f7789 : #000000;
+    out property <color> widget-text-disabled: dark ? #4e5666 : #000000;
+    out property <color> widget-accent: dark ? #6c9bff : #2e6be6;
+    out property <color> widget-on-accent: dark ? #0b1020 : #ffffff;
+    out property <color> widget-weekend: dark ? #e0837a : #b4544a;
+    out property <color> widget-danger: dark ? #ff6b78 : #d93a49;
+    out property <color> widget-success: dark ? #4ade9b : #0e9f6e;
+    out property <color> widget-warning: dark ? #e9a23b : #c77700;
+    out property <color> widget-shadow: dark ? rgba(0, 0, 0, 0.45) : rgba(31, 42, 80, 0.22);
+
+    // V3 s10 embedded comparison tokens. These remain fixed when the global
+    // theme changes so both panels can always be compared side by side.
+    out property <color> demo-light-bg: #f3f5f9;
+    out property <color> demo-light-surface: #ffffff;
+    out property <color> demo-light-border: #d8dde8;
+    out property <color> demo-light-border-subtle: #e6e9f0;
+    out property <color> demo-light-cell-border: #edf0f5;
+    out property <color> demo-light-text-1: #000000;
+    out property <color> demo-light-text-2: #000000;
+    out property <color> demo-light-text-3: #000000;
+    out property <color> demo-light-disabled: #000000;
+    out property <color> demo-light-hover: #eef1f7;
+    out property <color> demo-light-accent: #2e6be6;
+    out property <color> demo-light-on-accent: #ffffff;
+    out property <color> demo-light-accent-subtle: #e8f0fe;
+    out property <color> demo-light-weekend: #b4544a;
+    out property <color> demo-light-danger: #d93a49;
+    out property <color> demo-light-success: #0e9f6e;
+    out property <color> demo-light-warning: #c77700;
+    out property <color> demo-light-purple: #7c4dff;
+    out property <color> demo-light-pink: #db2777;
+    out property <color> demo-light-cyan: #0891b2;
+    out property <color> demo-light-blue-chip: #dde5fb;
+    out property <color> demo-light-blue-text: #2350ad;
+    out property <color> demo-light-green-chip: #d8f2e8;
+    out property <color> demo-light-green-text: #0b7753;
+    out property <color> demo-light-red-chip: #fbe3e6;
+    out property <color> demo-light-red-text: #a3242f;
+
+    out property <color> demo-dark-bg: #14161c;
+    out property <color> demo-dark-surface: #1c1f27;
+    out property <color> demo-dark-border: #363c4a;
+    out property <color> demo-dark-border-subtle: #2a2f3c;
+    out property <color> demo-dark-cell-border: #262b36;
+    out property <color> demo-dark-text-1: #e8eaf0;
+    out property <color> demo-dark-text-2: #a2a9ba;
+    out property <color> demo-dark-text-3: #6f7789;
+    out property <color> demo-dark-disabled: #4e5666;
+    out property <color> demo-dark-hover: #262b36;
+    out property <color> demo-dark-accent: #6c9bff;
+    out property <color> demo-dark-on-accent: #0b1020;
+    out property <color> demo-dark-accent-subtle: #1e2a45;
+    out property <color> demo-dark-weekend: #e0837a;
+    out property <color> demo-dark-danger: #ff6b78;
+    out property <color> demo-dark-success: #4ade9b;
+    out property <color> demo-dark-warning: #e9a23b;
+    out property <color> demo-dark-purple: #a78bfa;
+    out property <color> demo-dark-pink: #f472b6;
+    out property <color> demo-dark-cyan: #22d3ee;
+    out property <color> demo-dark-blue-chip: rgba(108, 155, 255, 0.18);
+    out property <color> demo-dark-blue-text: #a7c2ff;
+    out property <color> demo-dark-green-chip: rgba(74, 222, 155, 0.14);
+    out property <color> demo-dark-green-text: #7be3ac;
+    out property <color> demo-dark-red-chip: rgba(255, 107, 120, 0.14);
+    out property <color> demo-dark-red-text: #ffa1a8;
+
+    out property <color> palette-card-bg: #ffffff;
+    out property <color> palette-card-border: #e6e9f0;
+    out property <color> palette-card-text: #000000;
+    out property <color> palette-card-title: #000000;
+    out property <color> settings-preview-light: #ffffff;
+    out property <color> settings-preview-dark: #1c1f27;
+
+    // Compatibility aliases while existing feature components are migrated.
+    out property <color> bg: bg-app;
+    out property <color> panel-bg: bg-surface;
+    out property <color> panel-bg-secondary: bg-surface-2;
+    out property <color> sidebar-bg: bg-sidebar;
+    out property <color> panel-border: border-subtle;
+    out property <color> divider: bg-hover;
+    out property <color> header-bg: bg-sidebar;
+    out property <color> header-text: text-1;
+    out property <color> text-primary: text-1;
+    out property <color> text-secondary: text-2;
+    out property <color> text-muted: text-3;
+    out property <color> weekend-text: weekend;
+    out property <color> holiday-text: holiday;
+    out property <color> workday-badge: workday-adj;
+    in-out property <color> today-bg: accent;
+    out property <color> today-text: on-accent;
+    // Keep soft accent surfaces theme-aware even when Rust changes the accent color.
+    // A translucent accent blends with the current surface instead of carrying a
+    // light-theme pastel into dark mode.
+    out property <color> accent-soft: accent.with-alpha(dark ? 18% : 12%);
+    out property <length> gap-xs: space-1;
+    out property <length> gap-sm: space-2;
+    out property <length> gap-md: space-3;
+    out property <length> gap-lg: space-4;
+    out property <length> gap-xl: space-6;
+    out property <length> gap-2xl: space-8;
+    out property <length> radius-sm: r-sm;
+    out property <length> radius-md: r-md;
+    out property <length> radius-lg: r-lg;
+    out property <length> radius-pill: r-pill;
+    out property <length> titlebar-height: h-titlebar;
+    out property <length> toolbar-height: h-toolbar;
+    out property <length> sidebar-width: w-sidebar;
+    out property <length> inspector-width: w-inspector;
+    out property <length> statusbar-height: h-status;
+    out property <length> font-xs: font-11;
+    out property <length> font-sm: font-12;
+    out property <length> font-md: font-14;
+    out property <length> font-lg: font-16;
+    out property <length> font-xl: font-20;
+    out property <length> font-2xl: font-32;
+}

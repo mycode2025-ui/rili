@@ -1,0 +1,108 @@
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "design-system.slint";
+import { Icons, SvgIcon } from "icons.slint";
+
+export struct SearchItem {
+    id: int,
+    kind: string,
+    title: string,
+    meta: string,
+    date: string,
+}
+
+export component SearchView inherits Rectangle {
+    in-out property <string> query;
+    in property <int> focus-request: 0;
+    in property <[SearchItem]> results;
+    callback search(string);
+    callback open-result(int, string, string);
+    forward-focus: search-input;
+    init => { search-input.focus(); }
+    changed focus-request => { search-input.focus(); }
+    // TextInput 的 edited 回调在弹出窗口切换焦点时并非每次都可靠；
+    // 以查询值本身作为搜索触发源，保证键入、粘贴和清空都会刷新结果。
+    changed query => { root.search(query); }
+
+    background: Theme.panel-bg;
+    border-radius: Theme.radius-lg;
+    border-width: 1px;
+    border-color: Theme.panel-border;
+
+    VerticalLayout {
+        padding: Theme.gap-lg;
+        spacing: Theme.gap-sm;
+        HorizontalLayout {
+            height: 28px;
+            Text { text: "全局搜索"; color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; vertical-alignment: center; }
+            Rectangle { horizontal-stretch: 1; }
+            Rectangle {
+                width: 62px; height: 24px; border-radius: Theme.radius-sm;
+                border-width: 1px; border-color: Theme.panel-border; background: Theme.panel-bg-secondary;
+                Text { text: "Ctrl + K"; color: Theme.text-muted; font-size: Theme.font-xs; horizontal-alignment: center; vertical-alignment: center; }
+            }
+        }
+        Rectangle {
+            height: 40px;
+            border-radius: Theme.radius-md;
+            border-width: 1px;
+            border-color: search-input.has-focus ? Theme.accent : Theme.panel-border;
+            background: Theme.panel-bg-secondary;
+            SvgIcon { x: 12px; y: 12px; source: Icons.search; size: 16px; tint: Theme.text-muted; }
+            Text {
+                x: 38px; width: parent.width - 50px; height: parent.height;
+                visible: root.query == "";
+                text: "搜索日程、待办、便签、课程……";
+                color: Theme.text-muted;
+                font-size: Theme.font-md;
+                vertical-alignment: center;
+            }
+            search-input := TextInput {
+                x: 38px; width: parent.width - 50px; height: parent.height;
+                text <=> root.query;
+                color: Theme.text-primary;
+                font-size: Theme.font-md;
+                vertical-alignment: center;
+                selection-foreground-color: Theme.on-accent;
+                selection-background-color: Theme.accent;
+                accepted => { root.search(root.query); }
+            }
+        }
+        if query == "": Text {
+            text: "支持搜索日程标题/备注、待办标题、便签标题/内容";
+            color: Theme.text-muted;
+            font-size: Theme.font-md;
+        }
+        if query != "" && results.length == 0: Text {
+            text: "没有找到匹配内容";
+            color: Theme.text-muted;
+            font-size: Theme.font-md;
+        }
+        ScrollView {
+            vertical-stretch: 1;
+            VerticalLayout {
+                spacing: Theme.gap-sm;
+                for item in results: Rectangle {
+                    min-height: 54px;
+                    background: result-touch.has-hover ? Theme.accent-soft : Theme.bg;
+                    border-radius: Theme.radius-sm;
+                    result-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.open-result(item.id, item.date, item.kind); }
+                    }
+                    HorizontalLayout {
+                        padding: Theme.gap-sm;
+                        spacing: Theme.gap-md;
+                        cross-axis-alignment: center;
+                        Text { text: item.kind; color: Theme.accent; font-size: Theme.font-sm; width: 48px; vertical-alignment: center; }
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            Text { text: item.title; color: Theme.text-primary; font-size: Theme.font-md; overflow: elide; }
+                            Text { text: item.meta; color: Theme.text-muted; font-size: Theme.font-sm; overflow: elide; }
+                        }
+                        SvgIcon { source: Icons.arrow-right; size: 16px; tint: Theme.text-muted; }
+                    }
+                }
+            }
+        }
+    }
+}

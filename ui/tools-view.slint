@@ -1,0 +1,273 @@
+import { LineEdit, ScrollView } from "std-widgets.slint";
+import { Theme } from "design-system.slint";
+import { GhostButton, PrimaryButton } from "widgets.slint";
+import { Icons, SvgIcon } from "icons.slint";
+
+export struct SubscriptionItem {
+    id: int,
+    name: string,
+    status: string,
+    detail: string,
+    has-error: bool,
+}
+
+export component ToolsView inherits Rectangle {
+    in property <string> date-start;
+    in property <string> date-end;
+    in property <string> date-offset;
+    in property <string> calculator-result;
+    in property <string> almanac-text;
+    in property <string> weather-city;
+    in property <string> weather-status;
+    in property <string> stopwatch-text;
+    in property <bool> stopwatch-running;
+    in property <string> pomodoro-text;
+    in property <bool> pomodoro-running;
+    in property <string> time-progress-text;
+    in property <string> world-clock-text;
+    in property <string> integration-status;
+    in property <string> ai-input;
+    in property <string> ai-draft;
+    in property <string> ai-draft-title;
+    in property <string> ai-draft-date;
+    in property <string> ai-draft-time;
+    in property <string> ai-draft-reminder;
+    in property <string> subscription-name;
+    in property <string> subscription-url;
+    in property <[SubscriptionItem]> subscriptions;
+    callback calculate(string /* operation */, string /* start */, string /* end */, string /* offset */);
+    callback set-weather-city(string);
+    callback refresh-weather();
+    callback toggle-stopwatch();
+    callback reset-stopwatch();
+    callback toggle-pomodoro();
+    callback reset-pomodoro();
+    callback parse-natural(string);
+    callback create-natural-event(string, string, string, string);
+    callback add-subscription(string, string);
+    callback sync-subscriptions();
+
+    background: Theme.bg-app;
+
+    ScrollView {
+        width: 100%;
+        height: 100%;
+        VerticalLayout {
+            // The tools page lives inside a resizable main window. Keep the
+            // content readable on ultrawide/maximized windows instead of
+            // stretching every form control across the entire viewport.
+            width: parent.width < 1280px ? parent.width : 1280px;
+            x: (parent.width - self.width) / 2;
+            padding: Theme.gap-lg;
+            spacing: Theme.gap-md;
+        Text {
+            text: "日期与系统工具";
+            color: Theme.text-primary;
+            font-size: Theme.font-xl;
+            font-weight: 700;
+        }
+        Text {
+            text: "常用的日期计算、黄历摘要和天气设置集中在这里";
+            color: Theme.text-secondary;
+            font-size: Theme.font-sm;
+        }
+        HorizontalLayout {
+            spacing: Theme.gap-md;
+            Rectangle {
+                horizontal-stretch: 1;
+                background: Theme.bg;
+                border-radius: Theme.radius-md;
+                border-width: 1px;
+                border-color: Theme.panel-border;
+                VerticalLayout {
+                    padding: Theme.gap-md;
+                    spacing: Theme.gap-sm;
+                    Text { text: "秒表"; color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; }
+                    Text { text: stopwatch-text; color: Theme.accent; font-size: Theme.font-xl; font-weight: 700; horizontal-alignment: center; }
+                    HorizontalLayout {
+                        spacing: Theme.gap-sm;
+                        GhostButton { text: stopwatch-running ? "暂停" : "开始"; clicked => { toggle-stopwatch(); } }
+                        GhostButton { text: "清零"; clicked => { reset-stopwatch(); } }
+                    }
+                }
+            }
+            Rectangle {
+                horizontal-stretch: 1;
+                background: Theme.bg;
+                border-radius: Theme.radius-md;
+                border-width: 1px;
+                border-color: Theme.panel-border;
+                VerticalLayout {
+                    padding: Theme.gap-md;
+                    spacing: Theme.gap-sm;
+                    Text { text: "番茄钟"; color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; }
+                    Text { text: pomodoro-text; color: Theme.accent; font-size: Theme.font-xl; font-weight: 700; horizontal-alignment: center; }
+                    HorizontalLayout {
+                        spacing: Theme.gap-sm;
+                        GhostButton { text: pomodoro-running ? "暂停" : "开始"; clicked => { toggle-pomodoro(); } }
+                        GhostButton { text: "重置25分"; clicked => { reset-pomodoro(); } }
+                    }
+                }
+            }
+            Rectangle {
+                horizontal-stretch: 1;
+                background: Theme.bg;
+                border-radius: Theme.radius-md;
+                border-width: 1px;
+                border-color: Theme.panel-border;
+                VerticalLayout {
+                    padding: Theme.gap-md;
+                    spacing: Theme.gap-sm;
+                    Text { text: "时间信息"; color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; }
+                    Text { text: time-progress-text; color: Theme.text-secondary; font-size: Theme.font-sm; wrap: word-wrap; vertical-stretch: 1; }
+                    Text { text: world-clock-text; color: Theme.text-muted; font-size: Theme.font-10; wrap: word-wrap; }
+                }
+            }
+        }
+        HorizontalLayout {
+            spacing: Theme.gap-md;
+            vertical-stretch: 1;
+            Rectangle {
+                horizontal-stretch: 1;
+                background: Theme.bg;
+                border-radius: Theme.radius-md;
+                border-width: 1px;
+                border-color: Theme.panel-border;
+                VerticalLayout {
+                    padding: Theme.gap-md;
+                    spacing: Theme.gap-sm;
+                    Text { text: "日期计算"; color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; }
+                    Text { text: "输入日期格式：YYYY-MM-DD"; color: Theme.text-muted; font-size: Theme.font-sm; }
+                    start-input := LineEdit { text: date-start; placeholder-text: "开始日期"; }
+                    end-input := LineEdit { text: date-end; placeholder-text: "结束日期"; }
+                    offset-input := LineEdit { text: date-offset; placeholder-text: "推算天数，例如 10 或 -3"; }
+                    HorizontalLayout {
+                        spacing: Theme.gap-sm;
+                        GhostButton { text: "间隔"; clicked => { calculate("diff", start-input.text, end-input.text, offset-input.text); } }
+                        GhostButton { text: "自然日"; clicked => { calculate("calendar", start-input.text, end-input.text, offset-input.text); } }
+                        GhostButton { text: "工作日"; clicked => { calculate("workday", start-input.text, end-input.text, offset-input.text); } }
+                    }
+                    Text {
+                        text: calculator-result;
+                        color: Theme.accent;
+                        font-size: Theme.font-md;
+                        wrap: word-wrap;
+                        vertical-stretch: 1;
+                    }
+                }
+            }
+            Rectangle {
+                horizontal-stretch: 1;
+                background: Theme.bg;
+                border-radius: Theme.radius-md;
+                border-width: 1px;
+                border-color: Theme.panel-border;
+                VerticalLayout {
+                    padding: Theme.gap-md;
+                    spacing: Theme.gap-sm;
+                    Text { text: "黄历摘要"; color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; }
+                    Text { text: almanac-text; color: Theme.text-secondary; font-size: Theme.font-md; wrap: word-wrap; vertical-stretch: 1; }
+                    Text { text: "仅展示可验证的农历与干支信息，不编造宜忌吉凶"; color: Theme.text-muted; font-size: Theme.font-sm; wrap: word-wrap; }
+                }
+            }
+        }
+        Rectangle {
+            background: Theme.bg;
+            border-radius: Theme.radius-md;
+            border-width: 1px;
+            border-color: Theme.panel-border;
+            VerticalLayout {
+                padding: Theme.gap-md;
+                spacing: Theme.gap-sm;
+                HorizontalLayout {
+                    spacing: Theme.gap-sm;
+                    SvgIcon { source: Icons.cloud; size: 18px; tint: Theme.accent; }
+                    Text { text: "天气"; color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; }
+                    Rectangle { horizontal-stretch: 1; }
+                    Text { text: weather-status; color: Theme.text-secondary; font-size: Theme.font-sm; vertical-alignment: center; }
+                }
+                HorizontalLayout {
+                    spacing: Theme.gap-sm;
+                    city-input := LineEdit { text: weather-city; placeholder-text: "城市，例如北京"; horizontal-stretch: 1; }
+                    PrimaryButton { width: 88px; text: "保存城市"; clicked => { set-weather-city(city-input.text); } }
+                    GhostButton { width: 88px; text: "刷新"; clicked => { refresh-weather(); } }
+                }
+            }
+        }
+        Rectangle {
+            height: ai-draft != "" || ai-draft-title != "" ? 132px : 94px;
+            vertical-stretch: 0;
+            background: Theme.bg-surface;
+            border-radius: Theme.radius-md;
+            border-width: 1px;
+            border-color: Theme.panel-border;
+            VerticalLayout {
+                padding: Theme.gap-md;
+                spacing: Theme.gap-sm;
+                Text { text: "自然语言助手"; color: Theme.text-primary; font-size: Theme.font-md; font-weight: 700; }
+                HorizontalLayout {
+                    spacing: Theme.gap-sm;
+                    ai-input-box := LineEdit { text: ai-input; placeholder-text: "例如：明天下午两点和供应商开会，提前一天提醒我"; horizontal-stretch: 1; }
+                    PrimaryButton { width: 104px; text: "解析草稿"; clicked => { parse-natural(ai-input-box.text); } }
+                }
+                if ai-draft != "": Text { text: ai-draft; color: Theme.text-secondary; font-size: Theme.font-sm; wrap: word-wrap; overflow: elide; }
+                if ai-draft-title != "": HorizontalLayout {
+                    Text { text: "标题：" + ai-draft-title + "  " + ai-draft-date + " " + ai-draft-time + "  提醒 " + ai-draft-reminder + " 分钟前"; color: Theme.accent; font-size: Theme.font-sm; horizontal-stretch: 1; overflow: elide; }
+                    PrimaryButton { width: 104px; text: "确认创建"; clicked => { create-natural-event(ai-draft-title, ai-draft-date, ai-draft-time, ai-draft-reminder); } }
+                }
+            }
+        }
+        Rectangle {
+            height: 110px + (integration-status != "" ? 44px : 0px) + (subscriptions.length == 0 ? 56px : subscriptions.length * 60px);
+            vertical-stretch: 0;
+            background: Theme.bg-surface;
+            border-radius: Theme.radius-md;
+            border-width: 1px;
+            border-color: Theme.panel-border;
+            VerticalLayout {
+                padding: Theme.gap-md;
+                spacing: Theme.gap-sm;
+                HorizontalLayout { height: 26px; cross-axis-alignment: center;
+                    Text { text: "连接与同步"; color: Theme.text-primary; font-size: Theme.font-md; font-weight: 700; vertical-alignment: center; }
+                    Rectangle { horizontal-stretch: 1; }
+                    Text { text: subscriptions.length + " 个日历订阅"; color: Theme.text-muted; font-size: Theme.font-sm; vertical-alignment: center; }
+                }
+                HorizontalLayout {
+                    height: 34px;
+                    spacing: Theme.gap-sm;
+                    subscription-name-box := LineEdit { text: subscription-name; placeholder-text: "订阅名称"; width: 156px; horizontal-stretch: 0; }
+                    subscription-url-box := LineEdit { text: subscription-url; placeholder-text: "ICS URL（http/https）"; horizontal-stretch: 1; }
+                    GhostButton { width: 116px; text: "添加并同步"; clicked => { add-subscription(subscription-name-box.text, subscription-url-box.text); } }
+                    GhostButton { width: 96px; text: "立即同步"; clicked => { sync-subscriptions(); } }
+                }
+                if integration-status != "": Rectangle {
+                    height: 36px; border-radius: Theme.radius-sm; background: Theme.bg-surface-2;
+                    border-width: 1px; border-color: Theme.panel-border;
+                    Text { x: 12px; width: parent.width - 24px; height: parent.height; text: integration-status; color: Theme.text-secondary; font-size: Theme.font-sm; overflow: elide; vertical-alignment: center; }
+                }
+                if subscriptions.length == 0: Rectangle {
+                    height: 48px; border-radius: Theme.radius-sm; background: Theme.bg-surface-2;
+                    border-width: 1px; border-color: Theme.panel-border;
+                    Text { text: "尚未添加日历订阅"; color: Theme.text-muted; font-size: Theme.font-sm; horizontal-alignment: center; vertical-alignment: center; }
+                }
+                for subscription in subscriptions: Rectangle {
+                    height: 52px; border-radius: Theme.radius-sm; background: Theme.bg-surface-2;
+                    border-width: 1px; border-color: subscription.has-error ? Theme.danger : Theme.panel-border;
+                    HorizontalLayout { padding-left: 12px; padding-right: 12px; spacing: 10px; cross-axis-alignment: center;
+                        Rectangle { width: 30px; height: 30px; border-radius: Theme.radius-sm; background: Theme.accent-soft;
+                            SvgIcon { source: Icons.calendar; size: 16px; tint: Theme.accent; x: 7px; y: 7px; }
+                        }
+                        VerticalLayout { spacing: 2px; horizontal-stretch: 1;
+                            Text { text: subscription.name; color: Theme.text-primary; font-size: Theme.font-sm; font-weight: 600; overflow: elide; }
+                            Text { text: subscription.detail; color: Theme.text-muted; font-size: Theme.font-10; overflow: elide; }
+                        }
+                        Rectangle { width: 78px; height: 24px; border-radius: 12px; background: subscription.has-error ? Theme.danger.with-alpha(12%) : Theme.accent-soft;
+                            Text { text: subscription.status; color: subscription.has-error ? Theme.danger : Theme.accent; font-size: Theme.font-10; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                    }
+                }
+            }
+        }
+        }
+    }
+}
