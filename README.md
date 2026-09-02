@@ -71,6 +71,15 @@ cargo test --lib -j 1
 推送 `v*` 标签会通过 GitHub Actions 构建 Windows 版本，并把 `TimeHub.exe` 发布到 GitHub Releases；
 二进制不再提交进源码仓库。
 
+## 代码结构
+
+- `src/main.rs`：只负责进程入口、窗口装配、初始状态和定时器生命周期。
+- `src/controllers/`：按课程表、日程导航、时间轴、同步、设置、桌面卡片、快速面板等功能注册 UI 回调。
+- `src/desktop.rs`：桌面卡片窗口管理；`src/desktop/taskbar.rs` 单独负责 Windows 任务栏时钟监听和快速面板定位。
+- `src/presentation/`：日期导航、主题、数据库模型映射、统一刷新和实时状态更新，各自独立。
+- `src/app_state.rs`：GUI 会话状态；SQLite 仍是持久化数据的唯一来源。
+- `ui/app.slint`：主窗口壳层；页面视图继续拆分在 `ui/*-view.slint`，壳层复用组件位于 `ui/app-shell-components.slint`。
+
 ## CLI 示例
 
 ```powershell
