@@ -289,6 +289,14 @@ fn run_gui(startup: bool) -> Result<()> {
             }
         });
     }
+    {
+        let ui_weak = ui.as_weak();
+        error_reporter::install_gui_notifier(move |message| {
+            let _ = ui_weak.upgrade_in_event_loop(move |ui| {
+                ui.set_action_message(message.into());
+            });
+        });
+    }
     let widgets_visible =
         db::get_setting(&state.borrow().conn, "desktop_widgets_visible", "1")? == "1";
     let widget_shown = Rc::new(Cell::new(widgets_visible));
@@ -500,6 +508,14 @@ fn run_gui(startup: bool) -> Result<()> {
     sync_quick_panel(&quick_panel, &ui, &widget, &state);
     TASKBAR_CLOCK_HOOK_ENABLED.store(taskbar_clock_enabled, Ordering::Release);
     update_taskbar_clock_hit_rect();
+    {
+        let ui_weak = ui.as_weak();
+        set_taskbar_clock_click_handler(move || {
+            let _ = ui_weak.upgrade_in_event_loop(|ui| {
+                ui.invoke_taskbar_clock_clicked();
+            });
+        });
+    }
     spawn_taskbar_clock_click_hook();
     if widgets_visible {
         desktop_widgets.sync_from(&widget);
@@ -613,77 +629,117 @@ fn run_gui(startup: bool) -> Result<()> {
     controllers::tools::register_tool_callbacks(&ui, &widget, &quick_panel, &state);
     controllers::data_actions::register_data_callbacks(&ui, &widget, &state);
 
-    // -------- 系统托盘图标（显示主窗口 / 开关桌面挂件 / 退出）--------
+    // -------- 系统托盘图标（事件直接唤醒 Slint，不再轮询消息队列）--------
     let tray = build_tray_icon()?;
-    let timer = slint::Timer::default();
     {
         let ui_weak = ui.as_weak();
         let widget_weak = widget.as_weak();
         let quick_weak = quick_panel.as_weak();
         let state = state.clone();
-        let quick_panel_had_focus = Rc::new(Cell::new(false));
-        timer.start(
-            slint::TimerMode::Repeated,
-            Duration::from_millis(500),
-            move || {
-                if let (Some(ui), Some(message)) =
-                    (ui_weak.upgrade(), error_reporter::take_pending())
-                {
-                    ui.set_action_message(message.into());
+        ui.on_tray_left_clicked(move || {
+            if let (Some(ui), Some(widget), Some(quick)) = (
+                ui_weak.upgrade(),
+                widget_weak.upgrade(),
+                quick_weak.upgrade(),
+            ) {
+                if quick.window().is_visible() {
+                    let _ = quick.hide();
+                } else {
+                    sync_quick_panel(&quick, &ui, &widget, &state);
+                    show_and_focus_quick_panel(&quick);
                 }
-                // tray-icon also emits Enter/Move/Leave while hovering. Drain the
-                // queue and react only to a completed left click.
-                while let Ok(event) = TrayIconEvent::receiver().try_recv() {
-                    if matches!(
-                        event,
-                        TrayIconEvent::Click {
-                            button: TrayMouseButton::Left,
-                            button_state: MouseButtonState::Up,
-                            ..
-                        }
-                    ) {
-                        if let (Some(ui), Some(widget), Some(quick)) = (
-                            ui_weak.upgrade(),
-                            widget_weak.upgrade(),
-                            quick_weak.upgrade(),
-                        ) {
-                            if quick.window().is_visible() {
-                                let _ = quick.hide();
-                            } else {
-                                sync_quick_panel(&quick, &ui, &widget, &state);
-                                show_and_focus_quick_panel(&quick);
-                            }
-                            quick_panel_had_focus.set(false);
-                        }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let widget_weak = widget.as_weak();
+        let quick_weak = quick_panel.as_weak();
+        let state = state.clone();
+        ui.on_taskbar_clock_clicked(move || {
+            if let (Some(ui), Some(widget), Some(quick)) = (
+                ui_weak.upgrade(),
+                widget_weak.upgrade(),
+                quick_weak.upgrade(),
+            ) {
+                sync_quick_panel(&quick, &ui, &widget, &state);
+                show_and_focus_quick_panel_at(&quick, last_clicked_taskbar_anchor());
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_tray_show_main(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                show_and_focus_main_window(&ui);
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_tray_toggle_widgets(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_toggle_widget();
+            }
+        });
+    }
+    ui.on_tray_quit(|| {
+        slint::quit_event_loop().ok();
+    });
+    {
+        let ui_weak = ui.as_weak();
+        std::thread::spawn(move || {
+            while let Ok(event) = TrayIconEvent::receiver().recv() {
+                if matches!(
+                    event,
+                    TrayIconEvent::Click {
+                        button: TrayMouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
                     }
+                ) {
+                    let _ = ui_weak.upgrade_in_event_loop(|ui| {
+                        ui.invoke_tray_left_clicked();
+                    });
                 }
-                if TASKBAR_CLOCK_CLICKED.swap(false, Ordering::AcqRel) {
-                    if let (Some(ui), Some(widget), Some(quick)) = (
-                        ui_weak.upgrade(),
-                        widget_weak.upgrade(),
-                        quick_weak.upgrade(),
-                    ) {
-                        sync_quick_panel(&quick, &ui, &widget, &state);
-                        show_and_focus_quick_panel_at(&quick, last_clicked_taskbar_anchor());
-                        quick_panel_had_focus.set(false);
-                    }
-                }
-                if let Ok(event) = MenuEvent::receiver().try_recv() {
-                    if event.id == tray.show_id {
-                        if let Some(ui) = ui_weak.upgrade() {
-                            show_and_focus_main_window(&ui);
-                        }
-                    } else if event.id == tray.widget_id {
-                        if let Some(ui) = ui_weak.upgrade() {
-                            ui.invoke_toggle_widget();
-                        }
-                    } else if event.id == tray.quit_id {
-                        slint::quit_event_loop().ok();
-                    }
-                }
+            }
+        });
+    }
+    {
+        let show_id = tray.show_id.clone();
+        let widget_id = tray.widget_id.clone();
+        let quit_id = tray.quit_id.clone();
+        let ui_weak = ui.as_weak();
+        std::thread::spawn(move || {
+            while let Ok(event) = MenuEvent::receiver().recv() {
+                let action = if event.id == show_id {
+                    0
+                } else if event.id == widget_id {
+                    1
+                } else if event.id == quit_id {
+                    2
+                } else {
+                    continue;
+                };
+                let _ = ui_weak.upgrade_in_event_loop(move |ui| match action {
+                    0 => ui.invoke_tray_show_main(),
+                    1 => ui.invoke_tray_toggle_widgets(),
+                    _ => ui.invoke_tray_quit(),
+                });
+            }
+        });
+    }
 
-                // A normal flyout should disappear after the user clicks
-                // elsewhere. Pinned mode deliberately keeps the panel open.
+    // Focus loss is a native-window state without a Slint callback. Poll only
+    // this lightweight condition; tray, menu, clock clicks and errors are event-driven.
+    let quick_focus_timer = slint::Timer::default();
+    {
+        let quick_weak = quick_panel.as_weak();
+        let quick_panel_had_focus = Rc::new(Cell::new(false));
+        quick_focus_timer.start(
+            slint::TimerMode::Repeated,
+            Duration::from_millis(750),
+            move || {
                 if let Some(quick) = quick_weak.upgrade() {
                     if quick.window().is_visible() && !quick.get_pinned() {
                         let focused = quick
@@ -695,7 +751,7 @@ fn run_gui(startup: bool) -> Result<()> {
                         } else if quick_panel_had_focus.replace(false) {
                             let _ = quick.hide();
                         }
-                    } else if !quick.window().is_visible() {
+                    } else {
                         quick_panel_had_focus.set(false);
                     }
                 }
@@ -703,13 +759,14 @@ fn run_gui(startup: bool) -> Result<()> {
         );
     }
 
-    // -------- 桌面挂件实时时钟：每秒刷新一次 HH:MM:SS --------
+    // -------- 可见界面的实时状态；隐藏时仅每 10 秒做一次维护检查 --------
     let clock_timer = slint::Timer::default();
     {
         let widget_weak = widget.as_weak();
         let quick_weak = quick_panel.as_weak();
         let ui_weak = ui.as_weak();
         let state = state.clone();
+        let desktop_widgets = desktop_widgets.clone();
         let weather_revision = Rc::new(Cell::new(weather::cache_revision()));
         update_tool_status(&ui, &widget, &state);
         let now = Local::now();
@@ -727,44 +784,83 @@ fn run_gui(startup: bool) -> Result<()> {
             Duration::from_millis(1000),
             move || {
                 let now = Local::now();
-                let now_text: SharedString = now.format("%H:%M:%S").to_string().into();
-                if let Some(widget) = widget_weak.upgrade() {
+                let Some(ui) = ui_weak.upgrade() else {
+                    return;
+                };
+                let Some(widget) = widget_weak.upgrade() else {
+                    return;
+                };
+                let quick = quick_weak.upgrade();
+                let ui_visible = ui.window().is_visible();
+                let quick_visible = quick
+                    .as_ref()
+                    .is_some_and(|quick| quick.window().is_visible());
+                let events_visible = desktop_widgets.events.window().is_visible();
+                let clock_visible = desktop_widgets.clock.window().is_visible();
+                let focus_visible = desktop_widgets.focus.window().is_visible();
+                let realtime_visible = rili::window_policy::realtime_refresh_needed(
+                    ui_visible,
+                    quick_visible,
+                    events_visible,
+                    clock_visible,
+                    focus_visible,
+                );
+                let maintenance_tick = rili::window_policy::idle_maintenance_due(now.second());
+
+                if realtime_visible {
+                    let now_text: SharedString = now.format("%H:%M:%S").to_string().into();
                     widget.set_current_time_text(now_text.clone());
                     widget.set_current_time_main(now.format("%H:%M").to_string().into());
                     widget.set_current_seconds(now.format("%S").to_string().into());
                     widget.set_current_minutes((now.hour() * 60 + now.minute()) as i32);
-                    update_widget_day_progress(&widget, now.time().num_seconds_from_midnight());
-                }
-                if let Some(quick) = quick_weak.upgrade() {
-                    quick.set_time_text(now_text);
-                }
-                if let Some(ui) = ui_weak.upgrade() {
-                    ui.set_current_minutes((now.hour() * 60 + now.minute()) as i32);
-                    ui.set_current_time_text(now.format("%H:%M").to_string().into());
-                    if now.second().is_multiple_of(10) && ui.get_taskbar_clock_enabled() {
-                        update_taskbar_clock_hit_rect();
+                    if clock_visible {
+                        update_widget_day_progress_source(
+                            &widget,
+                            now.time().num_seconds_from_midnight(),
+                        );
+                    }
+                    if ui_visible || focus_visible {
+                        update_tool_status_source(&ui, &widget, &state);
+                    }
+                    desktop_widgets.sync_realtime_from(&widget);
+                    if quick_visible {
+                        if let Some(quick) = quick.as_ref() {
+                            quick.set_time_text(now_text);
+                        }
+                    }
+                    if ui_visible {
+                        ui.set_current_minutes((now.hour() * 60 + now.minute()) as i32);
+                        ui.set_current_time_text(now.format("%H:%M").to_string().into());
                     }
                 }
-                if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                    update_tool_status(&ui, &widget, &state);
+
+                if maintenance_tick && ui.get_taskbar_clock_enabled() {
+                    update_taskbar_clock_hit_rect();
+                }
+                if realtime_visible || maintenance_tick {
                     let latest_revision = weather::cache_revision();
                     if latest_revision != weather_revision.get() {
                         weather_revision.set(latest_revision);
                         let current = weather::cached(&state.borrow().conn);
                         apply_weather_to_widget(&widget, current.as_ref());
-                        sync_desktop_widgets(&widget);
-                        if let Some(quick) = quick_weak.upgrade() {
-                            if quick.window().is_visible() {
-                                sync_quick_weather(&quick, &widget);
+                        desktop_widgets.sync_weather_from(&widget);
+                        if quick_visible {
+                            if let Some(quick) = quick.as_ref() {
+                                sync_quick_weather(quick, &widget);
                             }
                         }
-                        if let Some(current) = current {
-                            let (description, _) =
-                                weather::describe_current(current.code, current.is_day);
-                            ui.set_weather_summary(
-                                format!("{} {:.0}°C {description}", current.city, current.temp_c)
+                        if ui_visible {
+                            if let Some(current) = current {
+                                let (description, _) =
+                                    weather::describe_current(current.code, current.is_day);
+                                ui.set_weather_summary(
+                                    format!(
+                                        "{} {:.0}°C {description}",
+                                        current.city, current.temp_c
+                                    )
                                     .into(),
-                            );
+                                );
+                            }
                         }
                     }
                 }

@@ -350,7 +350,9 @@ pub(crate) fn show_screen_notification(notification: &NotificationWindow) {
 }
 
 pub(crate) static TASKBAR_CLOCK_HOOK_ENABLED: AtomicBool = AtomicBool::new(false);
-pub(crate) static TASKBAR_CLOCK_CLICKED: AtomicBool = AtomicBool::new(false);
+#[cfg(target_os = "windows")]
+static TASKBAR_CLOCK_CLICK_HANDLER: std::sync::OnceLock<Box<dyn Fn() + Send + Sync>> =
+    std::sync::OnceLock::new();
 #[cfg(target_os = "windows")]
 const MAX_TASKBAR_CLOCKS: usize = 8;
 #[cfg(target_os = "windows")]
@@ -399,6 +401,14 @@ pub(crate) fn last_clicked_taskbar_anchor() -> Option<TaskbarRect> {
         scale: anchor.scale_milli.load(Ordering::Relaxed).max(1) as f32 / 1000.0,
     })
 }
+
+#[cfg(target_os = "windows")]
+pub(crate) fn set_taskbar_clock_click_handler(handler: impl Fn() + Send + Sync + 'static) {
+    let _ = TASKBAR_CLOCK_CLICK_HANDLER.set(Box::new(handler));
+}
+
+#[cfg(not(target_os = "windows"))]
+pub(crate) fn set_taskbar_clock_click_handler(_handler: impl Fn() + Send + Sync + 'static) {}
 
 #[cfg(not(target_os = "windows"))]
 pub(crate) fn last_clicked_taskbar_anchor() -> Option<TaskbarRect> {
@@ -493,7 +503,9 @@ pub(crate) fn spawn_taskbar_clock_click_hook() {
                 if inside && (w_param == WM_LBUTTONDOWN || w_param == WM_LBUTTONUP) {
                     if w_param == WM_LBUTTONUP {
                         TASKBAR_CLOCK_CLICKED_INDEX.store(index, Ordering::Relaxed);
-                        TASKBAR_CLOCK_CLICKED.store(true, Ordering::Release);
+                        if let Some(handler) = TASKBAR_CLOCK_CLICK_HANDLER.get() {
+                            handler();
+                        }
                     }
                     return 1;
                 }

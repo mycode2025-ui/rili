@@ -171,6 +171,11 @@ export component AppWindow inherits Window {
     in-out property <bool> notification-open: false;
     in-out property <string> action-message: "";
     callback show-action-notification(string);
+    callback tray-left-clicked();
+    callback tray-show-main();
+    callback tray-toggle-widgets();
+    callback tray-quit();
+    callback taskbar-clock-clicked();
     changed action-message => { root.show-action-notification(root.action-message); }
     in property <string> new-event-date-default;
     in-out property <int> editing-event-id: 0;

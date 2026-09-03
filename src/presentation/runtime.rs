@@ -44,6 +44,11 @@ pub(crate) fn pomodoro_seconds(state: &AppState, now: Instant) -> u64 {
 }
 
 pub(crate) fn update_widget_day_progress(widget: &WidgetWindow, elapsed_seconds: u32) {
+    update_widget_day_progress_source(widget, elapsed_seconds);
+    sync_desktop_widgets(widget);
+}
+
+pub(crate) fn update_widget_day_progress_source(widget: &WidgetWindow, elapsed_seconds: u32) {
     let elapsed_seconds = elapsed_seconds.min(86_400);
     let remaining_seconds = 86_400_u32.saturating_sub(elapsed_seconds);
     let remaining_hours = remaining_seconds / 3_600;
@@ -54,10 +59,18 @@ pub(crate) fn update_widget_day_progress(widget: &WidgetWindow, elapsed_seconds:
     widget.set_day_remaining_text(
         format!("剩余 {} 小时 {:02} 分", remaining_hours, remaining_minutes).into(),
     );
-    sync_desktop_widgets(widget);
 }
 
 pub(crate) fn update_tool_status(
+    ui: &AppWindow,
+    widget: &WidgetWindow,
+    state: &Rc<RefCell<AppState>>,
+) {
+    update_tool_status_source(ui, widget, state);
+    sync_desktop_widgets(widget);
+}
+
+pub(crate) fn update_tool_status_source(
     ui: &AppWindow,
     widget: &WidgetWindow,
     state: &Rc<RefCell<AppState>>,
@@ -112,5 +125,4 @@ pub(crate) fn update_tool_status(
         .join("  ");
     ui.set_world_clock_text(world.into());
     drop(s);
-    sync_desktop_widgets(widget);
 }

@@ -63,6 +63,22 @@ pub fn physical_to_logical_size(width: u32, height: u32, scale_factor: f32) -> (
     (width as f32 / scale, height as f32 / scale)
 }
 
+/// A one-second UI refresh is useful only while a surface displaying live time
+/// is visible. Hidden applications fall back to a sparse maintenance check.
+pub fn realtime_refresh_needed(
+    main_visible: bool,
+    quick_panel_visible: bool,
+    events_visible: bool,
+    clock_visible: bool,
+    focus_visible: bool,
+) -> bool {
+    main_visible || quick_panel_visible || events_visible || clock_visible || focus_visible
+}
+
+pub fn idle_maintenance_due(second: u32) -> bool {
+    second.is_multiple_of(10)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -126,5 +142,13 @@ mod tests {
         assert_eq!(physical_to_logical_size(456, 366, 1.5), (304.0, 244.0));
         assert_eq!(physical_to_logical_size(608, 488, 2.0), (304.0, 244.0));
         assert_eq!(physical_to_logical_size(304, 244, 0.0), (304.0, 244.0));
+    }
+
+    #[test]
+    fn hidden_surfaces_skip_realtime_work_but_keep_sparse_maintenance() {
+        assert!(!realtime_refresh_needed(false, false, false, false, false));
+        assert!(realtime_refresh_needed(false, false, false, true, false));
+        assert!(!idle_maintenance_due(9));
+        assert!(idle_maintenance_due(10));
     }
 }

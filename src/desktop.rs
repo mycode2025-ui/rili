@@ -237,6 +237,52 @@ impl DesktopWidgetWindows {
         self.sync_note_windows(source);
     }
 
+    /// Update only time-sensitive fields, and only on cards that are actually
+    /// visible. Static models continue to use `sync_from` after data changes.
+    pub(crate) fn sync_realtime_from(&self, source: &WidgetWindow) {
+        if self.events.window().is_visible() {
+            self.events
+                .set_current_minutes(source.get_current_minutes());
+        }
+        if self.clock.window().is_visible() {
+            self.clock
+                .set_current_time_main(source.get_current_time_main());
+            self.clock.set_current_seconds(source.get_current_seconds());
+            self.clock.set_day_progress(source.get_day_progress());
+            self.clock
+                .set_day_progress_text(source.get_day_progress_text());
+            self.clock
+                .set_day_remaining_text(source.get_day_remaining_text());
+        }
+        if self.focus.window().is_visible() {
+            self.focus.set_focus_time_text(source.get_focus_time_text());
+            self.focus.set_focus_running(source.get_focus_running());
+            self.focus.set_focus_progress(source.get_focus_progress());
+            self.focus.set_focus_round(source.get_focus_round());
+            self.focus
+                .set_focus_total_minutes(source.get_focus_total_minutes());
+        }
+    }
+
+    pub(crate) fn sync_weather_from(&self, source: &WidgetWindow) {
+        if !self.weather.window().is_visible() {
+            return;
+        }
+        self.weather.set_city(source.get_weather_city());
+        self.weather
+            .set_temperature(source.get_weather_temperature());
+        self.weather
+            .set_description(source.get_weather_description());
+        self.weather.set_icon_kind(source.get_weather_icon_kind());
+        self.weather.set_updated_text(source.get_weather_updated());
+        self.weather
+            .set_provider_text(source.get_weather_provider());
+        self.weather.set_refreshing(source.get_weather_refreshing());
+        self.weather
+            .set_refresh_error(source.get_weather_refresh_error());
+        self.weather.set_forecast(source.get_weather_days());
+    }
+
     pub(crate) fn sync_note_windows(&self, source: &WidgetWindow) {
         let model = source.get_recent_notes();
         let notes: Vec<NoteItem> = (0..model.row_count())
