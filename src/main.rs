@@ -87,7 +87,7 @@ fn detach_console_for_gui() {
 
 fn run_gui(startup: bool) -> Result<()> {
     // 登录启动和用户重复双击都不得创建第二套后台线程、托盘图标和桌面卡片。
-    let Some(_instance_guard) = single_instance::acquire()? else {
+    let Some(mut instance_guard) = single_instance::acquire()? else {
         return Ok(());
     };
     // 兼容旧版本留下的启动命令，并在 exe 被移动后修复注册表中的路径。
@@ -193,6 +193,17 @@ fn run_gui(startup: bool) -> Result<()> {
     }));
 
     let ui = AppWindow::new()?;
+    {
+        let ui_weak = ui.as_weak();
+        instance_guard.on_activate(move || {
+            let ui_weak = ui_weak.clone();
+            let _ = slint::invoke_from_event_loop(move || {
+                if let Some(ui) = ui_weak.upgrade() {
+                    show_and_focus_main_window(&ui);
+                }
+            });
+        });
+    }
     let widget = WidgetWindow::new()?;
     let desktop_widgets = Rc::new(DesktopWidgetWindows::new()?);
     desktop_widgets
