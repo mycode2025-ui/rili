@@ -5,7 +5,9 @@ pub(crate) fn register_appearance_callbacks(
     widget: &WidgetWindow,
     quick_panel: &QuickPanelWindow,
     state: &Rc<RefCell<AppState>>,
+    initial_font_family: String,
 ) {
+    let selected_font_family = Rc::new(RefCell::new(initial_font_family));
     {
         let ui_weak = ui.as_weak();
         let widget_weak = widget.as_weak();
@@ -33,6 +35,97 @@ pub(crate) fn register_appearance_callbacks(
                         apply_visual_theme(&ui, &widget, &quick, previous);
                         ui.set_action_message(format!("保存主题设置失败：{error}").into());
                     }
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let widget_weak = widget.as_weak();
+        let quick_weak = quick_panel.as_weak();
+        let state = state.clone();
+        let selected_font_family = selected_font_family.clone();
+        ui.on_set_interface_font_family(move |choice| {
+            let Some(family) = font_settings::family_from_choice(choice.as_str()) else {
+                if let Some(ui) = ui_weak.upgrade() {
+                    ui.set_action_message("无法识别所选字体".into());
+                }
+                return;
+            };
+            let result = db::set_settings(
+                &mut state.borrow_mut().conn,
+                &[("interface_font_family", family), ("custom_font_path", "")],
+            );
+            if let (Some(ui), Some(widget), Some(quick)) = (
+                ui_weak.upgrade(),
+                widget_weak.upgrade(),
+                quick_weak.upgrade(),
+            ) {
+                match result {
+                    Ok(()) => {
+                        *selected_font_family.borrow_mut() = family.to_string();
+                        ui.set_interface_font_family(
+                            font_settings::choice_from_family(family).into(),
+                        );
+                        apply_font_family(&ui, &widget, &quick, family);
+                        ui.set_action_message(format!("界面字体已切换为：{choice}").into());
+                    }
+                    Err(error) => {
+                        let previous = selected_font_family.borrow();
+                        ui.set_interface_font_family(
+                            font_settings::choice_from_family(&previous).into(),
+                        );
+                        ui.set_action_message(format!("保存字体设置失败：{error}").into());
+                    }
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let widget_weak = widget.as_weak();
+        let quick_weak = quick_panel.as_weak();
+        let state = state.clone();
+        let selected_font_family = selected_font_family.clone();
+        ui.on_choose_custom_font(move || {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let path = match font_settings::pick_font_file() {
+                Ok(Some(path)) => path,
+                Ok(None) => return,
+                Err(error) => {
+                    ui.set_action_message(format!("打开字体文件失败：{error}").into());
+                    return;
+                }
+            };
+            let family = match font_settings::register_custom_font(&path) {
+                Ok(family) => family,
+                Err(error) => {
+                    ui.set_action_message(format!("加载字体失败：{error}").into());
+                    return;
+                }
+            };
+            let path_text = path.to_string_lossy().into_owned();
+            let result = db::set_settings(
+                &mut state.borrow_mut().conn,
+                &[
+                    ("interface_font_family", family.as_str()),
+                    ("custom_font_path", path_text.as_str()),
+                ],
+            );
+            let (Some(widget), Some(quick)) = (widget_weak.upgrade(), quick_weak.upgrade()) else {
+                return;
+            };
+            match result {
+                Ok(()) => {
+                    *selected_font_family.borrow_mut() = family.clone();
+                    ui.set_interface_font_family(font_settings::choice_from_family(&family).into());
+                    apply_font_family(&ui, &widget, &quick, &family);
+                    ui.set_action_message(format!("已加载自定义字体：{family}").into());
+                }
+                Err(error) => {
+                    ui.set_action_message(format!("保存自定义字体设置失败：{error}").into());
                 }
             }
         });

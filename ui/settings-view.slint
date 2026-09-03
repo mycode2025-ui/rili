@@ -1,6 +1,6 @@
 import { Theme } from "theme.slint";
 import { Icons, SvgIcon } from "icons.slint";
-import { Palette } from "std-widgets.slint";
+import { ComboBox, Palette } from "std-widgets.slint";
 
 component SettingsNavItem inherits Rectangle {
     in property <string> label;
@@ -93,6 +93,7 @@ export component SettingsView inherits Rectangle {
     in-out property <int> visual-theme: 1;
     in-out property <int> selected-section: 0;
     in property <int> interface-font-size: 13;
+    in property <string> interface-font-family: "Noto Sans SC";
     in property <int> interface-density: 1;
     in property <bool> reduce-motion: false;
     in property <bool> notifications-enabled: true;
@@ -105,6 +106,8 @@ export component SettingsView inherits Rectangle {
     callback set-week-starts-sunday(bool);
     callback set-show-week-numbers(bool);
     callback set-interface-font-size(int);
+    callback set-interface-font-family(string);
+    callback choose-custom-font();
     callback set-interface-density(int);
     callback set-reduce-motion(bool);
     callback set-notifications-enabled(bool);
@@ -145,6 +148,22 @@ export component SettingsView inherits Rectangle {
                 ThemeCard { label: "浅色"; mode: 1; selected: visual-theme == 1; choose(mode) => { visual-theme = mode; Theme.theme-mode = mode; Palette.color-scheme = ColorScheme.light; root.set-visual-theme(mode); } }
                 ThemeCard { label: "深色"; mode: 2; selected: visual-theme == 2; choose(mode) => { visual-theme = mode; Theme.theme-mode = mode; Palette.color-scheme = ColorScheme.dark; root.set-visual-theme(mode); } }
                 ThemeCard { label: "跟随系统"; mode: 0; selected: visual-theme == 0; choose(mode) => { visual-theme = mode; Theme.theme-mode = mode; Palette.color-scheme = ColorScheme.unknown; root.set-visual-theme(mode); } }
+            }
+            Rectangle { visible: root.selected-section == 0; height: root.selected-section == 0 ? 1px : 0px; background: Theme.border-subtle; }
+            HorizontalLayout {
+                visible: root.selected-section == 0;
+                height: root.selected-section == 0 ? 76px : 0px;
+                cross-axis-alignment: center;
+                SettingInfo { title: "界面字体"; description: "统一应用到主窗口、弹窗、快速面板与桌面卡片"; horizontal-stretch: 1; }
+                ComboBox {
+                    width: 184px;
+                    horizontal-stretch: 0;
+                    model: ["系统默认", "Noto Sans SC", "微软雅黑", "等线", "思源宋体"];
+                    current-value: root.interface-font-family;
+                    selected(value) => { root.set-interface-font-family(value); }
+                }
+                Rectangle { width: Theme.space-2; }
+                SmallChoice { width: 126px; label: "选择字体文件…"; clicked => { root.choose-custom-font(); } }
             }
             Rectangle { visible: root.selected-section == 0; height: root.selected-section == 0 ? 1px : 0px; background: Theme.border-subtle; }
             HorizontalLayout {

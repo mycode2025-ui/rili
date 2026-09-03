@@ -11,7 +11,7 @@ export global Theme {
     in-out property <bool> reduce-motion: false;
     // Noto Sans SC has a lighter, more even Chinese texture than the previous
     // UI font and keeps Chinese, Latin text, and calendar digits visually aligned.
-    out property <string> font-family: "Noto Sans SC";
+    in-out property <string> font-family: "Noto Sans SC";
     out property <bool> dark: theme-mode == 2 || (theme-mode == 0 && system-dark);
 
     // :root + html[data-theme="dark"] color tokens (41 semantic colors).

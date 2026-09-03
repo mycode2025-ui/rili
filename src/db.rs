@@ -286,6 +286,19 @@ pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<()> {
     Ok(())
 }
 
+/// 原子写入多项互相关联的设置，避免只保存一半导致下次启动状态不一致。
+pub fn set_settings(conn: &mut Connection, values: &[(&str, &str)]) -> Result<()> {
+    let tx = conn.transaction()?;
+    for (key, value) in values {
+        tx.execute(
+            "INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            params![key, value],
+        )?;
+    }
+    tx.commit()?;
+    Ok(())
+}
+
 pub const DEFAULT_EVENT_REMINDER_KEY: &str = "default_event_reminder";
 pub const DEFAULT_EVENT_REMINDER: &str = "10";
 

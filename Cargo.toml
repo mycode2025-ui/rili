@@ -14,7 +14,7 @@ test = false
 bench = false
 
 [dependencies]
-slint = { version = "1.17.1", default-features = false, features = ["std", "compat-1-2", "backend-winit", "unstable-winit-030", "renderer-software", "renderer-femtovg", "accessibility"] }
+slint = { version = "1.17.1", default-features = false, features = ["std", "compat-1-2", "backend-winit", "unstable-winit-030", "unstable-fontique-010", "renderer-software", "renderer-femtovg", "accessibility"] }
 rusqlite = { version = "0.40", features = ["bundled"] }
 chrono = "0.4"
 chinese-lunisolar-calendar = "0.2"

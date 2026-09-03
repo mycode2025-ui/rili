@@ -172,6 +172,7 @@ impl DesktopWidgetWindows {
                 let font_delta = source_theme.get_font_delta();
                 let density_mode = source_theme.get_density_mode();
                 let reduce_motion = source_theme.get_reduce_motion();
+                let font_family = source_theme.get_font_family();
                 let target_theme = window.global::<Theme>();
                 target_theme.set_theme_mode(theme_mode);
                 target_theme.set_system_dark(system_dark);
@@ -180,6 +181,7 @@ impl DesktopWidgetWindows {
                 target_theme.set_font_delta(font_delta);
                 target_theme.set_density_mode(density_mode);
                 target_theme.set_reduce_motion(reduce_motion);
+                target_theme.set_font_family(font_family);
             }
 
             let key = format!("note_{}", note.id);
@@ -557,6 +559,7 @@ pub(crate) fn show_desktop_event_editor(
         target.set_font_delta(source.get_font_delta());
         target.set_density_mode(source.get_density_mode());
         target.set_reduce_motion(source.get_reduce_motion());
+        target.set_font_family(source.get_font_family());
     }
 
     {

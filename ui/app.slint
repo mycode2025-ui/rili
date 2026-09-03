@@ -72,6 +72,7 @@ export component AppWindow inherits Window {
             (visual-theme == 0 ? ColorScheme.unknown : ColorScheme.light);
     }
     in property <int> interface-font-size: 13;
+    in property <string> interface-font-family: "Noto Sans SC";
     in property <int> interface-density: 1;
     in property <bool> reduce-motion: false;
     in property <bool> notifications-enabled: true;
@@ -245,6 +246,8 @@ export component AppWindow inherits Window {
     callback set-theme(int);
     callback set-visual-theme(int);
     callback set-interface-font-size(int);
+    callback set-interface-font-family(string);
+    callback choose-custom-font();
     callback set-interface-density(int);
     callback set-reduce-motion(bool);
     callback set-notifications-enabled(bool);
@@ -948,6 +951,7 @@ export component AppWindow inherits Window {
                     week-starts-sunday: root.week-starts-sunday;
                     show-week-numbers: root.show-week-numbers;
                     interface-font-size: root.interface-font-size;
+                    interface-font-family: root.interface-font-family;
                     interface-density: root.interface-density;
                     reduce-motion: root.reduce-motion;
                     notifications-enabled: root.notifications-enabled;
@@ -961,6 +965,8 @@ export component AppWindow inherits Window {
                     set-week-starts-sunday(value) => { root.set-week-starts-sunday(value); }
                     set-show-week-numbers(value) => { root.set-show-week-numbers(value); }
                     set-interface-font-size(value) => { root.set-interface-font-size(value); }
+                    set-interface-font-family(value) => { root.set-interface-font-family(value); }
+                    choose-custom-font() => { root.choose-custom-font(); }
                     set-interface-density(value) => { root.set-interface-density(value); }
                     set-reduce-motion(value) => { root.set-reduce-motion(value); }
                     set-notifications-enabled(value) => { root.set-notifications-enabled(value); }

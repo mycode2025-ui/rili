@@ -157,3 +157,39 @@ pub(crate) fn apply_accessibility_preferences(
         }
     });
 }
+
+pub(crate) fn apply_font_family(
+    ui: &AppWindow,
+    widget: &WidgetWindow,
+    quick_panel: &QuickPanelWindow,
+    family: &str,
+) {
+    for theme in [
+        ui.global::<Theme>(),
+        widget.global::<Theme>(),
+        quick_panel.global::<Theme>(),
+    ] {
+        theme.set_font_family(family.into());
+    }
+    DESKTOP_WIDGET_WINDOWS.with(|slot| {
+        if let Some(windows) = slot.borrow().as_ref() {
+            for theme in [
+                windows.calendar.global::<Theme>(),
+                windows.events.global::<Theme>(),
+                windows.countdown.global::<Theme>(),
+                windows.clock.global::<Theme>(),
+                windows.weather.global::<Theme>(),
+                windows.focus.global::<Theme>(),
+                windows.todo.global::<Theme>(),
+            ] {
+                theme.set_font_family(family.into());
+            }
+            if let Some(editor) = windows.event_editor.borrow().as_ref() {
+                editor.global::<Theme>().set_font_family(family.into());
+            }
+            for window in windows.notes.borrow().iter() {
+                window.global::<Theme>().set_font_family(family.into());
+            }
+        }
+    });
+}

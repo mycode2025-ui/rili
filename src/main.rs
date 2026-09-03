@@ -7,6 +7,7 @@
 mod app_state;
 mod controllers;
 mod desktop;
+mod font_settings;
 mod presentation;
 mod system_tray;
 mod windowing;
@@ -124,6 +125,13 @@ fn run_gui(startup: bool) -> Result<()> {
         .and_then(|v| v.parse().ok())
         .map(|v: i32| v.clamp(12, 16))
         .unwrap_or(13);
+    let mut interface_font_family = db::get_setting(
+        &conn,
+        "interface_font_family",
+        font_settings::DEFAULT_FONT_FAMILY,
+    )
+    .unwrap_or_else(|_| font_settings::DEFAULT_FONT_FAMILY.to_string());
+    let custom_font_path = db::get_setting(&conn, "custom_font_path", "").unwrap_or_default();
     let interface_density: i32 = db::get_setting(&conn, "interface_density", "1")
         .ok()
         .and_then(|v| v.parse().ok())
@@ -193,6 +201,20 @@ fn run_gui(startup: bool) -> Result<()> {
     }));
 
     let ui = AppWindow::new()?;
+    let custom_font_error = if custom_font_path.is_empty() {
+        None
+    } else {
+        match font_settings::register_custom_font(std::path::Path::new(&custom_font_path)) {
+            Ok(family) => {
+                interface_font_family = family;
+                None
+            }
+            Err(error) => {
+                interface_font_family = font_settings::DEFAULT_FONT_FAMILY.to_string();
+                Some(format!("自定义字体加载失败，已恢复默认字体：{error}"))
+            }
+        }
+    };
     {
         let ui_weak = ui.as_weak();
         instance_guard.on_activate(move || {
@@ -318,6 +340,7 @@ fn run_gui(startup: bool) -> Result<()> {
     ui.set_theme_index(theme_index);
     ui.set_visual_theme(visual_theme);
     ui.set_interface_font_size(interface_font_size);
+    ui.set_interface_font_family(font_settings::choice_from_family(&interface_font_family).into());
     ui.set_interface_density(interface_density);
     ui.set_reduce_motion(reduce_motion);
     ui.set_notifications_enabled(notifications_enabled);
@@ -341,6 +364,10 @@ fn run_gui(startup: bool) -> Result<()> {
         interface_density,
         reduce_motion,
     );
+    apply_font_family(&ui, &widget, &quick_panel, &interface_font_family);
+    if let Some(message) = custom_font_error {
+        ui.set_action_message(message.into());
+    }
 
     // The subscription list below is the persistent status display. Keep this
     // transient message empty until an add/sync action produces a real result.
@@ -364,6 +391,10 @@ fn run_gui(startup: bool) -> Result<()> {
                 ui.set_action_message("示例提醒已发送，请查看 Windows 通知中心".into());
             }
         });
+    }
+    if debug_view.as_deref() == Some("settings-appearance") {
+        ui.set_settings_section(0);
+        ui.set_settings_open(true);
     }
     if debug_view.as_deref() == Some("settings-privacy") {
         ui.set_settings_section(4);
@@ -437,7 +468,13 @@ fn run_gui(startup: bool) -> Result<()> {
             }
         });
     }
-    controllers::appearance::register_appearance_callbacks(&ui, &widget, &quick_panel, &state);
+    controllers::appearance::register_appearance_callbacks(
+        &ui,
+        &widget,
+        &quick_panel,
+        &state,
+        interface_font_family,
+    );
     controllers::course::register_course_callbacks(&ui, &widget, &state);
     controllers::settings::register_settings_callbacks(&ui, &widget, &state);
     controllers::widget_content::register_widget_content_callbacks(
