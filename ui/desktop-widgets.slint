@@ -96,6 +96,23 @@ component WindowDragStrip inherits TouchArea {
     }
 }
 
+component WindowResizeGrip inherits Rectangle {
+    callback resize-requested();
+    callback resize-finished();
+    width: 22px;
+    height: 22px;
+    background: grip-touch.has-hover ? Theme.widget-glass-hover : transparent;
+    Rectangle { x: 7px; y: 15px; width: 9px; height: 2px; border-radius: 1px; background: Theme.widget-text-3; }
+    Rectangle { x: 14px; y: 8px; width: 2px; height: 9px; border-radius: 1px; background: Theme.widget-text-3; }
+    grip-touch := TouchArea {
+        mouse-cursor: pointer;
+        changed pressed => {
+            if (self.pressed) { root.resize-requested(); }
+            else { root.resize-finished(); }
+        }
+    }
+}
+
 component FutureEventRow inherits Rectangle {
     in property <EventItem> event;
     callback clicked();
@@ -144,8 +161,8 @@ export component CalendarWidgetWindow inherits Window {
     icon: Icons.app-logo;
     preferred-width: 304px;
     preferred-height: 280px;
-    min-width: 304px;
-    min-height: 280px;
+    min-width: 280px;
+    min-height: 250px;
     max-width: 1400px;
     max-height: 960px;
     no-frame: true;
@@ -262,22 +279,7 @@ export component CalendarWidgetWindow inherits Window {
         }
     }
     WindowDragStrip { x: 12px; y: 12px; width: parent.width - 164px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
-    Rectangle {
-        x: parent.width - 22px;
-        y: parent.height - 22px;
-        width: 22px;
-        height: 22px;
-        background: resize-touch.has-hover ? Theme.widget-glass-hover : transparent;
-        Rectangle { x: 7px; y: 15px; width: 9px; height: 2px; border-radius: 1px; background: Theme.widget-text-3; }
-        Rectangle { x: 14px; y: 8px; width: 2px; height: 9px; border-radius: 1px; background: Theme.widget-text-3; }
-        resize-touch := TouchArea {
-            mouse-cursor: pointer;
-            changed pressed => {
-                if (self.pressed) { root.begin-window-resize(); }
-                else { root.end-window-resize(); }
-            }
-        }
-    }
+    WindowResizeGrip { x: parent.width - self.width; y: parent.height - self.height; resize-requested => { root.begin-window-resize(); } resize-finished => { root.end-window-resize(); } }
 }
 
 export component EventsWidgetWindow inherits Window {
@@ -285,8 +287,8 @@ export component EventsWidgetWindow inherits Window {
     default-font-family: Theme.font-family;
     icon: Icons.app-logo;
     preferred-width: 304px;
-    min-width: 304px;
-    max-width: 304px;
+    min-width: 260px;
+    max-width: 1000px;
     preferred-height: Math.min(520px, Math.max(280px, 128px + (root.today-events.length + root.upcoming-events.length) * 42px));
     min-height: 240px;
     max-height: 620px;
@@ -306,6 +308,7 @@ export component EventsWidgetWindow inherits Window {
     callback request-new-event();
     callback remove-widget();
     callback begin-window-resize();
+    callback end-window-resize();
 
     DesktopCard {
         width: parent.width;
@@ -363,19 +366,16 @@ export component EventsWidgetWindow inherits Window {
         }
     }
     WindowDragStrip { x: 12px; y: 12px; width: parent.width - 136px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
-    Rectangle {
-        x: (parent.width - 52px) / 2; y: parent.height - 10px; width: 52px; height: 10px; background: transparent;
-        Rectangle { x: 14px; y: 4px; width: 24px; height: 2px; border-radius: 1px; background: Theme.widget-text-3; opacity: resize-touch.has-hover ? 0.9 : 0.45; }
-        resize-touch := TouchArea { changed pressed => { if (self.pressed) { root.begin-window-resize(); } } }
-    }
+    WindowResizeGrip { x: parent.width - self.width; y: parent.height - self.height; resize-requested => { root.begin-window-resize(); } resize-finished => { root.end-window-resize(); } }
 }
 
 export component CountdownWidgetWindow inherits Window {
     title: "TimeHub 倒数日";
     default-font-family: Theme.font-family;
     icon: Icons.app-logo;
-    width: 304px;
-    height: 280px;
+    preferred-width: 304px;
+    preferred-height: 280px;
+    min-width: 260px; min-height: 220px; max-width: 1000px; max-height: 900px;
     no-frame: true;
     always-on-top: pinned;
     background: transparent;
@@ -393,6 +393,8 @@ export component CountdownWidgetWindow inherits Window {
     callback open-main-view(string, int, string);
     callback create-countdown(string, string);
     callback remove-widget();
+    callback begin-window-resize();
+    callback end-window-resize();
 
     DesktopCard {
         width: parent.width;
@@ -412,16 +414,19 @@ export component CountdownWidgetWindow inherits Window {
                 pin-clicked => { root.pinned = !root.pinned; root.pin-changed(root.pinned); }
                 settings-clicked => { root.open-widget-settings("countdown"); }
             }
-            for item[i] in root.countdowns: CountdownRow {
-                visible: i < 3;
-                item: item;
-                clicked => { root.open-main-view("countdown", item.id, ""); }
-            }
-            if root.countdowns.length == 0: Text {
-                text: "暂无倒数日";
-                color: Theme.widget-text-3;
-                font-size: Theme.font-11;
-                horizontal-alignment: center;
+            ScrollView {
+                vertical-stretch: 1;
+                VerticalLayout {
+                    spacing: Theme.space-2;
+                    for item in root.countdowns: CountdownRow {
+                        item: item;
+                        clicked => { root.open-main-view("countdown", item.id, ""); }
+                    }
+                    if root.countdowns.length == 0: Text {
+                        height: 32px; text: "暂无倒数日"; color: Theme.widget-text-3;
+                        font-size: Theme.font-11; horizontal-alignment: center; vertical-alignment: center;
+                    }
+                }
             }
         }
         if root.create-open: WidgetCreatePanel {
@@ -433,14 +438,16 @@ export component CountdownWidgetWindow inherits Window {
         }
     }
     WindowDragStrip { x: 12px; y: 12px; width: parent.width - 136px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+    WindowResizeGrip { x: parent.width - self.width; y: parent.height - self.height; resize-requested => { root.begin-window-resize(); } resize-finished => { root.end-window-resize(); } }
 }
 
 export component ClockWidgetWindow inherits Window {
     title: "TimeHub 时钟";
     default-font-family: Theme.font-family;
     icon: Icons.app-logo;
-    width: 304px;
-    height: 190px;
+    preferred-width: 304px;
+    preferred-height: 190px;
+    min-width: 260px; min-height: 180px; max-width: 1000px; max-height: 700px;
     no-frame: true;
     always-on-top: pinned;
     background: transparent;
@@ -464,6 +471,8 @@ export component ClockWidgetWindow inherits Window {
     callback open-main-view(string, int, string);
     callback create-reminder(string, string);
     callback remove-widget();
+    callback begin-window-resize();
+    callback end-window-resize();
 
     DesktopCard {
         width: parent.width;
@@ -488,7 +497,7 @@ export component ClockWidgetWindow inherits Window {
         Text { x: 16px; y: 101px; text: root.today-date-text; color: Theme.widget-text-2; font-size: Theme.font-12-5; }
         Text { x: 150px; y: 103px; text: root.today-lunar-text; color: Theme.widget-text-3; font-size: Theme.font-11; }
         Rectangle {
-            x: 16px; y: 130px; width: parent.width - 32px; height: 8px; border-radius: 4px; background: Theme.widget-row;
+            x: 16px; y: parent.height - 60px; width: parent.width - 32px; height: 8px; border-radius: 4px; background: Theme.widget-row;
             clip: true;
             Rectangle {
                 x: 0px; y: 0px;
@@ -498,8 +507,8 @@ export component ClockWidgetWindow inherits Window {
                 background: Theme.widget-accent;
             }
         }
-        Text { x: 16px; y: 147px; text: root.day-progress-text; color: Theme.widget-text-2; font-size: Theme.font-11; font-weight: 500; }
-        Text { x: 160px; y: 147px; width: 128px; text: root.day-remaining-text; horizontal-alignment: right; color: Theme.widget-text-2; font-size: Theme.font-11; }
+        Text { x: 16px; y: parent.height - 43px; text: root.day-progress-text; color: Theme.widget-text-2; font-size: Theme.font-11; font-weight: 500; }
+        Text { x: 140px; y: parent.height - 43px; width: parent.width - 156px; text: root.day-remaining-text; horizontal-alignment: right; color: Theme.widget-text-2; font-size: Theme.font-11; overflow: elide; }
         TouchArea { x: 0px; y: 40px; width: parent.width; height: parent.height - 40px; mouse-cursor: pointer; clicked => { root.open-main-view("today", 0, ""); } }
         if root.create-open: WidgetCreatePanel {
             x: 10px; y: 40px; width: parent.width - 20px; height: parent.height - 50px;
@@ -510,14 +519,16 @@ export component ClockWidgetWindow inherits Window {
         }
     }
     WindowDragStrip { x: 14px; y: 12px; width: parent.width - 138px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+    WindowResizeGrip { x: parent.width - self.width; y: parent.height - self.height; resize-requested => { root.begin-window-resize(); } resize-finished => { root.end-window-resize(); } }
 }
 
 export component WeatherWidgetWindow inherits Window {
     title: "TimeHub 天气";
     default-font-family: Theme.font-family;
     icon: Icons.app-logo;
-    width: 304px;
-    height: 244px;
+    preferred-width: 304px;
+    preferred-height: 244px;
+    min-width: 280px; min-height: 230px; max-width: 1000px; max-height: 800px;
     no-frame: true;
     always-on-top: pinned;
     background: transparent;
@@ -550,6 +561,8 @@ export component WeatherWidgetWindow inherits Window {
     callback search-city(string);
     callback choose-city(int);
     callback remove-widget();
+    callback begin-window-resize();
+    callback end-window-resize();
 
     DesktopCard {
         width: parent.width;
@@ -594,24 +607,27 @@ export component WeatherWidgetWindow inherits Window {
                 clicked => { root.city-draft = root.city; root.city-editor-open = true; }
             }
         }
-        for day[index] in root.forecast: Rectangle {
-            x: 14px + index * 55px; y: 132px; width: 52px; height: 82px;
-            border-radius: Theme.r-md;
-            background: index == 0 ? Theme.widget-accent-bg : Theme.widget-row;
-            Text { x: 2px; y: 8px; width: parent.width - 4px; text: day.weekday; color: index == 0 ? Theme.widget-accent : Theme.widget-text-2; font-size: Theme.font-10-5; font-weight: 600; horizontal-alignment: center; }
-            SvgIcon {
-                x: 4px; y: 31px; size: 12px;
-                source: day.icon-kind == "sun" ? Icons.sun
-                    : day.icon-kind == "sun-cloud" ? Icons.weather-partly
-                    : day.icon-kind == "fog" ? Icons.weather-fog
-                    : day.icon-kind == "rain" ? Icons.weather-rain
-                    : day.icon-kind == "snow" ? Icons.weather-snow
-                    : day.icon-kind == "storm" ? Icons.weather-storm
-                    : Icons.cloud;
-                tint: Theme.widget-text-3;
+        HorizontalLayout {
+            x: 14px; y: 132px; width: parent.width - 28px; height: parent.height - 162px; spacing: 3px;
+            for day[index] in root.forecast: Rectangle {
+                horizontal-stretch: 1; min-width: 46px;
+                border-radius: Theme.r-md;
+                background: index == 0 ? Theme.widget-accent-bg : Theme.widget-row;
+                Text { x: 2px; y: 8px; width: parent.width - 4px; text: day.weekday; color: index == 0 ? Theme.widget-accent : Theme.widget-text-2; font-size: Theme.font-10-5; font-weight: 600; horizontal-alignment: center; }
+                SvgIcon {
+                    x: 4px; y: 31px; size: 12px;
+                    source: day.icon-kind == "sun" ? Icons.sun
+                        : day.icon-kind == "sun-cloud" ? Icons.weather-partly
+                        : day.icon-kind == "fog" ? Icons.weather-fog
+                        : day.icon-kind == "rain" ? Icons.weather-rain
+                        : day.icon-kind == "snow" ? Icons.weather-snow
+                        : day.icon-kind == "storm" ? Icons.weather-storm
+                        : Icons.cloud;
+                    tint: Theme.widget-text-3;
+                }
+                Text { x: 18px; y: 31px; width: parent.width - 20px; text: day.description; color: Theme.widget-text-3; font-size: Theme.font-9; horizontal-alignment: left; overflow: elide; }
+                Text { x: 2px; y: 55px; width: parent.width - 4px; text: day.temperature; color: Theme.widget-text-1; font-size: Theme.font-10; font-weight: 600; horizontal-alignment: center; overflow: elide; }
             }
-            Text { x: 18px; y: 31px; width: parent.width - 20px; text: day.description; color: Theme.widget-text-3; font-size: Theme.font-9; horizontal-alignment: left; overflow: elide; }
-            Text { x: 2px; y: 55px; width: parent.width - 4px; text: day.temperature; color: Theme.widget-text-1; font-size: Theme.font-10; font-weight: 600; horizontal-alignment: center; overflow: elide; }
         }
         if root.city-editor-open: Rectangle {
             x: 10px; y: 43px; width: parent.width - 20px; height: 188px;
@@ -645,14 +661,16 @@ export component WeatherWidgetWindow inherits Window {
         }
     }
     WindowDragStrip { x: 14px; y: 12px; width: parent.width - 138px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+    WindowResizeGrip { x: parent.width - self.width; y: parent.height - self.height; resize-requested => { root.begin-window-resize(); } resize-finished => { root.end-window-resize(); } }
 }
 
 export component FocusWidgetWindow inherits Window {
     title: "TimeHub 专注计时";
     default-font-family: Theme.font-family;
     icon: Icons.app-logo;
-    width: 304px;
-    height: 218px;
+    preferred-width: 304px;
+    preferred-height: 218px;
+    min-width: 280px; min-height: 210px; max-width: 1000px; max-height: 800px;
     no-frame: true;
     always-on-top: pinned;
     background: transparent;
@@ -677,6 +695,8 @@ export component FocusWidgetWindow inherits Window {
     callback focus-complete();
     callback create-focus(string, string);
     callback remove-widget();
+    callback begin-window-resize();
+    callback end-window-resize();
 
     DesktopCard {
         width: parent.width;
@@ -701,15 +721,15 @@ export component FocusWidgetWindow inherits Window {
             Text { x: 8px; y: 25px; width: 80px; text: root.focus-time-text; color: Theme.widget-text-1; font-size: Theme.font-19; font-weight: 600; horizontal-alignment: center; }
             Text { x: 8px; y: 52px; width: 80px; text: "剩余"; color: Theme.widget-text-3; font-size: Theme.font-10; horizontal-alignment: center; }
         }
-        Text { x: 128px; y: 61px; width: 158px; text: root.focus-task; color: Theme.widget-text-1; font-size: Theme.font-13; overflow: elide; }
-        Text { x: 128px; y: 85px; width: 158px; text: "第 " + root.focus-round + " 轮 · 每轮 25 分钟"; color: Theme.widget-text-3; font-size: Theme.font-11; overflow: elide; }
-        Text { x: 128px; y: 105px; width: 158px; text: "已专注 " + root.focus-total-minutes + " 分钟"; color: Theme.widget-text-3; font-size: Theme.font-11; }
+        Text { x: 128px; y: 61px; width: parent.width - 144px; text: root.focus-task; color: Theme.widget-text-1; font-size: Theme.font-13; overflow: elide; }
+        Text { x: 128px; y: 85px; width: parent.width - 144px; text: "第 " + root.focus-round + " 轮 · 每轮 25 分钟"; color: Theme.widget-text-3; font-size: Theme.font-11; overflow: elide; }
+        Text { x: 128px; y: 105px; width: parent.width - 144px; text: "已专注 " + root.focus-total-minutes + " 分钟"; color: Theme.widget-text-3; font-size: Theme.font-11; }
         HorizontalLayout {
             x: 128px; y: 129px; width: 60px; height: 8px; spacing: 5px;
             for i in 4: Rectangle { width: 8px; height: 8px; border-radius: 4px; border-width: 1px; border-color: i < 3 ? Theme.widget-accent : Theme.widget-glass-border; background: i < 3 ? Theme.widget-accent : Theme.widget-row; }
         }
         HorizontalLayout {
-            x: 16px; y: 166px; width: parent.width - 32px; height: 30px; spacing: Theme.space-2;
+            x: 16px; y: parent.height - 52px; width: parent.width - 32px; height: 30px; spacing: Theme.space-2;
             FocusButton { horizontal-stretch: 1; label: root.focus-running ? "暂停" : "继续"; icon: root.focus-running ? Icons.pause : Icons.play; clicked => { root.focus-toggle(); } }
             FocusButton { horizontal-stretch: 1; label: "提前完成"; icon: Icons.check; clicked => { root.focus-complete(); } }
             FocusButton { horizontal-stretch: 1; label: root.focus-running ? "继续" : "开始"; icon: Icons.play; primary: true; clicked => { root.focus-start(); } }
@@ -723,14 +743,16 @@ export component FocusWidgetWindow inherits Window {
         }
     }
     WindowDragStrip { x: 14px; y: 12px; width: parent.width - 138px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+    WindowResizeGrip { x: parent.width - self.width; y: parent.height - self.height; resize-requested => { root.begin-window-resize(); } resize-finished => { root.end-window-resize(); } }
 }
 
 export component TodoWidgetWindow inherits Window {
     title: "TimeHub 今日待办";
     default-font-family: Theme.font-family;
     icon: Icons.app-logo;
-    width: 304px;
-    height: 226px;
+    preferred-width: 304px;
+    preferred-height: 226px;
+    min-width: 260px; min-height: 200px; max-width: 1000px; max-height: 900px;
     no-frame: true;
     always-on-top: pinned;
     background: transparent;
@@ -749,6 +771,8 @@ export component TodoWidgetWindow inherits Window {
     callback add-widget-todo();
     callback create-todo(string);
     callback remove-widget();
+    callback begin-window-resize();
+    callback end-window-resize();
 
     DesktopCard {
         width: parent.width;
@@ -772,22 +796,24 @@ export component TodoWidgetWindow inherits Window {
         }
         Text { x: 14px; y: 60px; text: "已完成 " + root.todo-completed-count + " / " + root.today-todos.length; color: Theme.widget-text-3; font-size: Theme.font-10-5; }
         Text { x: 258px; y: 60px; width: 32px; text: root.today-todos.length == 0 ? "0%" : round(root.todo-completed-count * 100 / root.today-todos.length) + "%"; horizontal-alignment: right; color: Theme.widget-text-3; font-size: Theme.font-10-5; }
-        VerticalLayout {
-            x: 10px; y: 82px; width: parent.width - 20px; height: parent.height - 82px; spacing: 0px;
-            for todo[i] in root.today-todos: WidgetTodoRow {
-                visible: i < 4;
-                todo: todo;
-                tag-text: i == 2 ? "家庭" : (i == 3 ? "习惯" : "");
-                toggled(id) => { root.toggle-todo(id); }
-            }
-            Rectangle {
-                height: 28px; border-radius: 9px; border-width: 1.5px; border-color: add-touch.has-hover ? Theme.widget-accent : Theme.widget-glass-border;
-                HorizontalLayout {
-                    alignment: center; cross-axis-alignment: center; spacing: 5px;
-                    SvgIcon { source: Icons.plus; size: 14px; tint: add-touch.has-hover ? Theme.widget-accent : Theme.widget-text-3; }
-                    Text { text: "添加待办"; color: add-touch.has-hover ? Theme.widget-accent : Theme.widget-text-3; font-size: Theme.font-11-5; vertical-alignment: center; }
+        ScrollView {
+            x: 10px; y: 82px; width: parent.width - 20px; height: parent.height - 82px;
+            VerticalLayout {
+                spacing: 0px;
+                for todo[i] in root.today-todos: WidgetTodoRow {
+                    todo: todo;
+                    tag-text: i == 2 ? "家庭" : (i == 3 ? "习惯" : "");
+                    toggled(id) => { root.toggle-todo(id); }
                 }
-                add-touch := TouchArea { mouse-cursor: pointer; clicked => { root.create-title = ""; root.create-status = ""; root.create-open = true; } }
+                Rectangle {
+                    height: 28px; border-radius: 9px; border-width: 1.5px; border-color: add-touch.has-hover ? Theme.widget-accent : Theme.widget-glass-border;
+                    HorizontalLayout {
+                        alignment: center; cross-axis-alignment: center; spacing: 5px;
+                        SvgIcon { source: Icons.plus; size: 14px; tint: add-touch.has-hover ? Theme.widget-accent : Theme.widget-text-3; }
+                        Text { text: "添加待办"; color: add-touch.has-hover ? Theme.widget-accent : Theme.widget-text-3; font-size: Theme.font-11-5; vertical-alignment: center; }
+                    }
+                    add-touch := TouchArea { mouse-cursor: pointer; clicked => { root.create-title = ""; root.create-status = ""; root.create-open = true; } }
+                }
             }
         }
         if root.create-open: WidgetCreatePanel {
@@ -799,14 +825,16 @@ export component TodoWidgetWindow inherits Window {
         }
     }
     WindowDragStrip { x: 14px; y: 12px; width: parent.width - 138px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+    WindowResizeGrip { x: parent.width - self.width; y: parent.height - self.height; resize-requested => { root.begin-window-resize(); } resize-finished => { root.end-window-resize(); } }
 }
 
 export component NotesWidgetWindow inherits Window {
     title: "TimeHub 便签";
     default-font-family: Theme.font-family;
     icon: Icons.app-logo;
-    width: 304px;
-    height: 280px;
+    preferred-width: 304px;
+    preferred-height: 280px;
+    min-width: 260px; min-height: 220px; max-width: 1000px; max-height: 900px;
     no-frame: true;
     always-on-top: pinned;
     background: transparent;
@@ -824,6 +852,8 @@ export component NotesWidgetWindow inherits Window {
     callback create-note-card();
     callback save-note(int, string, string);
     callback delete-note(int);
+    callback begin-window-resize();
+    callback end-window-resize();
 
     DesktopCard {
         width: parent.width;
@@ -855,7 +885,7 @@ export component NotesWidgetWindow inherits Window {
             }
         }
         Rectangle {
-            x: 14px; y: 90px; width: parent.width - 28px; height: 138px;
+            x: 14px; y: 90px; width: parent.width - 28px; height: parent.height - 142px;
             border-radius: Theme.r-md; border-width: 1px;
             border-color: content-input.has-focus ? Theme.widget-accent : Theme.widget-glass-border;
             background: Theme.bg-surface-2;
@@ -868,13 +898,13 @@ export component NotesWidgetWindow inherits Window {
             }
         }
         Text {
-            x: 16px; y: 241px; width: 170px; height: 26px;
+            x: 16px; y: parent.height - 39px; width: parent.width - 112px; height: 26px;
             text: root.save-status != "" ? root.save-status : (root.editing-dirty ? "有未保存的修改" : "已保存");
             color: root.editing-dirty ? Theme.widget-danger : Theme.widget-text-3;
             font-size: Theme.font-10-5; vertical-alignment: center;
         }
         Rectangle {
-            x: parent.width - 86px; y: 239px; width: 72px; height: 30px;
+            x: parent.width - 86px; y: parent.height - 41px; width: 72px; height: 30px;
             border-radius: Theme.r-md;
             background: root.editing-dirty ? Theme.widget-accent : Theme.widget-row;
             Text { text: "保存内容"; color: root.editing-dirty ? Theme.widget-on-accent : Theme.widget-text-3; font-size: Theme.font-11; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
@@ -892,4 +922,5 @@ export component NotesWidgetWindow inherits Window {
         }
     }
     WindowDragStrip { x: 14px; y: 12px; width: parent.width - 138px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+    WindowResizeGrip { x: parent.width - self.width; y: parent.height - self.height; resize-requested => { root.begin-window-resize(); } resize-finished => { root.end-window-resize(); } }
 }

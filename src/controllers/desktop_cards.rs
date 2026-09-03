@@ -81,30 +81,39 @@ pub(crate) fn register_desktop_card_callbacks(
     wire_widget_chrome!(desktop_widgets.focus, "focus");
     wire_widget_chrome!(desktop_widgets.todo, "todo");
 
-    // The calendar card is one responsive widget: compact at its default
-    // size and a full month view when enlarged.  The title-bar button toggles
-    // between the two useful sizes, while the corner grip supports free
-    // southeast resizing.  Persist the physical size alongside its position.
+    // 所有固定桌面卡片统一使用右下角原生缩放，并分别持久化实际物理尺寸。
+    macro_rules! wire_widget_resize {
+        ($window:expr, $kind:literal) => {{
+            use slint::winit_030::winit::window::ResizeDirection;
+            let window_weak = $window.as_weak();
+            $window.on_begin_window_resize(move || {
+                if let Some(window) = window_weak.upgrade() {
+                    let _ = window.window().with_winit_window(|native| {
+                        let _ = native.drag_resize_window(ResizeDirection::SouthEast);
+                    });
+                }
+            });
+
+            let window_weak = $window.as_weak();
+            let state_for_size = state.clone();
+            $window.on_end_window_resize(move || {
+                if let Some(window) = window_weak.upgrade() {
+                    save_widget_window_size(&window, &state_for_size, $kind);
+                }
+            });
+        }};
+    }
+
+    wire_widget_resize!(desktop_widgets.calendar, "calendar");
+    wire_widget_resize!(desktop_widgets.events, "events");
+    wire_widget_resize!(desktop_widgets.countdown, "countdown");
+    wire_widget_resize!(desktop_widgets.clock, "clock");
+    wire_widget_resize!(desktop_widgets.weather, "weather");
+    wire_widget_resize!(desktop_widgets.focus, "focus");
+    wire_widget_resize!(desktop_widgets.todo, "todo");
+
+    // 月历额外保留“小卡片 / 完整月历”一键切换。
     {
-        use slint::winit_030::winit::window::ResizeDirection;
-
-        let calendar_weak = desktop_widgets.calendar.as_weak();
-        desktop_widgets.calendar.on_begin_window_resize(move || {
-            if let Some(calendar) = calendar_weak.upgrade() {
-                let _ = calendar.window().with_winit_window(|native| {
-                    let _ = native.drag_resize_window(ResizeDirection::SouthEast);
-                });
-            }
-        });
-
-        let calendar_weak = desktop_widgets.calendar.as_weak();
-        let state_for_size = state.clone();
-        desktop_widgets.calendar.on_end_window_resize(move || {
-            if let Some(calendar) = calendar_weak.upgrade() {
-                save_widget_window_size(&calendar, &state_for_size, "calendar");
-            }
-        });
-
         let calendar_weak = desktop_widgets.calendar.as_weak();
         let state_for_size = state.clone();
         desktop_widgets.calendar.on_toggle_window_size(move || {
@@ -121,20 +130,6 @@ pub(crate) fn register_desktop_card_callbacks(
                     if let Some(calendar) = calendar_weak.upgrade() {
                         save_widget_window_size(&calendar, &state_for_size, "calendar");
                     }
-                });
-            }
-        });
-    }
-
-    // The events card has a visible bottom grip.  Native resize keeps the
-    // frameless window responsive while limiting the gesture to vertical size.
-    {
-        use slint::winit_030::winit::window::ResizeDirection;
-        let events_weak = desktop_widgets.events.as_weak();
-        desktop_widgets.events.on_begin_window_resize(move || {
-            if let Some(events) = events_weak.upgrade() {
-                let _ = events.window().with_winit_window(|native| {
-                    let _ = native.drag_resize_window(ResizeDirection::South);
                 });
             }
         });

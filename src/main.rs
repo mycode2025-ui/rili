@@ -330,6 +330,7 @@ fn run_gui(startup: bool) -> Result<()> {
         restore_widget_window(&desktop_widgets.calendar, &state.conn, "calendar", 88, 58);
         restore_widget_window_size(&desktop_widgets.calendar, &state.conn, "calendar");
         restore_widget_window(&desktop_widgets.events, &state.conn, "events", 616, 58);
+        restore_widget_window_size(&desktop_widgets.events, &state.conn, "events");
         restore_widget_window(
             &desktop_widgets.countdown,
             &state.conn,
@@ -337,10 +338,15 @@ fn run_gui(startup: bool) -> Result<()> {
             1144,
             58,
         );
+        restore_widget_window_size(&desktop_widgets.countdown, &state.conn, "countdown");
         restore_widget_window(&desktop_widgets.clock, &state.conn, "clock", 88, 502);
+        restore_widget_window_size(&desktop_widgets.clock, &state.conn, "clock");
         restore_widget_window(&desktop_widgets.weather, &state.conn, "weather", 88, 740);
+        restore_widget_window_size(&desktop_widgets.weather, &state.conn, "weather");
         restore_widget_window(&desktop_widgets.focus, &state.conn, "focus", 616, 502);
+        restore_widget_window_size(&desktop_widgets.focus, &state.conn, "focus");
         restore_widget_window(&desktop_widgets.todo, &state.conn, "todo", 1144, 502);
+        restore_widget_window_size(&desktop_widgets.todo, &state.conn, "todo");
         // The quick panel is a taskbar flyout, not a freely positioned desktop
         // widget. Always start at the taskbar corner and never restore a stale
         // user-dragged position from older builds.

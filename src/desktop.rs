@@ -191,6 +191,7 @@ impl DesktopWidgetWindows {
             if let Ok(conn) = db::open() {
                 let offset = windows.len() as i32 * 34;
                 restore_widget_window(&window, &conn, &key, 1672 + offset, 502 + offset);
+                restore_widget_window_size(&window, &conn, &key);
                 let pinned_key = format!("widget_{key}_pinned");
                 let pinned = db::get_setting(&conn, &pinned_key, "0").unwrap_or_default() == "1";
                 window.set_pinned(pinned);
@@ -220,6 +221,42 @@ impl DesktopWidgetWindows {
                         card_accent
                     },
                 );
+            }
+            {
+                use slint::winit_030::winit::window::ResizeDirection;
+                let window_weak = window.as_weak();
+                window.on_begin_window_resize(move || {
+                    if let Some(window) = window_weak.upgrade() {
+                        let _ = window.window().with_winit_window(|native| {
+                            let _ = native.drag_resize_window(ResizeDirection::SouthEast);
+                        });
+                    }
+                });
+            }
+            {
+                let window_weak = window.as_weak();
+                let key = key.clone();
+                window.on_end_window_resize(move || {
+                    if let Some(window) = window_weak.upgrade() {
+                        let size = window.window().size();
+                        if let Ok(conn) = db::open() {
+                            if let Err(error) = db::set_setting(
+                                &conn,
+                                &format!("widget_{key}_width"),
+                                &size.width.to_string(),
+                            ) {
+                                error_reporter::report("保存便签卡片宽度失败", &error);
+                            }
+                            if let Err(error) = db::set_setting(
+                                &conn,
+                                &format!("widget_{key}_height"),
+                                &size.height.to_string(),
+                            ) {
+                                error_reporter::report("保存便签卡片高度失败", &error);
+                            }
+                        }
+                    }
+                });
             }
 
             {
