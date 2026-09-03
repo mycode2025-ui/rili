@@ -2,6 +2,60 @@
 
 use crate::*;
 
+struct AccentPalette {
+    accent: (u8, u8, u8),
+    today_bg: (u8, u8, u8),
+}
+
+const ACCENT_PALETTES: [AccentPalette; 8] = [
+    AccentPalette {
+        accent: (0x2e, 0x6b, 0xe6),
+        today_bg: (0x2e, 0x6b, 0xe6),
+    },
+    AccentPalette {
+        accent: (0x0e, 0x9f, 0x6e),
+        today_bg: (0x0e, 0x9f, 0x6e),
+    },
+    AccentPalette {
+        accent: (0xc7, 0x77, 0x00),
+        today_bg: (0xc7, 0x77, 0x00),
+    },
+    AccentPalette {
+        accent: (0xd9, 0x3a, 0x49),
+        today_bg: (0xd9, 0x3a, 0x49),
+    },
+    AccentPalette {
+        accent: (0x7c, 0x4d, 0xff),
+        today_bg: (0x7c, 0x4d, 0xff),
+    },
+    AccentPalette {
+        accent: (0x08, 0x91, 0xb2),
+        today_bg: (0x08, 0x91, 0xb2),
+    },
+    AccentPalette {
+        accent: (0xdb, 0x27, 0x77),
+        today_bg: (0xdb, 0x27, 0x77),
+    },
+    AccentPalette {
+        accent: (0x65, 0xa3, 0x0d),
+        today_bg: (0x65, 0xa3, 0x0d),
+    },
+];
+
+pub(crate) fn set_theme_accent(theme: Theme<'_>, index: i32) {
+    let palette = &ACCENT_PALETTES[(index.max(0) as usize) % ACCENT_PALETTES.len()];
+    theme.set_accent(slint::Color::from_rgb_u8(
+        palette.accent.0,
+        palette.accent.1,
+        palette.accent.2,
+    ));
+    theme.set_today_bg(slint::Color::from_rgb_u8(
+        palette.today_bg.0,
+        palette.today_bg.1,
+        palette.today_bg.2,
+    ));
+}
+
 /// 设计规范中的 8 色强调色，同时应用到主窗口和桌面挂件的 `Theme` 全局。
 pub(crate) fn apply_theme(
     ui: &AppWindow,
@@ -9,70 +63,29 @@ pub(crate) fn apply_theme(
     quick_panel: &QuickPanelWindow,
     index: i32,
 ) {
-    struct Palette {
-        accent: (u8, u8, u8),
-        today_bg: (u8, u8, u8),
-    }
-    const PALETTES: [Palette; 8] = [
-        Palette {
-            accent: (0x2e, 0x6b, 0xe6),
-            today_bg: (0x2e, 0x6b, 0xe6),
-        },
-        Palette {
-            accent: (0x0e, 0x9f, 0x6e),
-            today_bg: (0x0e, 0x9f, 0x6e),
-        },
-        Palette {
-            accent: (0xc7, 0x77, 0x00),
-            today_bg: (0xc7, 0x77, 0x00),
-        },
-        Palette {
-            accent: (0xd9, 0x3a, 0x49),
-            today_bg: (0xd9, 0x3a, 0x49),
-        },
-        Palette {
-            accent: (0x7c, 0x4d, 0xff),
-            today_bg: (0x7c, 0x4d, 0xff),
-        },
-        Palette {
-            accent: (0x08, 0x91, 0xb2),
-            today_bg: (0x08, 0x91, 0xb2),
-        },
-        Palette {
-            accent: (0xdb, 0x27, 0x77),
-            today_bg: (0xdb, 0x27, 0x77),
-        },
-        Palette {
-            accent: (0x65, 0xa3, 0x0d),
-            today_bg: (0x65, 0xa3, 0x0d),
-        },
-    ];
-    let palette = &PALETTES[(index.max(0) as usize) % PALETTES.len()];
-    let accent = slint::Color::from_rgb_u8(palette.accent.0, palette.accent.1, palette.accent.2);
-    let today_bg =
-        slint::Color::from_rgb_u8(palette.today_bg.0, palette.today_bg.1, palette.today_bg.2);
-
-    let apply = |theme: Theme<'_>| {
-        theme.set_accent(accent);
-        theme.set_today_bg(today_bg);
-    };
+    let apply = |theme: Theme<'_>| set_theme_accent(theme, index);
     apply(ui.global::<Theme>());
     apply(widget.global::<Theme>());
     apply(quick_panel.global::<Theme>());
     DESKTOP_WIDGET_WINDOWS.with(|slot| {
         if let Some(windows) = slot.borrow().as_ref() {
-            apply(windows.calendar.global::<Theme>());
-            apply(windows.events.global::<Theme>());
+            let apply_widget = |theme: Theme<'_>| {
+                if theme.get_widget_accent_override() < 0 {
+                    apply(theme);
+                }
+            };
+            apply_widget(windows.calendar.global::<Theme>());
+            apply_widget(windows.events.global::<Theme>());
             if let Some(editor) = windows.event_editor.borrow().as_ref() {
                 apply(editor.global::<Theme>());
             }
-            apply(windows.countdown.global::<Theme>());
-            apply(windows.clock.global::<Theme>());
-            apply(windows.weather.global::<Theme>());
-            apply(windows.focus.global::<Theme>());
-            apply(windows.todo.global::<Theme>());
+            apply_widget(windows.countdown.global::<Theme>());
+            apply_widget(windows.clock.global::<Theme>());
+            apply_widget(windows.weather.global::<Theme>());
+            apply_widget(windows.focus.global::<Theme>());
+            apply_widget(windows.todo.global::<Theme>());
             for window in windows.notes.borrow().iter() {
-                apply(window.global::<Theme>());
+                apply_widget(window.global::<Theme>());
             }
         }
     });
@@ -91,18 +104,23 @@ pub(crate) fn apply_visual_theme(
     quick_panel.global::<Theme>().set_theme_mode(mode);
     DESKTOP_WIDGET_WINDOWS.with(|slot| {
         if let Some(windows) = slot.borrow().as_ref() {
-            windows.calendar.global::<Theme>().set_theme_mode(mode);
-            windows.events.global::<Theme>().set_theme_mode(mode);
+            let apply_widget = |theme: Theme<'_>| {
+                if theme.get_widget_theme_override() == 0 {
+                    theme.set_theme_mode(mode);
+                }
+            };
+            apply_widget(windows.calendar.global::<Theme>());
+            apply_widget(windows.events.global::<Theme>());
             if let Some(editor) = windows.event_editor.borrow().as_ref() {
                 editor.global::<Theme>().set_theme_mode(mode);
             }
-            windows.countdown.global::<Theme>().set_theme_mode(mode);
-            windows.clock.global::<Theme>().set_theme_mode(mode);
-            windows.weather.global::<Theme>().set_theme_mode(mode);
-            windows.focus.global::<Theme>().set_theme_mode(mode);
-            windows.todo.global::<Theme>().set_theme_mode(mode);
+            apply_widget(windows.countdown.global::<Theme>());
+            apply_widget(windows.clock.global::<Theme>());
+            apply_widget(windows.weather.global::<Theme>());
+            apply_widget(windows.focus.global::<Theme>());
+            apply_widget(windows.todo.global::<Theme>());
             for window in windows.notes.borrow().iter() {
-                window.global::<Theme>().set_theme_mode(mode);
+                apply_widget(window.global::<Theme>());
             }
         }
     });
@@ -192,4 +210,88 @@ pub(crate) fn apply_font_family(
             }
         }
     });
+}
+
+fn with_desktop_widget_theme(kind: &str, mut action: impl FnMut(Theme<'_>)) -> bool {
+    DESKTOP_WIDGET_WINDOWS.with(|slot| {
+        let Some(windows) = slot.borrow().as_ref().cloned() else {
+            return false;
+        };
+        match kind {
+            "calendar" => action(windows.calendar.global::<Theme>()),
+            "events" => action(windows.events.global::<Theme>()),
+            "countdown" => action(windows.countdown.global::<Theme>()),
+            "clock" => action(windows.clock.global::<Theme>()),
+            "weather" => action(windows.weather.global::<Theme>()),
+            "focus" => action(windows.focus.global::<Theme>()),
+            "todo" => action(windows.todo.global::<Theme>()),
+            "notes" => {
+                for note in windows.notes.borrow().iter() {
+                    action(note.global::<Theme>());
+                }
+            }
+            note_kind if note_kind.starts_with("note_") => {
+                let id = note_kind.trim_start_matches("note_").parse::<i32>().ok();
+                if let Some(note) = windows
+                    .notes
+                    .borrow()
+                    .iter()
+                    .find(|note| Some(note.get_note_id()) == id)
+                {
+                    action(note.global::<Theme>());
+                }
+            }
+            _ => return false,
+        }
+        true
+    })
+}
+
+pub(crate) fn apply_desktop_widget_style(
+    kind: &str,
+    opacity: i32,
+    theme_override: i32,
+    accent_override: i32,
+    app_theme: i32,
+    app_accent: i32,
+) -> bool {
+    with_desktop_widget_theme(kind, |theme| {
+        let theme_override = theme_override.clamp(0, 2);
+        let accent_override = accent_override.clamp(-1, 7);
+        theme.set_widget_opacity(opacity.clamp(35, 100));
+        theme.set_widget_theme_override(theme_override);
+        theme.set_widget_accent_override(accent_override);
+        theme.set_theme_mode(if theme_override == 0 {
+            app_theme.clamp(0, 2)
+        } else {
+            theme_override
+        });
+        set_theme_accent(
+            theme,
+            if accent_override < 0 {
+                app_accent
+            } else {
+                accent_override
+            },
+        );
+    })
+}
+
+pub(crate) fn desktop_widget_style(conn: &Connection, kind: &str) -> (i32, i32, i32) {
+    let opacity = db::get_setting(conn, &format!("widget_{kind}_opacity"), "80")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(80)
+        .clamp(35, 100);
+    let theme = db::get_setting(conn, &format!("widget_{kind}_theme"), "0")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(0)
+        .clamp(0, 2);
+    let accent = db::get_setting(conn, &format!("widget_{kind}_accent"), "-1")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(-1)
+        .clamp(-1, 7);
+    (opacity, theme, accent)
 }

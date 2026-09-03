@@ -7,6 +7,34 @@ use std::sync::Arc;
 
 pub(crate) const DEFAULT_FONT_FAMILY: &str = "Noto Sans SC";
 
+/// Extend Slint's script fallbacks with the Windows symbol/emoji and Chinese
+/// families. This keeps labels such as emoji, circled numbers, uncommon
+/// punctuation and mixed CJK text readable even when the selected UI font
+/// does not contain those glyphs.
+pub(crate) fn configure_unicode_fallbacks() {
+    let mut collection = shared_collection();
+    let symbol_families: Vec<_> = ["Segoe UI Emoji", "Segoe UI Symbol"]
+        .into_iter()
+        .filter_map(|name| collection.family_id(name))
+        .collect();
+    let cjk_families: Vec<_> = [
+        "Microsoft YaHei UI",
+        "Microsoft YaHei",
+        "DengXian",
+        "SimSun-ExtB",
+    ]
+    .into_iter()
+    .filter_map(|name| collection.family_id(name))
+    .collect();
+
+    for script in ["Zyyy", "Zinh"] {
+        let key = fontique::FallbackKey::new(fontique::Script::from_str_unchecked(script), None);
+        collection.append_fallbacks(key, symbol_families.iter().copied());
+    }
+    let han = fontique::FallbackKey::new(fontique::Script::from_str_unchecked("Hani"), None);
+    collection.append_fallbacks(han, cjk_families.into_iter());
+}
+
 pub(crate) fn family_from_choice(choice: &str) -> Option<&'static str> {
     match choice {
         "系统默认" => Some(""),

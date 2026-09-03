@@ -1863,6 +1863,44 @@ mod tests {
     }
 
     #[test]
+    fn notes_and_todos_round_trip_mixed_unicode_labels() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE todos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                done INTEGER NOT NULL DEFAULT 0,
+                due_date TEXT,
+                priority INTEGER NOT NULL DEFAULT 0,
+                important INTEGER NOT NULL DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'todo',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+             );
+             CREATE TABLE notes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                content TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+             );",
+        )
+        .unwrap();
+
+        let todo_text = "🏷️ #研发／紧急 · ①测试 𠮷";
+        let note_title = "📌 灵感 #生活";
+        let note_content = "中英混排 Café → ✓ ♫ 😀 𝄞";
+        create_todo(&conn, todo_text, None, 2).unwrap();
+        create_note(&conn, note_title, note_content).unwrap();
+
+        let todos = list_todos(&conn, None, None).unwrap();
+        let notes = list_notes(&conn).unwrap();
+        assert_eq!(todos[0].title, todo_text);
+        assert_eq!(notes[0].title, note_title);
+        assert_eq!(notes[0].content, note_content);
+    }
+
+    #[test]
     fn default_reminder_is_validated_and_applied_to_existing_events() {
         let conn = reminder_test_db();
         create_event(

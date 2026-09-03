@@ -103,4 +103,16 @@ pub(crate) fn register_quick_panel_callbacks(
             }
         });
     }
+    {
+        let ui_weak = ui.as_weak();
+        let quick_weak = quick_panel.as_weak();
+        quick_panel.on_open_settings(move || {
+            if let (Some(ui), Some(quick)) = (ui_weak.upgrade(), quick_weak.upgrade()) {
+                ui.set_settings_section(0);
+                ui.set_settings_open(true);
+                show_and_focus_main_window(&ui);
+                let _ = quick.hide();
+            }
+        });
+    }
 }

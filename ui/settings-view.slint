@@ -1,6 +1,7 @@
 import { Theme } from "theme.slint";
 import { Icons, SvgIcon } from "icons.slint";
-import { ComboBox, Palette } from "std-widgets.slint";
+import { Dropdown } from "widgets.slint";
+import { Palette } from "std-widgets.slint";
 
 component SettingsNavItem inherits Rectangle {
     in property <string> label;
@@ -101,6 +102,11 @@ export component SettingsView inherits Rectangle {
     in property <bool> local-only: false;
     in property <bool> taskbar-clock-enabled: true;
     in property <bool> auto-start-enabled: false;
+    in property <bool> quick-panel-pinned: false;
+    in property <string> widget-style-name: "月历";
+    in property <int> widget-style-opacity: 80;
+    in property <int> widget-style-theme: 0;
+    in property <int> widget-style-accent: -1;
     callback set-theme(int);
     callback set-visual-theme(int);
     callback set-week-starts-sunday(bool);
@@ -115,8 +121,20 @@ export component SettingsView inherits Rectangle {
     callback set-local-only(bool);
     callback set-taskbar-clock-enabled(bool);
     callback set-auto-start-enabled(bool);
+    callback set-quick-panel-pinned(bool);
+    callback set-widget-style-opacity(int);
+    callback set-widget-style-theme(int);
+    callback set-widget-style-accent(int);
     callback settings-action(string);
     background: Theme.bg-app;
+
+    pure function font-choice-index() -> int {
+        return root.interface-font-family == "系统默认" ? 0 :
+            (root.interface-font-family == "Noto Sans SC" ? 1 :
+            (root.interface-font-family == "微软雅黑" ? 2 :
+            (root.interface-font-family == "等线" ? 3 :
+            (root.interface-font-family == "思源宋体" ? 4 : -1))));
+    }
 
     HorizontalLayout {
         spacing: 0px;
@@ -155,12 +173,14 @@ export component SettingsView inherits Rectangle {
                 height: root.selected-section == 0 ? 76px : 0px;
                 cross-axis-alignment: center;
                 SettingInfo { title: "界面字体"; description: "统一应用到主窗口、弹窗、快速面板与桌面卡片"; horizontal-stretch: 1; }
-                ComboBox {
-                    width: 184px;
-                    horizontal-stretch: 0;
+                Dropdown {
+                    item-width: 184px;
                     model: ["系统默认", "Noto Sans SC", "微软雅黑", "等线", "思源宋体"];
-                    current-value: root.interface-font-family;
-                    selected(value) => { root.set-interface-font-family(value); }
+                    current-index: root.font-choice-index();
+                    current-label: root.interface-font-family;
+                    selected(index) => {
+                        root.set-interface-font-family(index == 0 ? "系统默认" : (index == 1 ? "Noto Sans SC" : (index == 2 ? "微软雅黑" : (index == 3 ? "等线" : "思源宋体"))));
+                    }
                 }
                 Rectangle { width: Theme.space-2; }
                 SmallChoice { width: 126px; label: "选择字体文件…"; clicked => { root.choose-custom-font(); } }
@@ -215,6 +235,43 @@ export component SettingsView inherits Rectangle {
                 height: root.selected-section == 0 ? 72px : 0px;
                 SettingInfo { title: "减淡动效"; description: "关闭视图切换动画与弹入效果"; horizontal-stretch: 1; }
                 Switch { checked: root.reduce-motion; toggled(value) => { root.set-reduce-motion(value); } }
+            }
+            Rectangle { visible: root.selected-section == 0; height: root.selected-section == 0 ? 1px : 0px; background: Theme.border-subtle; }
+            HorizontalLayout {
+                visible: root.selected-section == 0;
+                height: root.selected-section == 0 ? 72px : 0px;
+                SettingInfo { title: "快速面板"; description: "固定显示在系统时钟上方，可选窗口置顶"; horizontal-stretch: 1; }
+                Switch { checked: root.quick-panel-pinned; toggled(value) => { root.set-quick-panel-pinned(value); } }
+            }
+            Rectangle { visible: root.selected-section == 0; height: root.selected-section == 0 ? 1px : 0px; background: Theme.border-subtle; }
+            HorizontalLayout {
+                visible: root.selected-section == 0;
+                height: root.selected-section == 0 ? 118px : 0px;
+                cross-axis-alignment: center;
+                SettingInfo { title: "桌面卡片外观"; description: "当前：" + root.widget-style-name + "；点击卡片齿轮可切换目标"; horizontal-stretch: 1; }
+                VerticalLayout {
+                    width: 390px; spacing: Theme.space-2;
+                    HorizontalLayout {
+                        height: 30px; spacing: Theme.space-2; cross-axis-alignment: center;
+                        Text { text: "透明度"; color: Theme.text-2; font-size: Theme.font-11; vertical-alignment: center; }
+                        SmallChoice { min-width: 34px; label: "−"; clicked => { root.set-widget-style-opacity(Math.max(35, root.widget-style-opacity - 5)); } }
+                        Text { width: 44px; text: root.widget-style-opacity + "%"; color: Theme.text-1; font-size: Theme.font-12; horizontal-alignment: center; vertical-alignment: center; }
+                        SmallChoice { min-width: 34px; label: "+"; clicked => { root.set-widget-style-opacity(Math.min(100, root.widget-style-opacity + 5)); } }
+                        Rectangle { horizontal-stretch: 1; }
+                        SmallChoice { label: "跟随"; selected: root.widget-style-theme == 0; clicked => { root.set-widget-style-theme(0); } }
+                        SmallChoice { label: "浅色"; selected: root.widget-style-theme == 1; clicked => { root.set-widget-style-theme(1); } }
+                        SmallChoice { label: "深色"; selected: root.widget-style-theme == 2; clicked => { root.set-widget-style-theme(2); } }
+                    }
+                    HorizontalLayout {
+                        height: 30px; spacing: 7px; cross-axis-alignment: center;
+                        SmallChoice { min-width: 56px; label: "跟随色"; selected: root.widget-style-accent < 0; clicked => { root.set-widget-style-accent(-1); } }
+                        for swatch[i] in [Theme.c-blue, Theme.c-green, Theme.c-orange, Theme.c-red, Theme.c-purple, Theme.c-cyan, Theme.c-pink, Theme.c-lime]: Rectangle {
+                            width: 24px; height: 24px; border-radius: 12px; border-width: root.widget-style-accent == i ? 2px : 0px; border-color: swatch; background: transparent;
+                            Rectangle { width: 18px; height: 18px; x: 3px; y: 3px; border-radius: 9px; background: swatch; }
+                            TouchArea { mouse-cursor: pointer; clicked => { root.set-widget-style-accent(i); } }
+                        }
+                    }
+                }
             }
             if root.selected-section == 1: VerticalLayout {
                 horizontal-stretch: 1;

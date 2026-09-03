@@ -237,6 +237,7 @@ export component NavButton inherits Rectangle {
 export component Dropdown inherits Rectangle {
     in property <[string]> model;
     in property <int> current-index: 0;
+    in property <string> current-label: "";
     in property <length> item-width: 110px;
     in property <bool> enabled: true;
     callback selected(int);
@@ -260,7 +261,7 @@ export component Dropdown inherits Rectangle {
         padding-right: Theme.space-2;
         cross-axis-alignment: center;
         Text {
-            text: root.current-index >= 0 && root.current-index < root.model.length ? root.model[root.current-index] : "";
+            text: root.current-label != "" ? root.current-label : (root.current-index >= 0 && root.current-index < root.model.length ? root.model[root.current-index] : "");
             color: Theme.text-1;
             font-size: Theme.font-12;
             horizontal-stretch: 1;
@@ -281,7 +282,7 @@ export component Dropdown inherits Rectangle {
             VerticalLayout {
                 for entry[i] in root.model: Rectangle {
                     height: 30px;
-                    background: item-touch.has-hover ? Theme.bg-hover : transparent;
+                    background: i == root.current-index ? Theme.bg-selected : (item-touch.has-hover ? Theme.bg-hover : transparent);
                     item-touch := TouchArea {
                         mouse-cursor: pointer;
                         clicked => { root.selected(i); popup.close(); }

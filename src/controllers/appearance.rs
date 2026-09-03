@@ -39,6 +39,81 @@ pub(crate) fn register_appearance_callbacks(
             }
         });
     }
+    macro_rules! wire_widget_style_setting {
+        ($callback:ident, $property:ident, $suffix:literal, $min:expr, $max:expr) => {{
+            let ui_weak = ui.as_weak();
+            let state = state.clone();
+            ui.$callback(move |value| {
+                let value = value.clamp($min, $max);
+                let Some(ui) = ui_weak.upgrade() else {
+                    return;
+                };
+                let kind = ui.get_widget_style_kind().to_string();
+                let key = format!("widget_{kind}_{}", $suffix);
+                match db::set_setting(&state.borrow().conn, &key, &value.to_string()) {
+                    Ok(()) => {
+                        ui.$property(value);
+                        apply_desktop_widget_style(
+                            &kind,
+                            ui.get_widget_style_opacity(),
+                            ui.get_widget_style_theme(),
+                            ui.get_widget_style_accent(),
+                            ui.get_visual_theme(),
+                            ui.get_theme_index(),
+                        );
+                    }
+                    Err(error) => ui.set_action_message(
+                        format!("保存桌面卡片外观失败：{error}").into(),
+                    ),
+                }
+            });
+        }};
+    }
+    wire_widget_style_setting!(
+        on_set_widget_style_opacity,
+        set_widget_style_opacity,
+        "opacity",
+        35,
+        100
+    );
+    wire_widget_style_setting!(
+        on_set_widget_style_theme,
+        set_widget_style_theme,
+        "theme",
+        0,
+        2
+    );
+    wire_widget_style_setting!(
+        on_set_widget_style_accent,
+        set_widget_style_accent,
+        "accent",
+        -1,
+        7
+    );
+    {
+        let ui_weak = ui.as_weak();
+        let quick_weak = quick_panel.as_weak();
+        let state = state.clone();
+        ui.on_set_quick_panel_pinned(move |pinned| {
+            let result = db::set_setting(
+                &state.borrow().conn,
+                "quick_panel_pinned",
+                if pinned { "1" } else { "0" },
+            );
+            if let (Some(ui), Some(quick)) = (ui_weak.upgrade(), quick_weak.upgrade()) {
+                match result {
+                    Ok(()) => {
+                        ui.set_quick_panel_pinned(pinned);
+                        quick.set_pinned(pinned);
+                    }
+                    Err(error) => {
+                        ui.set_quick_panel_pinned(!pinned);
+                        ui.set_action_message(format!("保存快速面板设置失败：{error}").into());
+                    }
+                }
+            }
+        });
+    }
     {
         let ui_weak = ui.as_weak();
         let widget_weak = widget.as_weak();

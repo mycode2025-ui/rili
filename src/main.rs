@@ -201,6 +201,9 @@ fn run_gui(startup: bool) -> Result<()> {
     }));
 
     let ui = AppWindow::new()?;
+    // The renderer is initialized now, so the shared collection can safely be
+    // extended before any note/todo text is laid out.
+    font_settings::configure_unicode_fallbacks();
     let custom_font_error = if custom_font_path.is_empty() {
         None
     } else {
@@ -279,7 +282,9 @@ fn run_gui(startup: bool) -> Result<()> {
         // widget. Always start at the taskbar corner and never restore a stale
         // user-dragged position from older builds.
         position_quick_panel_at_taskbar(&quick_panel);
-        quick_panel.set_pinned(db::get_setting(&state.conn, "quick_panel_pinned", "0")? == "1");
+        let quick_panel_pinned = db::get_setting(&state.conn, "quick_panel_pinned", "0")? == "1";
+        quick_panel.set_pinned(quick_panel_pinned);
+        ui.set_quick_panel_pinned(quick_panel_pinned);
 
         desktop_widgets.calendar.set_pinned(
             db::get_setting(
@@ -349,6 +354,15 @@ fn run_gui(startup: bool) -> Result<()> {
     ui.set_taskbar_clock_enabled(taskbar_clock_enabled);
     ui.set_auto_start_enabled(autostart::is_enabled());
     {
+        let (opacity, card_theme, card_accent) =
+            desktop_widget_style(&state.borrow().conn, "calendar");
+        ui.set_widget_style_kind("calendar".into());
+        ui.set_widget_style_name("月历".into());
+        ui.set_widget_style_opacity(opacity);
+        ui.set_widget_style_theme(card_theme);
+        ui.set_widget_style_accent(card_accent);
+    }
+    {
         let visible = *desktop_widget_visibility.borrow();
         sync_desktop_visibility_to_ui(&ui, visible);
     }
@@ -356,6 +370,28 @@ fn run_gui(startup: bool) -> Result<()> {
     widget.set_pinned(widget_pinned);
     apply_theme(&ui, &widget, &quick_panel, theme_index);
     apply_visual_theme(&ui, &widget, &quick_panel, visual_theme);
+    {
+        let state = state.borrow();
+        for kind in [
+            "calendar",
+            "events",
+            "countdown",
+            "clock",
+            "weather",
+            "focus",
+            "todo",
+        ] {
+            let (opacity, card_theme, card_accent) = desktop_widget_style(&state.conn, kind);
+            apply_desktop_widget_style(
+                kind,
+                opacity,
+                card_theme,
+                card_accent,
+                visual_theme,
+                theme_index,
+            );
+        }
+    }
     apply_accessibility_preferences(
         &ui,
         &widget,

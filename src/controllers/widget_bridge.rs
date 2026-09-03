@@ -81,22 +81,29 @@ pub(crate) fn register_widget_bridge_callbacks(
         let state = state.clone();
         widget.on_open_widget_settings(move |kind| {
             if let Some(ui) = ui_weak.upgrade() {
-                if kind.as_str() == "weather" {
-                    state.borrow_mut().view_mode = 6;
-                    ui.set_view_mode(6);
-                    ui.set_settings_open(false);
-                    ui.set_action_message("已打开天气设置".into());
-                    show_and_focus_main_window(&ui);
-                    return;
-                }
-                let section = match kind.as_str() {
-                    "calendar" | "events" => 1,
-                    "countdown" | "focus" => 2,
-                    _ => 0,
+                let kind = kind.to_string();
+                let name = match kind.as_str() {
+                    "calendar" => "月历".to_string(),
+                    "events" => "今日日程".to_string(),
+                    "countdown" => "倒数日".to_string(),
+                    "clock" => "时钟".to_string(),
+                    "weather" => "天气".to_string(),
+                    "focus" => "专注计时".to_string(),
+                    "todo" => "今日待办".to_string(),
+                    value if value.starts_with("note_") => {
+                        format!("便签 #{}", value.trim_start_matches("note_"))
+                    }
+                    _ => "桌面卡片".to_string(),
                 };
-                ui.set_settings_section(section);
+                let (opacity, card_theme, card_accent) =
+                    desktop_widget_style(&state.borrow().conn, &kind);
+                ui.set_widget_style_kind(kind.into());
+                ui.set_widget_style_name(name.into());
+                ui.set_widget_style_opacity(opacity);
+                ui.set_widget_style_theme(card_theme);
+                ui.set_widget_style_accent(card_accent);
+                ui.set_settings_section(0);
                 ui.set_settings_open(true);
-                ui.set_action_message(format!("已打开{}挂件设置", kind).into());
                 show_and_focus_main_window(&ui);
             }
         });

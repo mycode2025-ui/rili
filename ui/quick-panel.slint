@@ -55,31 +55,6 @@ component QuickNavButton inherits Rectangle {
     }
 }
 
-component QuickSettingToggle inherits Rectangle {
-    in property <string> title;
-    in property <string> description;
-    in property <bool> checked;
-    callback toggled();
-    height: 54px;
-    border-radius: Theme.r-md;
-    background: touch.has-hover ? Theme.bg-hover : transparent;
-    HorizontalLayout {
-        padding-left: Theme.space-3; padding-right: Theme.space-3; spacing: Theme.space-3; cross-axis-alignment: center;
-        VerticalLayout {
-            horizontal-stretch: 1; alignment: center; spacing: 2px;
-            Text { text: root.title; color: Theme.text-1; font-size: Theme.font-12; font-weight: 600; }
-            Text { text: root.description; color: Theme.text-3; font-size: Theme.font-10; overflow: elide; }
-        }
-        Rectangle {
-            width: 36px; height: 20px; border-radius: 10px;
-            background: root.checked ? Theme.accent : Theme.bg-surface-2;
-            border-width: root.checked ? 0px : 1px; border-color: Theme.border-default;
-            Rectangle { width: 16px; height: 16px; border-radius: 8px; x: root.checked ? 18px : 2px; y: 2px; background: Theme.bg-surface; }
-        }
-    }
-    touch := TouchArea { mouse-cursor: pointer; clicked => { root.toggled(); } }
-}
-
 component QuickEvent inherits Rectangle {
     in property <EventItem> event;
     callback open();
@@ -164,14 +139,13 @@ export component QuickPanelWindow inherits Window {
     in property <int> countdown-count;
     in property <int> active-view;
     in-out property <bool> pinned: false;
-    in-out property <bool> settings-open: false;
     callback toggle-todo(int);
     callback open-view(int);
     callback open-event(int);
     callback select-day(int);
     callback new-event();
+    callback open-settings();
     callback close-requested();
-    callback pin-changed(bool);
 
     Rectangle {
         width: 100%; height: 100%; background: Theme.bg-surface;
@@ -247,9 +221,9 @@ export component QuickPanelWindow inherits Window {
                     cross-axis-alignment: center;
                     Rectangle { horizontal-stretch: 1; QuickNavButton { x: (parent.width - self.width) / 2; icon: Icons.today; label: "今天"; active: root.active-view == 2 || root.active-view == 3; clicked => { root.open-view(2); } } }
                     Rectangle { horizontal-stretch: 1; QuickNavButton { x: (parent.width - self.width) / 2; icon: Icons.calendar; label: "月历"; active: root.active-view == 0 || root.active-view == 1 || root.active-view == 5; clicked => { root.open-view(0); } } }
-                    Rectangle { horizontal-stretch: 1; QuickNavButton { x: (parent.width - self.width) / 2; icon: Icons.check; label: "待办"; active: root.active-view == 4; clicked => { root.open-view(4); } } }
                     Rectangle { horizontal-stretch: 1; QuickNavButton { x: (parent.width - self.width) / 2; icon: Icons.plus; label: "新建"; active: false; clicked => { root.new-event(); } } }
-                    Rectangle { horizontal-stretch: 1; QuickNavButton { x: (parent.width - self.width) / 2; icon: Icons.gear; label: "设置"; active: root.settings-open; clicked => { root.settings-open = !root.settings-open; } } }
+                    Rectangle { horizontal-stretch: 1; QuickNavButton { x: (parent.width - self.width) / 2; icon: Icons.check; label: "待办"; active: root.active-view == 4; clicked => { root.open-view(4); } } }
+                    Rectangle { horizontal-stretch: 1; QuickNavButton { x: (parent.width - self.width) / 2; icon: Icons.gear; label: "设置"; active: false; clicked => { root.open-settings(); } } }
                 }
             }
         }
@@ -260,44 +234,6 @@ export component QuickPanelWindow inherits Window {
         background: close-touch.pressed ? Theme.danger-bg : (close-touch.has-hover ? Theme.bg-hover : transparent);
         accessible-role: button; accessible-label: "关闭快速面板";
         SvgIcon { source: Icons.close; size: 15px; tint: close-touch.has-hover ? Theme.danger : Theme.text-2; x: 7.5px; y: 7.5px; }
-        close-touch := TouchArea { mouse-cursor: pointer; clicked => { root.settings-open = false; root.close-requested(); } }
-    }
-
-    if root.settings-open: Rectangle {
-        width: parent.width; height: parent.height; background: transparent;
-        dismiss := TouchArea { clicked => { root.settings-open = false; } }
-        settings-card := Rectangle {
-            x: parent.width - self.width - 16px; y: parent.height - self.height - 66px;
-            width: 292px; height: 210px; border-radius: Theme.r-lg;
-            background: Theme.bg-surface; border-width: 1px; border-color: Theme.border-default;
-            drop-shadow-color: Theme.shadow-3-color-a; drop-shadow-blur: Theme.shadow-3-blur-a; drop-shadow-offset-y: Theme.shadow-3-y-a;
-            VerticalLayout {
-                padding: Theme.space-3; spacing: Theme.space-2;
-                HorizontalLayout { height: 30px; spacing: Theme.space-2; cross-axis-alignment: center;
-                    SvgIcon { source: Icons.gear; size: 17px; tint: Theme.accent; }
-                    Text { text: "快速面板设置"; color: Theme.text-1; font-size: Theme.font-13; font-weight: 700; vertical-alignment: center; horizontal-stretch: 1; }
-                    Rectangle { width: 26px; height: 26px; border-radius: Theme.r-sm; background: settings-close-touch.has-hover ? Theme.bg-hover : transparent;
-                        SvgIcon { source: Icons.close; size: 13px; tint: Theme.text-2; x: 6.5px; y: 6.5px; }
-                        settings-close-touch := TouchArea { mouse-cursor: pointer; clicked => { root.settings-open = false; } }
-                    }
-                }
-                QuickSettingToggle {
-                    title: "窗口置顶";
-                    description: "让快速面板保持在其他窗口上方";
-                    checked: root.pinned;
-                    toggled => { root.pinned = !root.pinned; root.pin-changed(root.pinned); }
-                }
-                Rectangle {
-                    height: 38px; border-radius: Theme.r-md;
-                    background: Theme.bg-surface-2;
-                    HorizontalLayout {
-                        padding-left: Theme.space-3; padding-right: Theme.space-3; spacing: Theme.space-2; cross-axis-alignment: center;
-                        SvgIcon { source: Icons.layout; size: 15px; tint: Theme.text-2; }
-                        Text { text: "位置固定在任务栏右下角"; color: Theme.text-1; font-size: Theme.font-11; vertical-alignment: center; }
-                    }
-                }
-                Text { text: "每次打开都会自动回到系统时钟上方。"; color: Theme.text-3; font-size: Theme.font-10; wrap: word-wrap; }
-            }
-        }
+        close-touch := TouchArea { mouse-cursor: pointer; clicked => { root.close-requested(); } }
     }
 }

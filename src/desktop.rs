@@ -191,6 +191,32 @@ impl DesktopWidgetWindows {
                 let pinned_key = format!("widget_{key}_pinned");
                 let pinned = db::get_setting(&conn, &pinned_key, "0").unwrap_or_default() == "1";
                 window.set_pinned(pinned);
+                let (opacity, card_theme, card_accent) = desktop_widget_style(&conn, &key);
+                let app_theme = db::get_setting(&conn, "visual_theme", "1")
+                    .ok()
+                    .and_then(|value| value.parse::<i32>().ok())
+                    .unwrap_or(1);
+                let app_accent = db::get_setting(&conn, "theme", "0")
+                    .ok()
+                    .and_then(|value| value.parse::<i32>().ok())
+                    .unwrap_or(0);
+                let target = window.global::<Theme>();
+                target.set_widget_opacity(opacity);
+                target.set_widget_theme_override(card_theme);
+                target.set_widget_accent_override(card_accent);
+                target.set_theme_mode(if card_theme == 0 {
+                    app_theme
+                } else {
+                    card_theme
+                });
+                set_theme_accent(
+                    target,
+                    if card_accent < 0 {
+                        app_accent
+                    } else {
+                        card_accent
+                    },
+                );
             }
 
             {
@@ -268,9 +294,10 @@ impl DesktopWidgetWindows {
             }
             {
                 let source_weak = source.as_weak();
-                window.on_open_widget_settings(move |kind| {
+                let key = key.clone();
+                window.on_open_widget_settings(move |_kind| {
                     if let Some(source) = source_weak.upgrade() {
-                        source.invoke_open_widget_settings(kind);
+                        source.invoke_open_widget_settings(key.clone().into());
                     }
                 });
             }

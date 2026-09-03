@@ -148,19 +148,6 @@ pub(crate) fn register_desktop_card_callbacks(
             }
         });
     }
-    {
-        let state_for_pin = state.clone();
-        quick_panel.on_pin_changed(move |pinned| {
-            let state = state_for_pin.borrow();
-            if let Err(error) = db::set_setting(
-                &state.conn,
-                "quick_panel_pinned",
-                if pinned { "1" } else { "0" },
-            ) {
-                eprintln!("保存快速面板置顶状态失败: {error}");
-            }
-        });
-    }
     macro_rules! forward_widget_settings {
         ($window:expr) => {{
             let widget_weak = widget.as_weak();

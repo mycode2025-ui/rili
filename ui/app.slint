@@ -80,6 +80,12 @@ export component AppWindow inherits Window {
     in property <bool> local-only: false;
     in property <bool> taskbar-clock-enabled: true;
     in property <bool> auto-start-enabled: false;
+    in property <bool> quick-panel-pinned: false;
+    in-out property <string> widget-style-kind: "calendar";
+    in-out property <string> widget-style-name: "月历";
+    in-out property <int> widget-style-opacity: 80;
+    in-out property <int> widget-style-theme: 0;
+    in-out property <int> widget-style-accent: -1;
     in-out property <int> settings-section: 0;
     in-out property <bool> settings-open: false;
     /// 0=月 1=周 2=日 3=三日 4=待办 5=年 6=工具 7=搜索 8=记录 9=排班 11=便签 12=课程表
@@ -255,6 +261,10 @@ export component AppWindow inherits Window {
     callback set-local-only(bool);
     callback set-taskbar-clock-enabled(bool);
     callback set-auto-start-enabled(bool);
+    callback set-quick-panel-pinned(bool);
+    callback set-widget-style-opacity(int);
+    callback set-widget-style-theme(int);
+    callback set-widget-style-accent(int);
     callback settings-action(string);
     callback begin-window-drag();
     callback minimize-window();
@@ -959,6 +969,11 @@ export component AppWindow inherits Window {
                     local-only: root.local-only;
                     taskbar-clock-enabled: root.taskbar-clock-enabled;
                     auto-start-enabled: root.auto-start-enabled;
+                    quick-panel-pinned: root.quick-panel-pinned;
+                    widget-style-name: root.widget-style-name;
+                    widget-style-opacity: root.widget-style-opacity;
+                    widget-style-theme: root.widget-style-theme;
+                    widget-style-accent: root.widget-style-accent;
                     selected-section <=> root.settings-section;
                     set-theme(index) => { root.set-theme(index); }
                     set-visual-theme(mode) => { root.set-visual-theme(mode); }
@@ -974,6 +989,10 @@ export component AppWindow inherits Window {
                     set-local-only(value) => { root.set-local-only(value); }
                     set-taskbar-clock-enabled(value) => { root.set-taskbar-clock-enabled(value); }
                     set-auto-start-enabled(value) => { root.set-auto-start-enabled(value); }
+                    set-quick-panel-pinned(value) => { root.set-quick-panel-pinned(value); }
+                    set-widget-style-opacity(value) => { root.set-widget-style-opacity(value); }
+                    set-widget-style-theme(value) => { root.set-widget-style-theme(value); }
+                    set-widget-style-accent(value) => { root.set-widget-style-accent(value); }
                     settings-action(action) => { root.settings-action(action); }
                 }
             }

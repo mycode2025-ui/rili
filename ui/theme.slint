@@ -9,6 +9,10 @@ export global Theme {
     in-out property <int> font-delta: 0;
     in-out property <int> density-mode: 1;
     in-out property <bool> reduce-motion: false;
+    // Desktop cards may override the application theme and opacity independently.
+    in-out property <int> widget-theme-override: 0; // 0 跟随应用，1 浅色，2 深色
+    in-out property <int> widget-accent-override: -1; // -1 跟随应用，0..7 独立强调色
+    in-out property <int> widget-opacity: 80;
     // Noto Sans SC has a lighter, more even Chinese texture than the previous
     // UI font and keeps Chinese, Latin text, and calendar digits visually aligned.
     in-out property <string> font-family: "Noto Sans SC";
@@ -148,7 +152,7 @@ export global Theme {
     out property <color> widget-desktop-a: dark ? #22304f : #a9c0e8;
     out property <color> widget-desktop-b: dark ? #2c3a5e : #d3e0f4;
     out property <color> widget-desktop-c: dark ? #1a2338 : #efe3d2;
-    out property <color> widget-glass: dark ? rgba(28, 31, 39, 0.74) : rgba(255, 255, 255, 0.80);
+    out property <color> widget-glass: (dark ? #1c1f27 : #ffffff).with-alpha(widget-opacity * 1%);
     out property <color> widget-glass-border: dark ? rgba(255, 255, 255, 0.12) : rgba(255, 255, 255, 0.85);
     out property <color> widget-glass-hover: dark ? rgba(255, 255, 255, 0.10) : rgba(16, 20, 30, 0.08);
     out property <color> widget-row: dark ? rgba(255, 255, 255, 0.06) : rgba(16, 20, 30, 0.05);

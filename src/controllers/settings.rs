@@ -213,9 +213,14 @@ pub(crate) fn register_settings_callbacks(
                         Ok(db_path) => {
                             let directory = db_path.parent().unwrap_or(db_path.as_path());
                             #[cfg(windows)]
-                            let result = std::process::Command::new("explorer.exe")
-                                .arg(directory)
-                                .spawn();
+                            let result = {
+                                use std::os::windows::process::CommandExt;
+                                const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+                                std::process::Command::new("explorer.exe")
+                                    .creation_flags(CREATE_NO_WINDOW)
+                                    .arg(directory)
+                                    .spawn()
+                            };
                             #[cfg(not(windows))]
                             let result: std::io::Result<
                                 std::process::Child,
