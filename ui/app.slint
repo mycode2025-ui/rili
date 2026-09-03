@@ -1111,7 +1111,7 @@ export component AppWindow inherits Window {
         TouchArea { clicked => { root.local-delete-open = false; } }
         Rectangle {
             x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
-            width: 400px; height: 264px; border-radius: Theme.r-xl;
+            width: 350px; height: 264px; border-radius: Theme.r-xl;
             border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface;
             drop-shadow-color: Theme.shadow-3-color-a; drop-shadow-blur: Theme.shadow-3-blur-a; drop-shadow-offset-y: Theme.shadow-3-y-a;
             TouchArea { }
@@ -1125,7 +1125,7 @@ export component AppWindow inherits Window {
                     IconButton { icon: Icons.close; size: 30px; borderless: true; clicked => { root.local-delete-open = false; } }
                 }
                 Text {
-                    text: "仅删除本机创建事项，共享、导入及订阅日历不受影响。";
+                    text: "仅删除本地事项；共享、导入和订阅不受影响。";
                     color: Theme.text-2; font-size: Theme.font-12; wrap: word-wrap;
                 }
                 VerticalLayout {
