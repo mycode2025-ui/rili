@@ -22,7 +22,7 @@ export component WidgetAppearanceWindow inherits Window {
     title: "TimeHub 卡片外观";
     default-font-family: Theme.font-family;
     icon: Icons.app-logo;
-    width: 320px; height: 228px;
+    width: 304px; height: 220px;
     no-frame: true; always-on-top: true; background: transparent;
     in property <string> instance-key;
     in property <string> card-name;
@@ -65,11 +65,11 @@ export component WidgetAppearanceWindow inherits Window {
                 AppearanceChoice { label: "深色"; selected: root.theme-override == 2; clicked => { root.theme-override = 2; root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
             }
             HorizontalLayout { height: 24px; spacing: 4px; cross-axis-alignment: center;
-                Text { width: 64px; text: "强调色"; color: Theme.text-2; font-size: Theme.font-11; vertical-alignment: center; }
-                AppearanceChoice { min-width: 48px; height: 24px; label: "跟随"; selected: root.accent-override < 0; clicked => { root.accent-override = -1; root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
+                Text { width: 56px; text: "强调色"; color: Theme.text-2; font-size: Theme.font-11; vertical-alignment: center; }
+                AppearanceChoice { min-width: 42px; height: 24px; label: "跟随"; selected: root.accent-override < 0; clicked => { root.accent-override = -1; root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
                 for swatch[i] in [Theme.c-blue, Theme.c-green, Theme.c-orange, Theme.c-red, Theme.c-purple, Theme.c-cyan, Theme.c-pink, Theme.c-lime]: Rectangle {
-                    width: 18px; height: 18px; border-radius: 9px; border-width: root.accent-override == i ? 2px : 0px; border-color: swatch; background: transparent;
-                    Rectangle { width: 12px; height: 12px; x: 3px; y: 3px; border-radius: 6px; background: swatch; }
+                    width: 16px; height: 16px; border-radius: 8px; border-width: root.accent-override == i ? 2px : 0px; border-color: swatch; background: transparent;
+                    Rectangle { width: 10px; height: 10px; x: 3px; y: 3px; border-radius: 5px; background: swatch; }
                     TouchArea { mouse-cursor: pointer; clicked => { root.accent-override = i; root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
                 }
             }

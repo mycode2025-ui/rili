@@ -245,8 +245,8 @@ pub(crate) fn register_widget_bridge_callbacks(
                         )
                     });
                 editor.window().set_position(slint::PhysicalPosition::new(
-                    (anchor_x + (anchor_width - 320) / 2).max(8),
-                    (anchor_y + (anchor_height - 228) / 2).max(8),
+                    (anchor_x + (anchor_width - 304) / 2).max(8),
+                    (anchor_y + (anchor_height - 220) / 2).max(8),
                 ));
                 let _ = editor.show();
                 *desktop_widgets.appearance_editor.borrow_mut() = Some(editor);
