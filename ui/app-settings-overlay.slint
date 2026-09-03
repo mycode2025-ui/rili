@@ -1,0 +1,122 @@
+import { Theme } from "design-system.slint";
+import { SettingsView } from "settings-view.slint";
+import { IconButton } from "widgets.slint";
+import { Icons, SvgIcon } from "icons.slint";
+
+export component AppSettingsOverlay inherits Rectangle {
+    in-out property <bool> open: false;
+    in-out property <int> selected-section: 0;
+    in property <bool> reduce-motion: false;
+    in property <int> theme-index: 0;
+    in property <int> visual-theme: 0;
+    in property <bool> week-starts-sunday: false;
+    in property <bool> show-week-numbers: false;
+    in property <int> interface-font-size: 13;
+    in property <string> interface-font-family;
+    in property <int> interface-density: 1;
+    in property <bool> notifications-enabled: true;
+    in property <string> default-event-reminder;
+    in property <bool> local-only: false;
+    in property <bool> taskbar-clock-enabled: true;
+    in property <bool> auto-start-enabled: false;
+    in property <bool> quick-panel-pinned: false;
+    in property <string> widget-style-name;
+    in property <int> widget-style-opacity;
+    in property <int> widget-style-theme;
+    in property <int> widget-style-accent;
+
+    callback set-theme(int);
+    callback set-visual-theme(int);
+    callback set-week-starts-sunday(bool);
+    callback set-show-week-numbers(bool);
+    callback set-interface-font-size(int);
+    callback set-interface-font-family(string);
+    callback choose-custom-font();
+    callback set-interface-density(int);
+    callback set-reduce-motion(bool);
+    callback set-notifications-enabled(bool);
+    callback set-default-event-reminder(string);
+    callback set-local-only(bool);
+    callback set-taskbar-clock-enabled(bool);
+    callback set-auto-start-enabled(bool);
+    callback set-quick-panel-pinned(bool);
+    callback set-widget-style-opacity(int);
+    callback set-widget-style-theme(int);
+    callback set-widget-style-accent(int);
+    callback settings-action(string);
+
+    visible: open || self.opacity > 0.01;
+    opacity: open ? 1 : 0;
+    background: Theme.bg-scrim;
+    animate opacity { duration: root.reduce-motion ? 0ms : 160ms; }
+
+    if root.open: TouchArea { clicked => { root.open = false; } }
+
+    Rectangle {
+        width: Math.min(root.width - 80px, 1080px);
+        height: Math.min(root.height - 48px, 700px);
+        x: (root.width - self.width) / 2;
+        y: root.open ? (root.height - self.height) / 2 : (root.height - self.height) / 2 + 14px;
+        border-radius: Theme.r-xl;
+        border-width: 1px;
+        border-color: Theme.border-default;
+        background: Theme.bg-surface;
+        clip: true;
+        drop-shadow-color: Theme.shadow-3-color-a;
+        drop-shadow-blur: Theme.shadow-3-blur-a;
+        drop-shadow-offset-y: Theme.shadow-3-y-a;
+        animate y { duration: root.reduce-motion ? 0ms : 180ms; }
+        TouchArea { }
+
+        VerticalLayout {
+            width: 100%; height: 100%; spacing: 0px;
+            Rectangle {
+                height: 52px; background: Theme.bg-surface;
+                border-width: 1px; border-color: Theme.border-subtle;
+                HorizontalLayout {
+                    padding-left: Theme.space-4; padding-right: Theme.space-3;
+                    spacing: Theme.space-3; cross-axis-alignment: center;
+                    SvgIcon { source: Icons.gear; size: 18px; tint: Theme.accent; }
+                    VerticalLayout {
+                        horizontal-stretch: 1; alignment: center; spacing: 1px;
+                        Text { text: "设置"; color: Theme.text-1; font-size: Theme.font-15; font-weight: 600; }
+                        Text { text: "修改会立即生效 · 按 Esc 关闭"; color: Theme.text-3; font-size: Theme.font-10; }
+                    }
+                    IconButton { icon: Icons.close; size: 30px; icon-size: 14px; borderless: true; clicked => { root.open = false; } }
+                }
+            }
+            SettingsView {
+                horizontal-stretch: 1; vertical-stretch: 1;
+                theme-index: root.theme-index; visual-theme: root.visual-theme;
+                week-starts-sunday: root.week-starts-sunday; show-week-numbers: root.show-week-numbers;
+                interface-font-size: root.interface-font-size; interface-font-family: root.interface-font-family;
+                interface-density: root.interface-density; reduce-motion: root.reduce-motion;
+                notifications-enabled: root.notifications-enabled; default-event-reminder: root.default-event-reminder;
+                local-only: root.local-only; taskbar-clock-enabled: root.taskbar-clock-enabled;
+                auto-start-enabled: root.auto-start-enabled; quick-panel-pinned: root.quick-panel-pinned;
+                widget-style-name: root.widget-style-name; widget-style-opacity: root.widget-style-opacity;
+                widget-style-theme: root.widget-style-theme; widget-style-accent: root.widget-style-accent;
+                selected-section <=> root.selected-section;
+                set-theme(index) => { root.set-theme(index); }
+                set-visual-theme(mode) => { root.set-visual-theme(mode); }
+                set-week-starts-sunday(value) => { root.set-week-starts-sunday(value); }
+                set-show-week-numbers(value) => { root.set-show-week-numbers(value); }
+                set-interface-font-size(value) => { root.set-interface-font-size(value); }
+                set-interface-font-family(value) => { root.set-interface-font-family(value); }
+                choose-custom-font() => { root.choose-custom-font(); }
+                set-interface-density(value) => { root.set-interface-density(value); }
+                set-reduce-motion(value) => { root.set-reduce-motion(value); }
+                set-notifications-enabled(value) => { root.set-notifications-enabled(value); }
+                set-default-event-reminder(value) => { root.set-default-event-reminder(value); }
+                set-local-only(value) => { root.set-local-only(value); }
+                set-taskbar-clock-enabled(value) => { root.set-taskbar-clock-enabled(value); }
+                set-auto-start-enabled(value) => { root.set-auto-start-enabled(value); }
+                set-quick-panel-pinned(value) => { root.set-quick-panel-pinned(value); }
+                set-widget-style-opacity(value) => { root.set-widget-style-opacity(value); }
+                set-widget-style-theme(value) => { root.set-widget-style-theme(value); }
+                set-widget-style-accent(value) => { root.set-widget-style-accent(value); }
+                settings-action(action) => { root.settings-action(action); }
+            }
+        }
+    }
+}

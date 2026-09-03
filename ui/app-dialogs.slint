@@ -1,0 +1,159 @@
+import { Theme } from "design-system.slint";
+import { GhostButton, DangerGhostButton, ThemeCheckBox, IconButton, PrimaryButton } from "widgets.slint";
+import { Icons, SvgIcon } from "icons.slint";
+import { DesktopWidgetManagerItem } from "app-shell-components.slint";
+
+export component WidgetManagerDialog inherits Rectangle {
+    in-out property <bool> open: false;
+    in-out property <bool> calendar-visible: true;
+    in-out property <bool> events-visible: true;
+    in-out property <bool> countdown-visible: true;
+    in-out property <bool> clock-visible: true;
+    in-out property <bool> weather-visible: false;
+    in-out property <bool> focus-visible: true;
+    in-out property <bool> todo-visible: true;
+    in-out property <bool> notes-visible: true;
+    in-out property <bool> click-through: false;
+    callback set-visible(string, bool);
+    callback set-click-through(bool);
+
+    visible: open;
+    background: Theme.bg-scrim;
+    TouchArea { clicked => { root.open = false; } }
+    Rectangle {
+        x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+        width: 620px; height: 492px; border-radius: Theme.r-xl;
+        border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface;
+        drop-shadow-color: Theme.shadow-3-color-a; drop-shadow-blur: Theme.shadow-3-blur-a; drop-shadow-offset-y: Theme.shadow-3-y-a;
+        VerticalLayout {
+            padding: Theme.space-5; spacing: Theme.space-3;
+            HorizontalLayout {
+                height: 36px; cross-axis-alignment: center;
+                VerticalLayout { horizontal-stretch: 1; spacing: 1px;
+                    Text { text: "桌面卡片"; color: Theme.text-1; font-size: Theme.font-18; font-weight: 700; }
+                    Text { text: "按需新建或删除卡片，不会删除日程数据"; color: Theme.text-3; font-size: Theme.font-10-5; }
+                }
+                IconButton { icon: Icons.close; size: 30px; borderless: true; clicked => { root.open = false; } }
+            }
+            for row in 4: HorizontalLayout {
+                height: 72px; spacing: Theme.space-3;
+                if row == 0: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "月历"; description: "月份与节日概览"; icon: Icons.calendar; installed: root.calendar-visible; toggled(v) => { root.calendar-visible = v; root.set-visible("calendar", v); } }
+                if row == 0: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "今日日程"; description: "今天的日程列表"; icon: Icons.clock; installed: root.events-visible; toggled(v) => { root.events-visible = v; root.set-visible("events", v); } }
+                if row == 1: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "倒数日"; description: "重要日期倒计时"; icon: Icons.timer; installed: root.countdown-visible; toggled(v) => { root.countdown-visible = v; root.set-visible("countdown", v); } }
+                if row == 1: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "时钟"; description: "时间与今日进度"; icon: Icons.clock; installed: root.clock-visible; toggled(v) => { root.clock-visible = v; root.set-visible("clock", v); } }
+                if row == 2: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "专注计时"; description: "番茄钟与专注任务"; icon: Icons.target; installed: root.focus-visible; toggled(v) => { root.focus-visible = v; root.set-visible("focus", v); } }
+                if row == 2: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "今日待办"; description: "快速查看和完成待办"; icon: Icons.check; installed: root.todo-visible; toggled(v) => { root.todo-visible = v; root.set-visible("todo", v); } }
+                if row == 3: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "便签"; description: "快速新建和管理便签"; icon: Icons.note; installed: root.notes-visible; toggled(v) => { root.notes-visible = v; root.set-visible("notes", v); } }
+                if row == 3: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "天气"; description: "当前天气与未来五日预报"; icon: Icons.cloud; installed: root.weather-visible; toggled(v) => { root.weather-visible = v; root.set-visible("weather", v); } }
+            }
+            Rectangle { height: 1px; background: Theme.border-subtle; }
+            HorizontalLayout {
+                height: 34px; cross-axis-alignment: center;
+                VerticalLayout { horizontal-stretch: 1; spacing: 1px;
+                    Text { text: "鼠标穿透"; color: Theme.text-1; font-size: Theme.font-13; font-weight: 600; }
+                    Text { text: "开启后点击会落到卡片下方窗口；可回到这里关闭"; color: Theme.text-3; font-size: Theme.font-10-5; }
+                }
+                ThemeCheckBox { width: 96px; text: root.click-through ? "已开启" : "已关闭"; checked: root.click-through; toggled(v) => { root.click-through = v; root.set-click-through(v); } }
+            }
+        }
+    }
+}
+
+export component TodoAddDialog inherits Rectangle {
+    in-out property <bool> open: false;
+    in-out property <string> title;
+    in property <string> target;
+    callback add(string, string);
+    visible: open;
+    background: Theme.bg-scrim;
+    TouchArea { clicked => { root.open = false; } }
+    Rectangle {
+        x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+        width: 420px; height: 190px; border-radius: Theme.r-xl; background: Theme.bg-surface;
+        border-width: 1px; border-color: Theme.border-default;
+        VerticalLayout { padding: Theme.space-4; spacing: Theme.space-3;
+            Text { text: "添加待办"; color: Theme.text-1; font-size: Theme.font-15; font-weight: 700; }
+            Rectangle { height: 40px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface-2;
+                TextInput { x: Theme.space-3; width: parent.width - Theme.space-6; height: parent.height; text <=> root.title; color: Theme.text-1; font-size: Theme.font-13; vertical-alignment: center; }
+            }
+            Text {
+                text: "目标：" + (root.target == "normal" ? "待办" : (root.target == "progress" ? "进行中" : (root.target == "done" ? "已完成" : root.target)));
+                color: Theme.text-3; font-size: Theme.font-11;
+            }
+            HorizontalLayout { height: 32px; spacing: Theme.space-2;
+                Rectangle { horizontal-stretch: 1; }
+                GhostButton { text: "取消"; clicked => { root.open = false; } }
+                PrimaryButton { text: "添加"; clicked => { if (root.title != "") { root.add(root.title, root.target); root.open = false; } } }
+            }
+        }
+    }
+}
+
+export component CalendarAddDialog inherits Rectangle {
+    in-out property <bool> open: false;
+    in-out property <string> name;
+    callback add(string);
+    visible: open;
+    background: Theme.bg-scrim;
+    TouchArea { clicked => { root.open = false; } }
+    Rectangle {
+        x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+        width: 420px; height: 168px; border-radius: Theme.r-xl; background: Theme.bg-surface;
+        border-width: 1px; border-color: Theme.border-default;
+        VerticalLayout { padding: Theme.space-4; spacing: Theme.space-3;
+            Text { text: "新建分类日历"; color: Theme.text-1; font-size: Theme.font-15; font-weight: 700; }
+            Rectangle { height: 40px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface-2;
+                TextInput { x: Theme.space-3; width: parent.width - Theme.space-6; height: parent.height; text <=> root.name; color: Theme.text-1; font-size: Theme.font-13; vertical-alignment: center; }
+            }
+            HorizontalLayout { height: 32px; spacing: Theme.space-2; Rectangle { horizontal-stretch: 1; } GhostButton { text: "取消"; clicked => { root.open = false; } } PrimaryButton { text: "创建"; clicked => { if (root.name != "") { root.add(root.name); root.open = false; } } } }
+        }
+    }
+}
+
+export component EventDeleteDialog inherits Rectangle {
+    in-out property <bool> open: false;
+    in-out property <string> scope: "occurrence";
+    in property <string> title;
+    in property <string> occurrence-date;
+    in property <bool> repeating;
+    callback confirm(string);
+    visible: open;
+    background: Theme.bg-scrim;
+    TouchArea { clicked => { root.open = false; } }
+    Rectangle {
+        x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+        width: 380px; height: root.repeating ? 270px : 220px;
+        border-radius: Theme.r-xl; border-width: 1px;
+        border-color: Theme.border-default; background: Theme.bg-surface;
+        drop-shadow-color: Theme.shadow-3-color-a; drop-shadow-blur: Theme.shadow-3-blur-a; drop-shadow-offset-y: Theme.shadow-3-y-a;
+        TouchArea { }
+        VerticalLayout {
+            padding: Theme.space-4; spacing: Theme.space-2;
+            HorizontalLayout {
+                height: 32px; cross-axis-alignment: center;
+                SvgIcon { source: Icons.trash; size: 19px; tint: Theme.danger; }
+                Rectangle { width: Theme.space-2; }
+                Text { text: "删除日程"; color: Theme.text-1; font-size: Theme.font-16; font-weight: 700; vertical-alignment: center; horizontal-stretch: 1; }
+                IconButton { icon: Icons.close; size: 30px; borderless: true; clicked => { root.open = false; } }
+            }
+            Text { text: root.title; color: Theme.text-1; font-size: Theme.font-13; font-weight: 600; overflow: elide; }
+            Text { text: root.occurrence-date; color: Theme.text-3; font-size: Theme.font-11; }
+            VerticalLayout {
+                spacing: Theme.space-2;
+                GhostButton { height: 36px; text: root.repeating ? "仅删除当天" : "删除这条日程"; selected: root.scope == "occurrence"; clicked => { root.scope = "occurrence"; } }
+                if root.repeating: GhostButton { height: 36px; text: "删除当天及后续所有日程"; selected: root.scope == "future"; clicked => { root.scope = "future"; } }
+            }
+            Text {
+                text: root.repeating ? (root.scope == "future" ? "这一天和之后的重复日程都将删除。" : "只跳过这一天，其他重复日期保持不变。") : "此操作只影响当前本地日程。";
+                color: root.scope == "future" ? Theme.danger : Theme.text-3; font-size: Theme.font-11;
+            }
+            Rectangle { vertical-stretch: 1; }
+            HorizontalLayout {
+                height: 32px; spacing: Theme.space-2;
+                Rectangle { horizontal-stretch: 1; }
+                GhostButton { text: "取消"; clicked => { root.open = false; } }
+                DangerGhostButton { height: 32px; min-width: 92px; text: "确认删除"; clicked => { root.confirm(root.scope); root.open = false; } }
+            }
+        }
+    }
+}

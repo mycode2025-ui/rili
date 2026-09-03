@@ -8,7 +8,6 @@ import { ToolsView, SubscriptionItem } from "tools-view.slint";
 import { SearchView, SearchItem } from "search-view.slint";
 import { RecordsView, RecordItem } from "records-view.slint";
 import { ShiftView, ShiftTypeItem, ShiftAssignmentItem } from "shift-view.slint";
-import { SettingsView } from "settings-view.slint";
 import { KanbanView, QuadrantView, TodoStatsView, TodoBoardItem } from "todo-board.slint";
 import { SidePanel, EventItem, TodoItem, NoteItem, HabitItem, CalendarItem } from "side-panel.slint";
 import { WidgetWindow, CountdownItem, WeatherDayItem } from "widget.slint";
@@ -23,6 +22,8 @@ import { GhostButton, DangerGhostButton, Dropdown, ThemeCheckBox, NavButton, Ico
 import { Icons, SvgIcon } from "icons.slint";
 import { Palette, ScrollView } from "std-widgets.slint";
 import { MainWindowDragArea, MiniDay, ToolbarButton, SidebarQuickAction, OverviewMetricCard, DesktopWidgetManagerItem } from "app-shell-components.slint";
+import { WidgetManagerDialog, TodoAddDialog, CalendarAddDialog, EventDeleteDialog } from "app-dialogs.slint";
+import { AppSettingsOverlay } from "app-settings-overlay.slint";
 
 export { CalendarDay, EventItem, TodoItem, NoteItem, HabitItem, CalendarItem, WeekDayItem, TimelineDay, TimelineEvent, TodoBoardItem, YearMonth, SearchItem, RecordItem, ShiftTypeItem, ShiftAssignmentItem, CourseItem, SubscriptionItem, CountdownItem, WeatherDayItem, WidgetWindow, CalendarWidgetWindow, EventsWidgetWindow, CountdownWidgetWindow, ClockWidgetWindow, WeatherWidgetWindow, FocusWidgetWindow, TodoWidgetWindow, NotesWidgetWindow, WidgetAppearanceWindow, QuickPanelWindow, NotificationWindow, NewEventWindow, ThemeComparisonWindow, Theme }
 
@@ -909,116 +910,30 @@ export component AppWindow inherits Window {
         }
     }
 
-    // Settings stay in the context of the current page. The dimmed backdrop
-    // and large centered surface make the transition clear without replacing
-    // the application's navigation and content hierarchy.
-    settings-layer := Rectangle {
-        x: 0px;
-        y: 0px;
-        width: parent.width;
-        height: parent.height;
-        visible: root.settings-open || self.opacity > 0.01;
-        opacity: root.settings-open ? 1 : 0;
-        background: Theme.bg-scrim;
-        animate opacity { duration: root.reduce-motion ? 0ms : 160ms; }
-
-        if root.settings-open: TouchArea {
-            clicked => { root.settings-open = false; }
-        }
-
-        settings-panel := Rectangle {
-            width: Math.min(root.width - 80px, 1080px);
-            height: Math.min(root.height - 48px, 700px);
-            x: (root.width - self.width) / 2;
-            y: root.settings-open ? (root.height - self.height) / 2 : (root.height - self.height) / 2 + 14px;
-            border-radius: Theme.r-xl;
-            border-width: 1px;
-            border-color: Theme.border-default;
-            background: Theme.bg-surface;
-            clip: true;
-            drop-shadow-color: Theme.shadow-3-color-a;
-            drop-shadow-blur: Theme.shadow-3-blur-a;
-            drop-shadow-offset-y: Theme.shadow-3-y-a;
-            animate y { duration: root.reduce-motion ? 0ms : 180ms; }
-
-            // Prevent clicks in empty panel space from reaching the backdrop.
-            TouchArea { }
-
-            VerticalLayout {
-                width: 100%;
-                height: 100%;
-                spacing: 0px;
-                Rectangle {
-                    height: 52px;
-                    background: Theme.bg-surface;
-                    border-width: 1px;
-                    border-color: Theme.border-subtle;
-                    HorizontalLayout {
-                        padding-left: Theme.space-4;
-                        padding-right: Theme.space-3;
-                        spacing: Theme.space-3;
-                        cross-axis-alignment: center;
-                        SvgIcon { source: Icons.gear; size: 18px; tint: Theme.accent; }
-                        VerticalLayout {
-                            horizontal-stretch: 1;
-                            alignment: center;
-                            spacing: 1px;
-                            Text { text: "设置"; color: Theme.text-1; font-size: Theme.font-15; font-weight: 600; }
-                            Text { text: "修改会立即生效 · 按 Esc 关闭"; color: Theme.text-3; font-size: Theme.font-10; }
-                        }
-                        IconButton {
-                            icon: Icons.close;
-                            size: 30px;
-                            icon-size: 14px;
-                            borderless: true;
-                            clicked => { root.settings-open = false; }
-                        }
-                    }
-                }
-                SettingsView {
-                    horizontal-stretch: 1;
-                    vertical-stretch: 1;
-                    theme-index: root.theme-index;
-                    visual-theme: root.visual-theme;
-                    week-starts-sunday: root.week-starts-sunday;
-                    show-week-numbers: root.show-week-numbers;
-                    interface-font-size: root.interface-font-size;
-                    interface-font-family: root.interface-font-family;
-                    interface-density: root.interface-density;
-                    reduce-motion: root.reduce-motion;
-                    notifications-enabled: root.notifications-enabled;
-                    default-event-reminder: root.default-event-reminder;
-                    local-only: root.local-only;
-                    taskbar-clock-enabled: root.taskbar-clock-enabled;
-                    auto-start-enabled: root.auto-start-enabled;
-                    quick-panel-pinned: root.quick-panel-pinned;
-                    widget-style-name: root.widget-style-name;
-                    widget-style-opacity: root.widget-style-opacity;
-                    widget-style-theme: root.widget-style-theme;
-                    widget-style-accent: root.widget-style-accent;
-                    selected-section <=> root.settings-section;
-                    set-theme(index) => { root.set-theme(index); }
-                    set-visual-theme(mode) => { root.set-visual-theme(mode); }
-                    set-week-starts-sunday(value) => { root.set-week-starts-sunday(value); }
-                    set-show-week-numbers(value) => { root.set-show-week-numbers(value); }
-                    set-interface-font-size(value) => { root.set-interface-font-size(value); }
-                    set-interface-font-family(value) => { root.set-interface-font-family(value); }
-                    choose-custom-font() => { root.choose-custom-font(); }
-                    set-interface-density(value) => { root.set-interface-density(value); }
-                    set-reduce-motion(value) => { root.set-reduce-motion(value); }
-                    set-notifications-enabled(value) => { root.set-notifications-enabled(value); }
-                    set-default-event-reminder(value) => { root.set-default-event-reminder(value); }
-                    set-local-only(value) => { root.set-local-only(value); }
-                    set-taskbar-clock-enabled(value) => { root.set-taskbar-clock-enabled(value); }
-                    set-auto-start-enabled(value) => { root.set-auto-start-enabled(value); }
-                    set-quick-panel-pinned(value) => { root.set-quick-panel-pinned(value); }
-                    set-widget-style-opacity(value) => { root.set-widget-style-opacity(value); }
-                    set-widget-style-theme(value) => { root.set-widget-style-theme(value); }
-                    set-widget-style-accent(value) => { root.set-widget-style-accent(value); }
-                    settings-action(action) => { root.settings-action(action); }
-                }
-            }
-        }
+    AppSettingsOverlay {
+        width: parent.width; height: parent.height;
+        open <=> root.settings-open;
+        selected-section <=> root.settings-section;
+        reduce-motion: root.reduce-motion;
+        theme-index: root.theme-index; visual-theme: root.visual-theme;
+        week-starts-sunday: root.week-starts-sunday; show-week-numbers: root.show-week-numbers;
+        interface-font-size: root.interface-font-size; interface-font-family: root.interface-font-family;
+        interface-density: root.interface-density; notifications-enabled: root.notifications-enabled;
+        default-event-reminder: root.default-event-reminder; local-only: root.local-only;
+        taskbar-clock-enabled: root.taskbar-clock-enabled; auto-start-enabled: root.auto-start-enabled;
+        quick-panel-pinned: root.quick-panel-pinned; widget-style-name: root.widget-style-name;
+        widget-style-opacity: root.widget-style-opacity; widget-style-theme: root.widget-style-theme;
+        widget-style-accent: root.widget-style-accent;
+        set-theme(value) => { root.set-theme(value); } set-visual-theme(value) => { root.set-visual-theme(value); }
+        set-week-starts-sunday(value) => { root.set-week-starts-sunday(value); } set-show-week-numbers(value) => { root.set-show-week-numbers(value); }
+        set-interface-font-size(value) => { root.set-interface-font-size(value); } set-interface-font-family(value) => { root.set-interface-font-family(value); }
+        choose-custom-font() => { root.choose-custom-font(); } set-interface-density(value) => { root.set-interface-density(value); }
+        set-reduce-motion(value) => { root.set-reduce-motion(value); } set-notifications-enabled(value) => { root.set-notifications-enabled(value); }
+        set-default-event-reminder(value) => { root.set-default-event-reminder(value); } set-local-only(value) => { root.set-local-only(value); }
+        set-taskbar-clock-enabled(value) => { root.set-taskbar-clock-enabled(value); } set-auto-start-enabled(value) => { root.set-auto-start-enabled(value); }
+        set-quick-panel-pinned(value) => { root.set-quick-panel-pinned(value); } set-widget-style-opacity(value) => { root.set-widget-style-opacity(value); }
+        set-widget-style-theme(value) => { root.set-widget-style-theme(value); } set-widget-style-accent(value) => { root.set-widget-style-accent(value); }
+        settings-action(action) => { root.settings-action(action); }
     }
 
     // 全局搜索使用主窗口内覆盖层，避免原生 PopupWindow 在无边框窗口下
@@ -1077,88 +992,33 @@ export component AppWindow inherits Window {
             Rectangle { vertical-stretch: 1; }
         }
     }
-    if widget-manager-open: Rectangle {
-        width: parent.width; height: parent.height; background: Theme.bg-scrim;
-        TouchArea { clicked => { root.widget-manager-open = false; } }
-        Rectangle {
-            x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
-            width: 620px; height: 492px; border-radius: Theme.r-xl;
-            border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface;
-            drop-shadow-color: Theme.shadow-3-color-a; drop-shadow-blur: Theme.shadow-3-blur-a; drop-shadow-offset-y: Theme.shadow-3-y-a;
-            VerticalLayout {
-                padding: Theme.space-5; spacing: Theme.space-3;
-                HorizontalLayout {
-                    height: 36px; cross-axis-alignment: center;
-                    VerticalLayout { horizontal-stretch: 1; spacing: 1px;
-                        Text { text: "桌面卡片"; color: Theme.text-1; font-size: Theme.font-18; font-weight: 700; }
-                        Text { text: "按需新建或删除卡片，不会删除日程数据"; color: Theme.text-3; font-size: Theme.font-10-5; }
-                    }
-                    IconButton { icon: Icons.close; size: 30px; borderless: true; clicked => { root.widget-manager-open = false; } }
-                }
-                for row in 4: HorizontalLayout {
-                    height: 72px; spacing: Theme.space-3;
-                    if row == 0: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "月历"; description: "月份与节日概览"; icon: Icons.calendar; installed: root.desktop-calendar-visible; toggled(v) => { root.desktop-calendar-visible = v; root.set-desktop-widget-visible("calendar", v); } }
-                    if row == 0: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "今日日程"; description: "今天的日程列表"; icon: Icons.clock; installed: root.desktop-events-visible; toggled(v) => { root.desktop-events-visible = v; root.set-desktop-widget-visible("events", v); } }
-                    if row == 1: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "倒数日"; description: "重要日期倒计时"; icon: Icons.timer; installed: root.desktop-countdown-visible; toggled(v) => { root.desktop-countdown-visible = v; root.set-desktop-widget-visible("countdown", v); } }
-                    if row == 1: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "时钟"; description: "时间与今日进度"; icon: Icons.clock; installed: root.desktop-clock-visible; toggled(v) => { root.desktop-clock-visible = v; root.set-desktop-widget-visible("clock", v); } }
-                    if row == 2: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "专注计时"; description: "番茄钟与专注任务"; icon: Icons.target; installed: root.desktop-focus-visible; toggled(v) => { root.desktop-focus-visible = v; root.set-desktop-widget-visible("focus", v); } }
-                    if row == 2: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "今日待办"; description: "快速查看和完成待办"; icon: Icons.check; installed: root.desktop-todo-visible; toggled(v) => { root.desktop-todo-visible = v; root.set-desktop-widget-visible("todo", v); } }
-                    if row == 3: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "便签"; description: "快速新建和管理便签"; icon: Icons.note; installed: root.desktop-notes-visible; toggled(v) => { root.desktop-notes-visible = v; root.set-desktop-widget-visible("notes", v); } }
-                    if row == 3: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "天气"; description: "当前天气与未来五日预报"; icon: Icons.cloud; installed: root.desktop-weather-visible; toggled(v) => { root.desktop-weather-visible = v; root.set-desktop-widget-visible("weather", v); } }
-                }
-                Rectangle { height: 1px; background: Theme.border-subtle; }
-                HorizontalLayout {
-                    height: 34px; cross-axis-alignment: center;
-                    VerticalLayout { horizontal-stretch: 1; spacing: 1px;
-                        Text { text: "鼠标穿透"; color: Theme.text-1; font-size: Theme.font-13; font-weight: 600; }
-                        Text { text: "开启后点击会落到卡片下方窗口；可回到这里关闭"; color: Theme.text-3; font-size: Theme.font-10-5; }
-                    }
-                    ThemeCheckBox { width: 96px; text: root.desktop-click-through ? "已开启" : "已关闭"; checked: root.desktop-click-through; toggled(v) => { root.desktop-click-through = v; root.set-desktop-click-through(v); } }
-                }
-            }
-        }
+    WidgetManagerDialog {
+        width: parent.width; height: parent.height;
+        open <=> root.widget-manager-open;
+        calendar-visible <=> root.desktop-calendar-visible;
+        events-visible <=> root.desktop-events-visible;
+        countdown-visible <=> root.desktop-countdown-visible;
+        clock-visible <=> root.desktop-clock-visible;
+        weather-visible <=> root.desktop-weather-visible;
+        focus-visible <=> root.desktop-focus-visible;
+        todo-visible <=> root.desktop-todo-visible;
+        notes-visible <=> root.desktop-notes-visible;
+        click-through <=> root.desktop-click-through;
+        set-visible(kind, value) => { root.set-desktop-widget-visible(kind, value); }
+        set-click-through(value) => { root.set-desktop-click-through(value); }
     }
-    if todo-add-open: Rectangle {
-        width: parent.width; height: parent.height; background: Theme.bg-scrim;
-        TouchArea { clicked => { root.todo-add-open = false; } }
-        Rectangle {
-            x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
-            width: 420px; height: 190px; border-radius: Theme.r-xl; background: Theme.bg-surface;
-            border-width: 1px; border-color: Theme.border-default;
-            VerticalLayout { padding: Theme.space-4; spacing: Theme.space-3;
-                Text { text: "添加待办"; color: Theme.text-1; font-size: Theme.font-15; font-weight: 700; }
-                Rectangle { height: 40px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface-2;
-                    TextInput { x: Theme.space-3; width: parent.width - Theme.space-6; height: parent.height; text <=> root.todo-draft-title; color: Theme.text-1; font-size: Theme.font-13; vertical-alignment: center; }
-                }
-                Text {
-                    text: "目标：" + (root.todo-add-target == "normal" ? "待办" : (root.todo-add-target == "progress" ? "进行中" : (root.todo-add-target == "done" ? "已完成" : root.todo-add-target)));
-                    color: Theme.text-3;
-                    font-size: Theme.font-11;
-                }
-                HorizontalLayout { height: 32px; spacing: Theme.space-2;
-                    Rectangle { horizontal-stretch: 1; }
-                    GhostButton { text: "取消"; clicked => { root.todo-add-open = false; } }
-                    PrimaryButton { text: "添加"; clicked => { if (root.todo-draft-title != "") { root.add-todo-target(root.todo-draft-title, root.todo-add-target); root.todo-add-open = false; } } }
-                }
-            }
-        }
+    TodoAddDialog {
+        width: parent.width; height: parent.height;
+        open <=> root.todo-add-open;
+        title <=> root.todo-draft-title;
+        target: root.todo-add-target;
+        add(title, target) => { root.add-todo-target(title, target); }
     }
-
-    if calendar-add-open: Rectangle {
-        width: parent.width; height: parent.height; background: Theme.bg-scrim;
-        TouchArea { clicked => { root.calendar-add-open = false; } }
-        Rectangle {
-            x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
-            width: 420px; height: 168px; border-radius: Theme.r-xl; background: Theme.bg-surface;
-            border-width: 1px; border-color: Theme.border-default;
-            VerticalLayout { padding: Theme.space-4; spacing: Theme.space-3;
-                Text { text: "新建分类日历"; color: Theme.text-1; font-size: Theme.font-15; font-weight: 700; }
-                Rectangle { height: 40px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface-2;
-                    TextInput { x: Theme.space-3; width: parent.width - Theme.space-6; height: parent.height; text <=> root.calendar-draft-name; color: Theme.text-1; font-size: Theme.font-13; vertical-alignment: center; }
-                }
-                HorizontalLayout { height: 32px; spacing: Theme.space-2; Rectangle { horizontal-stretch: 1; } GhostButton { text: "取消"; clicked => { root.calendar-add-open = false; } } PrimaryButton { text: "创建"; clicked => { if (root.calendar-draft-name != "") { root.add-calendar(root.calendar-draft-name); root.calendar-add-open = false; } } } }
-            }
-        }
+    CalendarAddDialog {
+        width: parent.width; height: parent.height;
+        open <=> root.calendar-add-open;
+        name <=> root.calendar-draft-name;
+        add(name) => { root.add-calendar(name); }
     }
 
     if new-event-open: Rectangle {
@@ -1199,61 +1059,16 @@ export component AppWindow inherits Window {
         }
     }
 
-    if event-delete-open: Rectangle {
-        width: parent.width; height: parent.height; background: Theme.bg-scrim;
-        TouchArea { clicked => { root.event-delete-open = false; } }
-        Rectangle {
-            x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
-            width: 380px; height: root.editor-is-repeating ? 270px : 220px;
-            border-radius: Theme.r-xl; border-width: 1px;
-            border-color: Theme.border-default; background: Theme.bg-surface;
-            drop-shadow-color: Theme.shadow-3-color-a; drop-shadow-blur: Theme.shadow-3-blur-a; drop-shadow-offset-y: Theme.shadow-3-y-a;
-            TouchArea { }
-            VerticalLayout {
-                padding: Theme.space-4; spacing: Theme.space-2;
-                HorizontalLayout {
-                    height: 32px; cross-axis-alignment: center;
-                    SvgIcon { source: Icons.trash; size: 19px; tint: Theme.danger; }
-                    Rectangle { width: Theme.space-2; }
-                    Text { text: "删除日程"; color: Theme.text-1; font-size: Theme.font-16; font-weight: 700; vertical-alignment: center; horizontal-stretch: 1; }
-                    IconButton { icon: Icons.close; size: 30px; borderless: true; clicked => { root.event-delete-open = false; } }
-                }
-                Text { text: root.editor-title; color: Theme.text-1; font-size: Theme.font-13; font-weight: 600; overflow: elide; }
-                Text { text: root.editor-occurrence-date; color: Theme.text-3; font-size: Theme.font-11; }
-                VerticalLayout {
-                    spacing: Theme.space-2;
-                    GhostButton {
-                        height: 36px;
-                        text: root.editor-is-repeating ? "仅删除当天" : "删除这条日程";
-                        selected: root.event-delete-scope == "occurrence";
-                        clicked => { root.event-delete-scope = "occurrence"; }
-                    }
-                    if root.editor-is-repeating: GhostButton {
-                        height: 36px; text: "删除当天及后续所有日程";
-                        selected: root.event-delete-scope == "future";
-                        clicked => { root.event-delete-scope = "future"; }
-                    }
-                }
-                Text {
-                    text: root.editor-is-repeating ? (root.event-delete-scope == "future" ? "这一天和之后的重复日程都将删除。" : "只跳过这一天，其他重复日期保持不变。") : "此操作只影响当前本地日程。";
-                    color: root.event-delete-scope == "future" ? Theme.danger : Theme.text-3;
-                    font-size: Theme.font-11;
-                }
-                Rectangle { vertical-stretch: 1; }
-                HorizontalLayout {
-                    height: 32px; spacing: Theme.space-2;
-                    Rectangle { horizontal-stretch: 1; }
-                    GhostButton { text: "取消"; clicked => { root.event-delete-open = false; } }
-                    DangerGhostButton {
-                        height: 32px; min-width: 92px; text: "确认删除";
-                        clicked => {
-                            root.delete-event-occurrence(root.editing-event-id, root.editor-occurrence-date, root.event-delete-scope);
-                            root.event-delete-open = false;
-                            root.new-event-open = false;
-                        }
-                    }
-                }
-            }
+    EventDeleteDialog {
+        width: parent.width; height: parent.height;
+        open <=> root.event-delete-open;
+        scope <=> root.event-delete-scope;
+        title: root.editor-title;
+        occurrence-date: root.editor-occurrence-date;
+        repeating: root.editor-is-repeating;
+        confirm(scope) => {
+            root.delete-event-occurrence(root.editing-event-id, root.editor-occurrence-date, scope);
+            root.new-event-open = false;
         }
     }
 }

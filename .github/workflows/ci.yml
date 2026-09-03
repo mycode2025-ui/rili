@@ -41,3 +41,14 @@ jobs:
       - name: Compare 100–200% DPI screenshots
         shell: pwsh
         run: ./scripts/visual-regression.ps1
+
+  windows-native-smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build native smoke executable
+        run: cargo build -j 1
+      - name: Exercise native windows and event handlers
+        shell: pwsh
+        run: ./scripts/windows-native-smoke.ps1
