@@ -79,11 +79,22 @@ pub fn describe_code(code: i64) -> (&'static str, &'static str) {
     }
 }
 
-/// 返回桌面天气卡片使用的本地 SVG 类型。图标只跟随 WMO 天气代码，
-/// 不再按昼夜二次替换，确保“晴”始终对应太阳、“大致晴朗”始终对应晴间多云。
+/// 返回日预报使用的本地 SVG 类型。日预报没有可靠的昼夜语义，统一使用白天图标。
 pub fn icon_key(code: i64) -> &'static str {
     let (_, kind) = describe_code(code);
     kind
+}
+
+/// 当前天气同时包含昼夜信息，因此图标和文案必须成对切换，避免出现“月亮 + 晴”。
+pub fn describe_current(code: i64, is_day: bool) -> (&'static str, &'static str) {
+    if !is_day {
+        return match code {
+            0 => ("夜晚晴", "moon"),
+            1 => ("夜晚多云", "moon-cloud"),
+            _ => describe_code(code),
+        };
+    }
+    describe_code(code)
 }
 
 #[derive(Deserialize)]
@@ -532,7 +543,7 @@ pub fn spawn() {
 
 #[cfg(test)]
 mod tests {
-    use super::{geocode_search_terms, icon_key};
+    use super::{describe_current, geocode_search_terms, icon_key};
 
     #[test]
     fn county_names_have_compatible_fallbacks() {
@@ -555,5 +566,8 @@ mod tests {
         assert_eq!(icon_key(63), "rain");
         assert_eq!(icon_key(75), "snow");
         assert_eq!(icon_key(95), "storm");
+        assert_eq!(describe_current(0, false), ("夜晚晴", "moon"));
+        assert_eq!(describe_current(1, false), ("夜晚多云", "moon-cloud"));
+        assert_eq!(describe_current(0, true), ("晴", "sun"));
     }
 }

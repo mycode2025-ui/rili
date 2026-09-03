@@ -1,1 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.1"/><path d="M12 3.1v2.15M12 18.75v2.15M3.1 12h2.15M18.75 12h2.15"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
+  <defs><radialGradient id="sun" cx="35%" cy="28%"><stop stop-color="#FFFBD0"/><stop offset=".36" stop-color="#FFD84A"/><stop offset="1" stop-color="#FF9D12"/></radialGradient><filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+  <g stroke="#FFB318" stroke-width="6" stroke-linecap="round" filter="url(#glow)"><path d="M48 7v10M48 79v10M7 48h10M79 48h10M19 19l7 7M70 70l7 7M77 19l-7 7M26 70l-7 7"/></g>
+  <circle cx="48" cy="48" r="23" fill="url(#sun)" stroke="#FFB113" stroke-width="2"/><ellipse cx="40" cy="38" rx="10" ry="7" fill="#FFF" opacity=".22"/>
+</svg>

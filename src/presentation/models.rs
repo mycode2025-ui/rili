@@ -16,7 +16,7 @@ pub(crate) fn apply_weather_to_widget(
         return;
     };
 
-    let (description, _) = weather::describe_code(current.code);
+    let (description, current_icon) = weather::describe_current(current.code, current.is_day);
     let updated = chrono::DateTime::parse_from_rfc3339(&current.updated_at)
         .map(|value| {
             value
@@ -49,7 +49,7 @@ pub(crate) fn apply_weather_to_widget(
     widget.set_weather_city(current.city.clone().into());
     widget.set_weather_temperature(format!("{:.0}°", current.temp_c).into());
     widget.set_weather_description(description.into());
-    widget.set_weather_icon_kind(weather::icon_key(current.code).into());
+    widget.set_weather_icon_kind(current_icon.into());
     widget.set_weather_updated(updated.into());
     widget.set_weather_days(ModelRc::new(VecModel::from(forecast)));
 }
