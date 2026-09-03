@@ -167,9 +167,11 @@ pub(crate) fn register_tool_callbacks(
     {
         let ui_weak = ui.as_weak();
         let widget_weak = widget.as_weak();
+        let quick_weak = quick_panel.as_weak();
         ui.on_refresh_weather(move || {
             let ui_weak = ui_weak.clone();
             let widget_weak = widget_weak.clone();
+            let quick_weak = quick_weak.clone();
             std::thread::spawn(move || {
                 let result = db::open().and_then(|conn| weather::refresh_once(&conn));
                 let (weather_text, status_text, weather_data, action_text) = match result {
@@ -223,6 +225,9 @@ pub(crate) fn register_tool_callbacks(
                         if let Some(widget) = widget_weak.upgrade() {
                             widget.set_weather_text(weather_text.into());
                             apply_weather_to_widget(&widget, weather_data.as_ref());
+                            if let Some(quick) = quick_weak.upgrade() {
+                                sync_quick_weather(&quick, &widget);
+                            }
                             sync_desktop_widgets(&widget);
                         }
                     }

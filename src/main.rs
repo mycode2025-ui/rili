@@ -756,7 +756,9 @@ fn run_gui(startup: bool) -> Result<()> {
     {
         let ui_weak = ui.as_weak();
         let widget_weak = widget.as_weak();
+        let quick_weak = quick_panel.as_weak();
         let state = state.clone();
+        let weather_revision = Rc::new(Cell::new(weather::cache_revision()));
         update_tool_status(&ui, &widget, &state);
         tools_timer.start(
             slint::TimerMode::Repeated,
@@ -764,6 +766,26 @@ fn run_gui(startup: bool) -> Result<()> {
             move || {
                 if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
                     update_tool_status(&ui, &widget, &state);
+                    let latest_revision = weather::cache_revision();
+                    if latest_revision != weather_revision.get() {
+                        weather_revision.set(latest_revision);
+                        let current = weather::cached(&state.borrow().conn);
+                        apply_weather_to_widget(&widget, current.as_ref());
+                        sync_desktop_widgets(&widget);
+                        if let Some(quick) = quick_weak.upgrade() {
+                            if quick.window().is_visible() {
+                                sync_quick_weather(&quick, &widget);
+                            }
+                        }
+                        if let Some(current) = current {
+                            let (description, _) =
+                                weather::describe_current(current.code, current.is_day);
+                            ui.set_weather_summary(
+                                format!("{} {:.0}°C {description}", current.city, current.temp_c)
+                                    .into(),
+                            );
+                        }
+                    }
                 }
             },
         );

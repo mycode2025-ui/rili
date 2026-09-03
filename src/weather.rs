@@ -8,6 +8,7 @@ use chrono::Timelike;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::Duration as StdDuration;
 
@@ -19,6 +20,16 @@ const REFRESH_INTERVAL_SECS: u64 = 30 * 60;
 /// 单次网络请求的超时时间：网络不通/被防火墙拦截时，最多等这么久就放弃，
 /// 不会让后台线程或 CLI 卡住很久（ureq 默认没有显式超时，容易在受限网络环境下挂起）。
 const HTTP_TIMEOUT_SECS: u64 = 8;
+static WEATHER_CACHE_REVISION: AtomicU64 = AtomicU64::new(0);
+
+/// 供 GUI 低成本检测后台天气缓存是否变化；仅内存计数，不访问数据库或网络。
+pub fn cache_revision() -> u64 {
+    WEATHER_CACHE_REVISION.load(Ordering::Acquire)
+}
+
+fn mark_cache_updated() {
+    WEATHER_CACHE_REVISION.fetch_add(1, Ordering::AcqRel);
+}
 
 fn http_agent() -> ureq::Agent {
     ureq::AgentBuilder::new()
@@ -485,6 +496,7 @@ pub fn refresh_once(conn: &Connection) -> Result<WeatherNow> {
     };
     let json = serde_json::to_string(&now).context("序列化天气缓存失败")?;
     crate::db::set_setting(conn, "weather_cache", &json)?;
+    mark_cache_updated();
     Ok(now)
 }
 
@@ -522,6 +534,7 @@ pub fn refresh_for_location(
         "weather_cache",
         &serde_json::to_string(&now).context("序列化天气缓存失败")?,
     )?;
+    mark_cache_updated();
     Ok(now)
 }
 
@@ -543,7 +556,9 @@ pub fn spawn() {
 
 #[cfg(test)]
 mod tests {
-    use super::{describe_current, geocode_search_terms, icon_key};
+    use super::{
+        cache_revision, describe_current, geocode_search_terms, icon_key, mark_cache_updated,
+    };
 
     #[test]
     fn county_names_have_compatible_fallbacks() {
@@ -569,5 +584,12 @@ mod tests {
         assert_eq!(describe_current(0, false), ("夜晚晴", "moon"));
         assert_eq!(describe_current(1, false), ("夜晚多云", "moon-cloud"));
         assert_eq!(describe_current(0, true), ("晴", "sun"));
+    }
+
+    #[test]
+    fn cache_revision_changes_after_a_successful_write_signal() {
+        let before = cache_revision();
+        mark_cache_updated();
+        assert!(cache_revision() > before);
     }
 }

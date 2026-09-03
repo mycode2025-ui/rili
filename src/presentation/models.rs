@@ -54,6 +54,14 @@ pub(crate) fn apply_weather_to_widget(
     widget.set_weather_days(ModelRc::new(VecModel::from(forecast)));
 }
 
+/// 将结构化天气数据复制到已打开的快速面板；不再依赖拼接字符串重新解析。
+pub(crate) fn sync_quick_weather(quick: &QuickPanelWindow, widget: &WidgetWindow) {
+    quick.set_weather_city(widget.get_weather_city());
+    quick.set_weather_temperature(widget.get_weather_temperature());
+    quick.set_weather_description(widget.get_weather_description());
+    quick.set_weather_icon_kind(widget.get_weather_icon_kind());
+}
+
 pub(crate) fn refresh_quick_panel_calendar(
     quick: &QuickPanelWindow,
     state: &Rc<RefCell<AppState>>,
@@ -109,8 +117,7 @@ pub(crate) fn sync_quick_panel(
     refresh_quick_panel_calendar(quick, state);
     quick.set_events(ui.get_events_for_day());
     quick.set_todos(ui.get_todos_for_day());
-    quick.set_weather_text(ui.get_weather_summary());
-    quick.set_weather_icon_kind(widget.get_weather_icon_kind());
+    sync_quick_weather(quick, widget);
     quick.set_time_text(widget.get_current_time_text());
     quick.set_date_title(format!("{}月{}日", today.month(), today.day()).into());
     quick.set_weekday_text(weekday.into());

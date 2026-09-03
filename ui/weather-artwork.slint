@@ -1,0 +1,16 @@
+import { Icons } from "icons.slint";
+
+// 天气插画的唯一映射入口。保持 SVG 原始渐变色，不使用 colorize。
+export component WeatherArtwork inherits Image {
+    in property <string> kind: "unknown";
+    source: kind == "sun" ? Icons.weather-clear
+        : kind == "moon" ? Icons.weather-night
+        : kind == "sun-cloud" ? Icons.weather-partly
+        : kind == "moon-cloud" ? Icons.weather-partly-night
+        : kind == "fog" ? Icons.weather-fog
+        : kind == "rain" ? Icons.weather-rain
+        : kind == "snow" ? Icons.weather-snow
+        : kind == "storm" ? Icons.weather-storm
+        : Icons.weather-cloud;
+    image-fit: contain;
+}
