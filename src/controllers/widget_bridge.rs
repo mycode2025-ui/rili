@@ -233,11 +233,20 @@ pub(crate) fn register_widget_bridge_callbacks(
                         }
                     });
                 }
-                let position = ui.window().position();
-                let size = ui.window().size();
+                let (anchor_x, anchor_y, anchor_width, anchor_height) =
+                    desktop_widget_rect(&instance_key).unwrap_or_else(|| {
+                        let position = ui.window().position();
+                        let size = ui.window().size();
+                        (
+                            position.x,
+                            position.y,
+                            size.width as i32,
+                            size.height as i32,
+                        )
+                    });
                 editor.window().set_position(slint::PhysicalPosition::new(
-                    position.x + (size.width as i32 - 430).max(0) / 2,
-                    position.y + (size.height as i32 - 286).max(0) / 2,
+                    (anchor_x + (anchor_width - 430) / 2).max(8),
+                    (anchor_y + (anchor_height - 286) / 2).max(8),
                 ));
                 let _ = editor.show();
                 *desktop_widgets.appearance_editor.borrow_mut() = Some(editor);

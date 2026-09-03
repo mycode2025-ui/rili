@@ -518,6 +518,45 @@ thread_local! {
     pub(crate) static DESKTOP_WIDGET_WINDOWS: RefCell<Option<Rc<DesktopWidgetWindows>>> = const { RefCell::new(None) };
 }
 
+/// Return the physical rectangle of the exact card that opened a companion
+/// window. The main window may be hidden/minimized while desktop cards remain
+/// visible, so it must never be used as the positioning anchor here.
+pub(crate) fn desktop_widget_rect(instance_key: &str) -> Option<(i32, i32, i32, i32)> {
+    DESKTOP_WIDGET_WINDOWS.with(|slot| {
+        let windows = slot.borrow();
+        let windows = windows.as_ref()?;
+        let rect = |window: &slint::Window| {
+            let position = window.position();
+            let size = window.size();
+            (
+                position.x,
+                position.y,
+                size.width as i32,
+                size.height as i32,
+            )
+        };
+        match instance_key.split(':').next().unwrap_or(instance_key) {
+            "calendar" => Some(rect(windows.calendar.window())),
+            "events" => Some(rect(windows.events.window())),
+            "countdown" => Some(rect(windows.countdown.window())),
+            "clock" => Some(rect(windows.clock.window())),
+            "weather" => Some(rect(windows.weather.window())),
+            "focus" => Some(rect(windows.focus.window())),
+            "todo" => Some(rect(windows.todo.window())),
+            note_key if note_key.starts_with("note_") => {
+                let id = note_key.trim_start_matches("note_").parse::<i32>().ok()?;
+                windows
+                    .notes
+                    .borrow()
+                    .iter()
+                    .find(|note| note.get_note_id() == id)
+                    .map(|note| rect(note.window()))
+            }
+            _ => None,
+        }
+    })
+}
+
 pub(crate) fn sync_desktop_widgets(source: &WidgetWindow) {
     DESKTOP_WIDGET_WINDOWS.with(|slot| {
         if let Some(windows) = slot.borrow().as_ref() {
