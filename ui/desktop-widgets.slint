@@ -30,6 +30,7 @@ export component WidgetAppearanceWindow inherits Window {
     in-out property <int> opacity-override: -1;
     in-out property <int> theme-override: -1;
     in-out property <int> accent-override: -1;
+    callback preview(int, int, int);
     callback save(int, int, int);
     callback close-requested();
 
@@ -52,24 +53,24 @@ export component WidgetAppearanceWindow inherits Window {
             }
             HorizontalLayout { height: 34px; spacing: Theme.space-2; cross-axis-alignment: center;
                 Text { width: 78px; text: "背景透明度"; color: Theme.text-2; font-size: Theme.font-11-5; vertical-alignment: center; }
-                AppearanceChoice { label: "跟随全局"; selected: root.opacity-override < 0; clicked => { root.opacity-override = -1; } }
-                AppearanceChoice { min-width: 38px; label: "−"; clicked => { root.opacity-override = Math.max(35, (root.opacity-override < 0 ? root.global-opacity : root.opacity-override) - 5); } }
+                AppearanceChoice { label: "跟随全局"; selected: root.opacity-override < 0; clicked => { root.opacity-override = -1; root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
+                AppearanceChoice { min-width: 38px; label: "−"; clicked => { root.opacity-override = Math.max(35, (root.opacity-override < 0 ? root.global-opacity : root.opacity-override) - 5); root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
                 Text { width: 48px; text: (root.opacity-override < 0 ? root.global-opacity : root.opacity-override) + "%"; color: Theme.text-1; font-size: Theme.font-12; horizontal-alignment: center; vertical-alignment: center; }
-                AppearanceChoice { min-width: 38px; label: "+"; clicked => { root.opacity-override = Math.min(100, (root.opacity-override < 0 ? root.global-opacity : root.opacity-override) + 5); } }
+                AppearanceChoice { min-width: 38px; label: "+"; clicked => { root.opacity-override = Math.min(100, (root.opacity-override < 0 ? root.global-opacity : root.opacity-override) + 5); root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
             }
             HorizontalLayout { height: 34px; spacing: Theme.space-2; cross-axis-alignment: center;
                 Text { width: 78px; text: "颜色主题"; color: Theme.text-2; font-size: Theme.font-11-5; vertical-alignment: center; }
-                AppearanceChoice { label: "跟随全局"; selected: root.theme-override < 0; clicked => { root.theme-override = -1; } }
-                AppearanceChoice { label: "浅色"; selected: root.theme-override == 1; clicked => { root.theme-override = 1; } }
-                AppearanceChoice { label: "深色"; selected: root.theme-override == 2; clicked => { root.theme-override = 2; } }
+                AppearanceChoice { label: "跟随全局"; selected: root.theme-override < 0; clicked => { root.theme-override = -1; root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
+                AppearanceChoice { label: "浅色"; selected: root.theme-override == 1; clicked => { root.theme-override = 1; root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
+                AppearanceChoice { label: "深色"; selected: root.theme-override == 2; clicked => { root.theme-override = 2; root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
             }
             HorizontalLayout { height: 32px; spacing: 8px; cross-axis-alignment: center;
                 Text { width: 78px; text: "强调色"; color: Theme.text-2; font-size: Theme.font-11-5; vertical-alignment: center; }
-                AppearanceChoice { label: "跟随"; selected: root.accent-override < 0; clicked => { root.accent-override = -1; } }
+                AppearanceChoice { label: "跟随"; selected: root.accent-override < 0; clicked => { root.accent-override = -1; root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
                 for swatch[i] in [Theme.c-blue, Theme.c-green, Theme.c-orange, Theme.c-red, Theme.c-purple, Theme.c-cyan, Theme.c-pink, Theme.c-lime]: Rectangle {
                     width: 24px; height: 24px; border-radius: 12px; border-width: root.accent-override == i ? 2px : 0px; border-color: swatch; background: transparent;
                     Rectangle { width: 18px; height: 18px; x: 3px; y: 3px; border-radius: 9px; background: swatch; }
-                    TouchArea { mouse-cursor: pointer; clicked => { root.accent-override = i; } }
+                    TouchArea { mouse-cursor: pointer; clicked => { root.accent-override = i; root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
                 }
             }
             Rectangle { height: 1px; background: Theme.border-subtle; }
@@ -248,6 +249,7 @@ export component CalendarWidgetWindow inherits Window {
             }
             CalendarView {
                 vertical-stretch: 1;
+                transparent-background: true;
                 month-title: root.month-title;
                 days: root.days;
                 selected-day: root.selected-day;

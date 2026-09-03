@@ -1,5 +1,25 @@
 use crate::*;
 
+fn resolve_widget_preview(global: (i32, i32, i32), overrides: (i32, i32, i32)) -> (i32, i32, i32) {
+    (
+        if overrides.0 < 0 {
+            global.0
+        } else {
+            overrides.0
+        },
+        if overrides.1 < 0 {
+            global.1
+        } else {
+            overrides.1
+        },
+        if overrides.2 < 0 {
+            global.2
+        } else {
+            overrides.2
+        },
+    )
+}
+
 pub(crate) fn register_widget_bridge_callbacks(
     ui: &AppWindow,
     widget: &WidgetWindow,
@@ -99,21 +119,23 @@ pub(crate) fn register_widget_bridge_callbacks(
                     _ => "桌面卡片".to_string(),
                 };
                 if let Some(previous) = desktop_widgets.appearance_editor.borrow_mut().take() {
-                    let _ = previous.hide();
+                    previous.invoke_close_requested();
                 }
                 let Ok(editor) = WidgetAppearanceWindow::new() else {
                     ui.set_action_message("无法打开卡片外观设置".into());
                     return;
                 };
-                let (global_opacity, _, _) = desktop_widget_global_style(&state.borrow().conn);
+                let global_style = desktop_widget_global_style(&state.borrow().conn);
+                let original_style = desktop_widget_style(&state.borrow().conn, &instance_key);
                 let (opacity_override, theme_override, accent_override) =
                     desktop_widget_instance_overrides(&state.borrow().conn, &instance_key);
                 editor.set_instance_key(instance_key.clone().into());
                 editor.set_card_name(name.into());
-                editor.set_global_opacity(global_opacity);
+                editor.set_global_opacity(global_style.0);
                 editor.set_opacity_override(opacity_override);
                 editor.set_theme_override(theme_override);
                 editor.set_accent_override(accent_override);
+                let preview_committed = Rc::new(Cell::new(false));
                 {
                     let source = ui.global::<Theme>();
                     let target = editor.global::<Theme>();
@@ -128,9 +150,44 @@ pub(crate) fn register_widget_bridge_callbacks(
                 }
                 {
                     let editor_weak = editor.as_weak();
+                    let ui_weak = ui.as_weak();
+                    let instance_key = instance_key.clone();
+                    let preview_committed = preview_committed.clone();
                     editor.on_close_requested(move || {
+                        if !preview_committed.get() {
+                            if let Some(ui) = ui_weak.upgrade() {
+                                apply_desktop_widget_style(
+                                    &instance_key,
+                                    original_style.0,
+                                    original_style.1,
+                                    original_style.2,
+                                    ui.get_visual_theme(),
+                                    ui.get_theme_index(),
+                                );
+                            }
+                        }
                         if let Some(editor) = editor_weak.upgrade() {
                             let _ = editor.hide();
+                        }
+                    });
+                }
+                {
+                    let ui_weak = ui.as_weak();
+                    let state = state.clone();
+                    let instance_key = instance_key.clone();
+                    editor.on_preview(move |opacity, theme, accent| {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            let global = desktop_widget_global_style(&state.borrow().conn);
+                            let effective =
+                                resolve_widget_preview(global, (opacity, theme, accent));
+                            apply_desktop_widget_style(
+                                &instance_key,
+                                effective.0,
+                                effective.1,
+                                effective.2,
+                                ui.get_visual_theme(),
+                                ui.get_theme_index(),
+                            );
                         }
                     });
                 }
@@ -139,6 +196,7 @@ pub(crate) fn register_widget_bridge_callbacks(
                     let ui_weak = ui.as_weak();
                     let state = state.clone();
                     let instance_key = instance_key.clone();
+                    let preview_committed = preview_committed.clone();
                     editor.on_save(move |opacity, theme, accent| {
                         let prefix = format!("widget_instance_{instance_key}");
                         let result = db::set_settings(
@@ -152,6 +210,7 @@ pub(crate) fn register_widget_bridge_callbacks(
                         if let Some(ui) = ui_weak.upgrade() {
                             match result {
                                 Ok(()) => {
+                                    preview_committed.set(true);
                                     let (effective_opacity, effective_theme, effective_accent) =
                                         desktop_widget_style(&state.borrow().conn, &instance_key);
                                     apply_desktop_widget_style(

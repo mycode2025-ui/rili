@@ -27,13 +27,14 @@ export struct CalendarDay {
 component DayCell inherits Rectangle {
     in property <CalendarDay> data;
     in property <bool> selected;
+    in property <bool> transparent-background: false;
     callback clicked <=> touch.clicked;
     callback open-event(int);
 
     border-radius: 0px;
     border-width: 1px;
-    border-color: Theme.divider;
-    background: data.is-today ? Theme.accent-soft : (selected ? Theme.accent-soft : (data.in-current-month ? Theme.panel-bg : Theme.panel-bg-secondary));
+    border-color: transparent-background ? Theme.widget-glass-border : Theme.divider;
+    background: data.is-today ? Theme.accent-soft : (selected ? Theme.accent-soft : (transparent-background ? (data.in-current-month ? transparent : Theme.widget-row) : (data.in-current-month ? Theme.panel-bg : Theme.panel-bg-secondary)));
 
     touch := TouchArea { }
 
@@ -129,16 +130,17 @@ export component CalendarView inherits Rectangle {
     in property <int> selected-day;
     in property <bool> week-starts-sunday: false;
     in property <bool> show-week-numbers: false;
+    in property <bool> transparent-background: false;
     callback prev-month();
     callback next-month();
     callback goto-today();
     callback select-day(int);
     callback open-event(int);
 
-    background: Theme.panel-bg;
+    background: transparent-background ? transparent : Theme.panel-bg;
     border-radius: Theme.radius-lg;
     border-width: 1px;
-    border-color: Theme.panel-border;
+    border-color: transparent-background ? Theme.widget-glass-border : Theme.panel-border;
 
     VerticalLayout {
         padding: 0px;
@@ -147,9 +149,9 @@ export component CalendarView inherits Rectangle {
         // 星期表头（周一起始：一二三四五六日；周日起始：日一二三四五六）
         Rectangle {
             height: 36px;
-            background: Theme.panel-bg;
+            background: root.transparent-background ? transparent : Theme.panel-bg;
             border-width: 1px;
-            border-color: Theme.panel-border;
+            border-color: root.transparent-background ? Theme.widget-glass-border : Theme.panel-border;
             if show-week-numbers: Text {
                 x: 0px;
                 y: 0px;
@@ -196,6 +198,7 @@ export component CalendarView inherits Rectangle {
                 width: (parent.width - (root.show-week-numbers ? 32px : 0px)) / 7;
                 height: parent.height;
                 data: days[week-index * 7 + col];
+                transparent-background: root.transparent-background;
                 selected: days[week-index * 7 + col].day == selected-day && days[week-index * 7 + col].in-current-month;
                 clicked => {
                     if (days[week-index * 7 + col].in-current-month) {
