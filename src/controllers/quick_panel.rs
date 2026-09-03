@@ -24,7 +24,7 @@ pub(crate) fn register_quick_panel_callbacks(
                 widget_weak.upgrade(),
                 quick_weak.upgrade(),
             ) {
-                refresh_all(&ui, &widget, &state);
+                refresh_todos(&ui, &widget, &state);
                 sync_quick_panel(&quick, &ui, &widget);
             }
         });

@@ -34,22 +34,33 @@ pub(crate) fn register_settings_callbacks(
         let ui_weak = ui.as_weak();
         let state = state.clone();
         ui.on_set_notifications_enabled(move |enabled| {
-            let s = state.borrow();
-            let _ = db::set_setting(
-                &s.conn,
+            let previous = ui_weak
+                .upgrade()
+                .map(|ui| ui.get_notifications_enabled())
+                .unwrap_or(!enabled);
+            let result = db::set_setting(
+                &state.borrow().conn,
                 "notifications_enabled",
                 if enabled { "1" } else { "0" },
             );
             if let Some(ui) = ui_weak.upgrade() {
-                ui.set_notifications_enabled(enabled);
-                ui.set_action_message(
-                    if enabled {
-                        "通知已启用"
-                    } else {
-                        "通知已停用"
+                match result {
+                    Ok(()) => {
+                        ui.set_notifications_enabled(enabled);
+                        ui.set_action_message(
+                            if enabled {
+                                "通知已启用"
+                            } else {
+                                "通知已停用"
+                            }
+                            .into(),
+                        );
                     }
-                    .into(),
-                );
+                    Err(error) => {
+                        ui.set_notifications_enabled(previous);
+                        ui.set_action_message(format!("保存通知设置失败：{error}").into());
+                    }
+                }
             }
         });
     }
@@ -99,28 +110,37 @@ pub(crate) fn register_settings_callbacks(
         let ui_weak = ui.as_weak();
         let state = state.clone();
         ui.on_set_taskbar_clock_enabled(move |enabled| {
-            {
-                let s = state.borrow();
-                let _ = db::set_setting(
-                    &s.conn,
-                    "taskbar_clock_enabled",
-                    if enabled { "1" } else { "0" },
-                );
-            }
+            let previous = ui_weak
+                .upgrade()
+                .map(|ui| ui.get_taskbar_clock_enabled())
+                .unwrap_or(!enabled);
+            let result = db::set_setting(
+                &state.borrow().conn,
+                "taskbar_clock_enabled",
+                if enabled { "1" } else { "0" },
+            );
             if let Some(ui) = ui_weak.upgrade() {
-                ui.set_taskbar_clock_enabled(enabled);
-                ui.set_action_message(
-                    if enabled {
-                        "系统时钟点击接管已开启"
-                    } else {
-                        "系统时钟点击接管已关闭"
+                match result {
+                    Ok(()) => {
+                        ui.set_taskbar_clock_enabled(enabled);
+                        ui.set_action_message(
+                            if enabled {
+                                "系统时钟点击接管已开启"
+                            } else {
+                                "系统时钟点击接管已关闭"
+                            }
+                            .into(),
+                        );
+                        TASKBAR_CLOCK_HOOK_ENABLED.store(enabled, Ordering::Release);
+                        if enabled {
+                            update_taskbar_clock_hit_rect();
+                        }
                     }
-                    .into(),
-                );
-            }
-            TASKBAR_CLOCK_HOOK_ENABLED.store(enabled, Ordering::Release);
-            if enabled {
-                update_taskbar_clock_hit_rect();
+                    Err(error) => {
+                        ui.set_taskbar_clock_enabled(previous);
+                        ui.set_action_message(format!("保存任务栏时钟设置失败：{error}").into());
+                    }
+                }
             }
         });
     }
@@ -128,18 +148,33 @@ pub(crate) fn register_settings_callbacks(
         let ui_weak = ui.as_weak();
         let state = state.clone();
         ui.on_set_local_only(move |enabled| {
-            let s = state.borrow();
-            let _ = db::set_setting(&s.conn, "local_only", if enabled { "1" } else { "0" });
+            let previous = ui_weak
+                .upgrade()
+                .map(|ui| ui.get_local_only())
+                .unwrap_or(!enabled);
+            let result = db::set_setting(
+                &state.borrow().conn,
+                "local_only",
+                if enabled { "1" } else { "0" },
+            );
             if let Some(ui) = ui_weak.upgrade() {
-                ui.set_local_only(enabled);
-                ui.set_action_message(
-                    if enabled {
-                        "已切换为仅本地模式"
-                    } else {
-                        "已允许外部同步"
+                match result {
+                    Ok(()) => {
+                        ui.set_local_only(enabled);
+                        ui.set_action_message(
+                            if enabled {
+                                "已切换为仅本地模式"
+                            } else {
+                                "已允许外部同步"
+                            }
+                            .into(),
+                        );
                     }
-                    .into(),
-                );
+                    Err(error) => {
+                        ui.set_local_only(previous);
+                        ui.set_action_message(format!("保存本地模式设置失败：{error}").into());
+                    }
+                }
             }
         });
     }

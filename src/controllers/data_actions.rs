@@ -140,7 +140,7 @@ pub(crate) fn register_data_callbacks(
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_all(&ui, &widget, &state);
+                refresh_todos(&ui, &widget, &state);
                 ui.set_action_message("待办已添加".into());
             }
         });
@@ -159,7 +159,7 @@ pub(crate) fn register_data_callbacks(
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_all(&ui, &widget, &state);
+                refresh_todos(&ui, &widget, &state);
             }
         });
     }
@@ -175,7 +175,7 @@ pub(crate) fn register_data_callbacks(
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_all(&ui, &widget, &state);
+                refresh_todos(&ui, &widget, &state);
             }
         });
     }
@@ -191,7 +191,7 @@ pub(crate) fn register_data_callbacks(
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_all(&ui, &widget, &state);
+                refresh_todos(&ui, &widget, &state);
             }
         });
     }
@@ -210,7 +210,7 @@ pub(crate) fn register_data_callbacks(
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_all(&ui, &widget, &state);
+                refresh_notes(&ui, &widget, &state);
             }
         });
     }
@@ -224,7 +224,7 @@ pub(crate) fn register_data_callbacks(
                 eprintln!("更新便签失败: {e}");
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_all(&ui, &widget, &state);
+                refresh_notes(&ui, &widget, &state);
             }
         });
     }
@@ -240,7 +240,7 @@ pub(crate) fn register_data_callbacks(
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_all(&ui, &widget, &state);
+                refresh_notes(&ui, &widget, &state);
             }
         });
     }
@@ -259,7 +259,7 @@ pub(crate) fn register_data_callbacks(
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_all(&ui, &widget, &state);
+                refresh_habits(&ui, &widget, &state);
             }
         });
     }
@@ -276,7 +276,7 @@ pub(crate) fn register_data_callbacks(
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_all(&ui, &widget, &state);
+                refresh_habits(&ui, &widget, &state);
             }
         });
     }
@@ -292,7 +292,7 @@ pub(crate) fn register_data_callbacks(
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_all(&ui, &widget, &state);
+                refresh_habits(&ui, &widget, &state);
             }
         });
     }

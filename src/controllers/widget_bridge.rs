@@ -78,16 +78,14 @@ pub(crate) fn register_widget_bridge_callbacks(
     }
     {
         let ui_weak = ui.as_weak();
-        let widget_weak = widget.as_weak();
         let state = state.clone();
         widget.on_open_widget_settings(move |kind| {
-            if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
+            if let Some(ui) = ui_weak.upgrade() {
                 if kind.as_str() == "weather" {
                     state.borrow_mut().view_mode = 6;
                     ui.set_view_mode(6);
                     ui.set_settings_open(false);
                     ui.set_action_message("已打开天气设置".into());
-                    refresh_all(&ui, &widget, &state);
                     show_and_focus_main_window(&ui);
                     return;
                 }
@@ -99,7 +97,6 @@ pub(crate) fn register_widget_bridge_callbacks(
                 ui.set_settings_section(section);
                 ui.set_settings_open(true);
                 ui.set_action_message(format!("已打开{}挂件设置", kind).into());
-                refresh_all(&ui, &widget, &state);
                 show_and_focus_main_window(&ui);
             }
         });
@@ -187,16 +184,14 @@ pub(crate) fn register_widget_bridge_callbacks(
     }
     {
         let ui_weak = ui.as_weak();
-        let widget_weak = widget.as_weak();
         let state = state.clone();
         widget.on_add_widget_todo(move || {
             state.borrow_mut().view_mode = 4;
-            if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
+            if let Some(ui) = ui_weak.upgrade() {
                 set_main_view_mode(&ui, 4);
                 ui.set_todo_add_target("normal".into());
                 ui.set_todo_draft_title("".into());
                 ui.set_todo_add_open(true);
-                refresh_all(&ui, &widget, &state);
                 show_and_focus_main_window(&ui);
             }
         });

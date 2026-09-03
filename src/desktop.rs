@@ -208,16 +208,20 @@ impl DesktopWidgetWindows {
                     if let Some(window) = window_weak.upgrade() {
                         let position = window.window().position();
                         if let Ok(conn) = db::open() {
-                            let _ = db::set_setting(
+                            if let Err(error) = db::set_setting(
                                 &conn,
                                 &format!("widget_{key}_x"),
                                 &position.x.to_string(),
-                            );
-                            let _ = db::set_setting(
+                            ) {
+                                eprintln!("保存便签卡片横向位置失败: {error}");
+                            }
+                            if let Err(error) = db::set_setting(
                                 &conn,
                                 &format!("widget_{key}_y"),
                                 &position.y.to_string(),
-                            );
+                            ) {
+                                eprintln!("保存便签卡片纵向位置失败: {error}");
+                            }
                         }
                     }
                 });
@@ -226,11 +230,13 @@ impl DesktopWidgetWindows {
                 let key = key.clone();
                 window.on_pin_changed(move |pinned| {
                     if let Ok(conn) = db::open() {
-                        let _ = db::set_setting(
+                        if let Err(error) = db::set_setting(
                             &conn,
                             &format!("widget_{key}_pinned"),
                             if pinned { "1" } else { "0" },
-                        );
+                        ) {
+                            eprintln!("保存便签卡片置顶状态失败: {error}");
+                        }
                     }
                 });
             }

@@ -35,7 +35,7 @@ use windowing::{set_main_view_mode, show_and_focus_main_window};
 use rili::window_policy::navigation_refresh_needed;
 use rili::{
     almanac, app_paths, autostart, cli, date_calc, db, holidays, integrations, lunar, natural,
-    recurrence, reminders, weather,
+    recurrence, reminders, single_instance, weather,
 };
 
 /// 新建分类日历时依次挑选的设计规范强调色循环。
@@ -59,7 +59,8 @@ fn parse_hex_color(hex: &str) -> slint::Color {
 }
 
 fn main() -> Result<()> {
-    let gui_launch = std::env::args_os().nth(1).is_none();
+    let cli = cli::Cli::parse();
+    let gui_launch = cli.command.is_none();
     // 保持 CONSOLE 子系统以保留 CLI 输出；只有无参数桌面启动才立即脱离控制台。
     // 从资源管理器/快捷方式启动时，Windows 创建的附带黑窗会随之关闭；从终端启动
     // GUI 时只分离当前进程，不会隐藏或关闭调用方终端。
@@ -67,11 +68,10 @@ fn main() -> Result<()> {
     if gui_launch {
         detach_console_for_gui();
     }
-    let cli = cli::Cli::parse();
     if cli.command.is_some() {
         return cli::run(cli);
     }
-    run_gui()
+    run_gui(cli.startup)
 }
 
 #[cfg(target_os = "windows")]
@@ -85,7 +85,17 @@ fn detach_console_for_gui() {
     }
 }
 
-fn run_gui() -> Result<()> {
+fn run_gui(startup: bool) -> Result<()> {
+    // 登录启动和用户重复双击都不得创建第二套后台线程、托盘图标和桌面卡片。
+    let Some(_instance_guard) = single_instance::acquire()? else {
+        return Ok(());
+    };
+    // 兼容旧版本留下的启动命令，并在 exe 被移动后修复注册表中的路径。
+    if autostart::is_enabled() {
+        if let Err(error) = autostart::set_enabled(true) {
+            eprintln!("修复开机启动项失败: {error}");
+        }
+    }
     // 后台提醒扫描线程：独立打开自己的数据库连接，随进程退出而结束。
     reminders::spawn();
     // 后台天气刷新线程：独立数据库连接，30 分钟刷新一次，GUI 只读缓存不会卡界面。
@@ -569,6 +579,12 @@ fn run_gui() -> Result<()> {
         );
     }
 
-    ui.run()?;
+    if !startup {
+        ui.show()?;
+    }
+    slint::run_event_loop_until_quit()?;
+    if ui.window().is_visible() {
+        ui.hide()?;
+    }
     Ok(())
 }

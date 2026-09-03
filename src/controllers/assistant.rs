@@ -7,13 +7,11 @@ pub(crate) fn register_assistant_callbacks(
 ) {
     {
         let ui_weak = ui.as_weak();
-        let widget_weak = widget.as_weak();
         let state = state.clone();
         ui.on_set_todo_board_mode(move |mode| {
             state.borrow_mut().todo_board_mode = mode;
-            if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
+            if let Some(ui) = ui_weak.upgrade() {
                 ui.set_todo_board_mode(mode);
-                refresh_all(&ui, &widget, &state);
             }
         });
     }
@@ -29,7 +27,7 @@ pub(crate) fn register_assistant_callbacks(
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_all(&ui, &widget, &state);
+                refresh_todos(&ui, &widget, &state);
             }
         });
     }

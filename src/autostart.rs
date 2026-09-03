@@ -10,7 +10,7 @@ const RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
 const VALUE_NAME: &str = "TimeHub";
 
 fn startup_command(executable: &Path) -> String {
-    format!(r#""{}""#, executable.display())
+    format!(r#""{}" --startup"#, executable.display())
 }
 
 #[cfg(windows)]
@@ -92,6 +92,6 @@ mod tests {
     #[test]
     fn startup_command_quotes_paths_with_spaces() {
         let command = startup_command(Path::new(r"C:\Program Files\TimeHub\rili.exe"));
-        assert_eq!(command, r#""C:\Program Files\TimeHub\rili.exe""#);
+        assert_eq!(command, r#""C:\Program Files\TimeHub\rili.exe" --startup"#);
     }
 }

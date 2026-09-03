@@ -16,7 +16,7 @@ pub(crate) fn register_course_callbacks(
                 s.course_week = (s.course_week + delta).clamp(1, 30);
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_all(&ui, &widget, &state);
+                refresh_courses(&ui, &widget, &state);
             }
         });
     }
@@ -31,7 +31,7 @@ pub(crate) fn register_course_callbacks(
                     course_week_for_date(s.course_term_start, Local::now().date_naive());
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_all(&ui, &widget, &state);
+                refresh_courses(&ui, &widget, &state);
             }
         });
     }
@@ -56,7 +56,7 @@ pub(crate) fn register_course_callbacks(
                     }
                     if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
                         ui.set_action_message("课程表开学日已更新".into());
-                        refresh_all(&ui, &widget, &state);
+                        refresh_courses(&ui, &widget, &state);
                     }
                     SharedString::default()
                 }
@@ -107,7 +107,7 @@ pub(crate) fn register_course_callbacks(
                                 }
                                 .into(),
                             );
-                            refresh_all(&ui, &widget, &state);
+                            refresh_courses(&ui, &widget, &state);
                         }
                         SharedString::default()
                     }
@@ -133,7 +133,7 @@ pub(crate) fn register_course_callbacks(
                     }
                     .into(),
                 );
-                refresh_all(&ui, &widget, &state);
+                refresh_courses(&ui, &widget, &state);
             }
         });
     }

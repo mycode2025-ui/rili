@@ -12,14 +12,24 @@ pub(crate) fn register_tool_callbacks(
         let widget_weak = widget.as_weak();
         let state = state.clone();
         ui.on_set_week_starts_sunday(move |sunday| {
-            {
-                let mut s = state.borrow_mut();
-                s.week_starts_sunday = sunday;
-                let _ = db::set_setting(&s.conn, "week_start", if sunday { "sun" } else { "mon" });
-            }
+            let previous = state.borrow().week_starts_sunday;
+            let result = db::set_setting(
+                &state.borrow().conn,
+                "week_start",
+                if sunday { "sun" } else { "mon" },
+            );
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                ui.set_week_starts_sunday(sunday);
-                refresh_all(&ui, &widget, &state);
+                match result {
+                    Ok(()) => {
+                        state.borrow_mut().week_starts_sunday = sunday;
+                        ui.set_week_starts_sunday(sunday);
+                        refresh_all(&ui, &widget, &state);
+                    }
+                    Err(error) => {
+                        ui.set_week_starts_sunday(previous);
+                        ui.set_action_message(format!("保存一周起始日失败：{error}").into());
+                    }
+                }
             }
         });
     }
@@ -28,14 +38,25 @@ pub(crate) fn register_tool_callbacks(
         let widget_weak = widget.as_weak();
         let state = state.clone();
         ui.on_set_show_week_numbers(move |show| {
-            {
-                let mut s = state.borrow_mut();
-                s.show_week_numbers = show;
-                let _ = db::set_setting(&s.conn, "show_week_number", if show { "1" } else { "0" });
-            }
+            let previous = state.borrow().show_week_numbers;
+            let result = db::set_setting(
+                &state.borrow().conn,
+                "show_week_number",
+                if show { "1" } else { "0" },
+            );
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                ui.set_show_week_numbers(show);
-                refresh_all(&ui, &widget, &state);
+                match result {
+                    Ok(()) => {
+                        state.borrow_mut().show_week_numbers = show;
+                        ui.set_show_week_numbers(show);
+                        // 周数只是 Slint 对既有 CalendarDay.week-number 的显示开关。
+                        update_tool_status(&ui, &widget, &state);
+                    }
+                    Err(error) => {
+                        ui.set_show_week_numbers(previous);
+                        ui.set_action_message(format!("保存周数设置失败：{error}").into());
+                    }
+                }
             }
         });
     }
@@ -45,17 +66,24 @@ pub(crate) fn register_tool_callbacks(
         let quick_weak = quick_panel.as_weak();
         let state = state.clone();
         ui.on_set_theme(move |index| {
-            {
-                let s = state.borrow();
-                let _ = db::set_setting(&s.conn, "theme", &index.to_string());
-            }
+            let previous = ui_weak
+                .upgrade()
+                .map(|ui| ui.get_theme_index())
+                .unwrap_or(0);
+            let result = db::set_setting(&state.borrow().conn, "theme", &index.to_string());
             if let (Some(ui), Some(widget), Some(quick)) = (
                 ui_weak.upgrade(),
                 widget_weak.upgrade(),
                 quick_weak.upgrade(),
             ) {
-                ui.set_theme_index(index);
-                apply_theme(&ui, &widget, &quick, index);
+                if let Err(error) = result {
+                    ui.set_theme_index(previous);
+                    apply_theme(&ui, &widget, &quick, previous);
+                    ui.set_action_message(format!("保存强调色失败：{error}").into());
+                } else {
+                    ui.set_theme_index(index);
+                    apply_theme(&ui, &widget, &quick, index);
+                }
             }
         });
     }

@@ -7,12 +7,11 @@ pub(crate) fn register_planning_callbacks(
 ) {
     {
         let ui_weak = ui.as_weak();
-        let widget_weak = widget.as_weak();
         let state = state.clone();
         ui.on_search(move |query| {
             state.borrow_mut().search_query = query.to_string();
-            if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_all(&ui, &widget, &state);
+            if let Some(ui) = ui_weak.upgrade() {
+                refresh_search(&ui, &state);
             }
         });
     }

@@ -14,6 +14,10 @@ use std::fs;
 #[derive(Parser)]
 #[command(name = "rili", about = "本地优先的日历 / 待办 / 便签工具")]
 pub struct Cli {
+    /// 由 Windows 登录启动项使用：静默运行到系统托盘
+    #[arg(long, hide = true)]
+    pub startup: bool,
+
     /// 以 JSON 格式输出，便于脚本/AI 解析
     #[arg(long, global = true)]
     pub json: bool,
@@ -1077,4 +1081,16 @@ pub fn run(cli: Cli) -> Result<()> {
         },
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn startup_flag_selects_hidden_gui_mode() {
+        let cli = Cli::try_parse_from(["rili", "--startup"]).expect("startup flag should parse");
+        assert!(cli.startup);
+        assert!(cli.command.is_none());
+    }
 }

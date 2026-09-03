@@ -62,11 +62,13 @@ pub(crate) fn register_desktop_card_callbacks(
                 if let Err(error) = db::set_setting(&state.conn, &key, "0") {
                     eprintln!("移除 {} 桌面卡片失败: {error}", $kind);
                 }
-                let _ = db::set_setting(
+                if let Err(error) = db::set_setting(
                     &state.conn,
                     "desktop_widgets_visible",
                     if any_visible { "1" } else { "0" },
-                );
+                ) {
+                    eprintln!("保存桌面卡片总开关失败: {error}");
+                }
             });
         }};
     }
@@ -448,7 +450,7 @@ pub(crate) fn register_desktop_card_callbacks(
             }
             if result.is_ok() {
                 if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                    refresh_all(&ui, &widget, &state);
+                    refresh_todos(&ui, &widget, &state);
                 }
             }
         });

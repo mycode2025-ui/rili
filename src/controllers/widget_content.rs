@@ -19,7 +19,7 @@ pub(crate) fn register_widget_content_callbacks(
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_all(&ui, &widget, &state);
+                refresh_todos(&ui, &widget, &state);
             }
         });
     }
@@ -36,7 +36,7 @@ pub(crate) fn register_widget_content_callbacks(
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_all(&ui, &widget, &state);
+                refresh_notes(&ui, &widget, &state);
             }
         });
     }
@@ -52,7 +52,7 @@ pub(crate) fn register_widget_content_callbacks(
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_all(&ui, &widget, &state);
+                refresh_notes(&ui, &widget, &state);
             }
         });
     }
@@ -73,7 +73,7 @@ pub(crate) fn register_widget_content_callbacks(
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_all(&ui, &widget, &state);
+                refresh_notes(&ui, &widget, &state);
             }
         });
     }
@@ -96,14 +96,18 @@ pub(crate) fn register_widget_content_callbacks(
                 let configuration = *visibility.borrow();
                 shown.set(configuration.any());
                 let s = state.borrow();
-                let _ = db::set_setting(&s.conn, "widget_notes_visible", "0");
+                if let Err(error) = db::set_setting(&s.conn, "widget_notes_visible", "0") {
+                    if let Some(ui) = ui_weak.upgrade() {
+                        ui.set_action_message(format!("保存便签卡片状态失败：{error}").into());
+                    }
+                }
                 if let Some(ui) = ui_weak.upgrade() {
                     sync_desktop_visibility_to_ui(&ui, configuration);
                     ui.set_widget_visible(configuration.any());
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_all(&ui, &widget, &state);
+                refresh_notes(&ui, &widget, &state);
             }
         });
     }

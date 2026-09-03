@@ -58,8 +58,8 @@ pub(crate) fn register_widget_manager_callbacks(context: WidgetControllerContext
         let state = state.clone();
         ui.on_set_desktop_widget_visible(move |kind, visible| {
             let kind = kind.to_string();
-            let refresh_notes = kind == "notes" && visible;
-            if refresh_notes {
+            let should_refresh_notes = kind == "notes" && visible;
+            if should_refresh_notes {
                 let s = state.borrow();
                 if db::list_notes(&s.conn).unwrap_or_default().is_empty() {
                     if let Err(error) = db::create_note(&s.conn, "新便签", "") {
@@ -74,8 +74,8 @@ pub(crate) fn register_widget_manager_callbacks(context: WidgetControllerContext
             let any_visible = configuration.any();
             widget_shown.set(any_visible);
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                if refresh_notes {
-                    refresh_all(&ui, &widget, &state);
+                if should_refresh_notes {
+                    refresh_notes(&ui, &widget, &state);
                 } else {
                     desktop_widgets.sync_from(&widget);
                 }
@@ -90,11 +90,15 @@ pub(crate) fn register_widget_manager_callbacks(context: WidgetControllerContext
             {
                 eprintln!("保存桌面卡片状态失败: {error}");
             }
-            let _ = db::set_setting(
+            if let Err(error) = db::set_setting(
                 &state.conn,
                 "desktop_widgets_visible",
                 if any_visible { "1" } else { "0" },
-            );
+            ) {
+                if let Some(ui) = ui_weak.upgrade() {
+                    ui.set_action_message(format!("保存桌面卡片总开关失败：{error}").into());
+                }
+            }
         });
     }
     {

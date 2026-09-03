@@ -26,7 +26,7 @@
 - 日期计算器（CLI + GUI 工具页）：两个日期间的自然日/工作日间隔，从某天起推算 N 个自然日/工作日后是哪天
 - 个性化设置：3 套原创配色主题（默认蓝/暖阳橙/森野绿）、一周起始日、是否显示周数，均持久化保存
 - 系统托盘图标：右键菜单可"显示主窗口 / 打开-关闭桌面挂件 / 退出"
-- 开机启动：可在“设置 → 隐私”中开启或关闭，使用当前用户 Windows 登录启动项，无需管理员权限
+- 开机启动：可在“设置 → 隐私”中开启或关闭；登录后静默进入系统托盘，并通过单实例锁避免重复运行
 - 任务栏时钟入口：保留 Windows 原生时钟显示，单击任务栏时钟后在对应任务栏上沿打开固定快速面板
 - 桌面挂件：无边框、置顶、支持深浅主题的小窗口，提供月历、日程、倒数日、时钟、天气（当前天气与五日预报）、专注、待办和便签卡片，可独立于主窗口开关
 - 数据全部保存在本机 SQLite（`%LOCALAPPDATA%/rili/rili/data/rili.db`），不上传云端
@@ -131,6 +131,8 @@ rili calendar shift --date 2026-08-31 --days 10 --json  # 往后数 10 个自然
 - `src/recurrence.rs` — 重复日程规则展开（含每周多天、每月第N个星期几）
 - `src/reminders.rs` — 后台提醒扫描线程 + Windows Toast 通知
 - `src/autostart.rs` — Windows 当前用户开机启动项的读取与切换
+- `src/single_instance.rs` — Windows GUI 单实例锁
+- `src/presentation/partial_refresh.rs` — 待办、便签、习惯、课程与搜索的局部模型刷新
 - `src/lunar.rs` — 农历换算（基于 `chinese-lunisolar-calendar`）
 - `src/almanac.rs` — 老黄历日柱干支换算（含单元测试验证）
 - `src/date_calc.rs` — 日期计算器（自然日/工作日间隔与推算）
