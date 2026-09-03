@@ -174,7 +174,7 @@ pub(crate) fn register_tool_callbacks(
                 let result = db::open().and_then(|conn| weather::refresh_once(&conn));
                 let (weather_text, status_text, weather_data, action_text) = match result {
                     Ok(w) => {
-                        let (desc, _) = weather::describe_code(w.code);
+                        let (desc, _) = weather::describe_current(w.code, w.is_day);
                         let text = format!("{} {:.0}°C {desc}", w.city, w.temp_c);
                         let source = if w.provider.is_empty() {
                             "天气服务"
@@ -193,7 +193,7 @@ pub(crate) fn register_tool_callbacks(
                         let cached = db::open().ok().and_then(|conn| weather::cached(&conn));
                         match cached {
                             Some(w) => {
-                                let (desc, _) = weather::describe_code(w.code);
+                                let (desc, _) = weather::describe_current(w.code, w.is_day);
                                 let text = format!("{} {:.0}°C {desc}", w.city, w.temp_c);
                                 (
                                     Some(text.clone()),

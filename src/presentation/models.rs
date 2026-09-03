@@ -110,6 +110,7 @@ pub(crate) fn sync_quick_panel(
     quick.set_events(ui.get_events_for_day());
     quick.set_todos(ui.get_todos_for_day());
     quick.set_weather_text(ui.get_weather_summary());
+    quick.set_weather_icon_kind(widget.get_weather_icon_kind());
     quick.set_time_text(widget.get_current_time_text());
     quick.set_date_title(format!("{}月{}日", today.month(), today.day()).into());
     quick.set_weekday_text(weekday.into());

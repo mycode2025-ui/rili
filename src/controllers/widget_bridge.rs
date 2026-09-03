@@ -479,7 +479,8 @@ pub(crate) fn register_widget_bridge_callbacks(
                     window.set_city_searching(false);
                     match result {
                         Ok(current) => {
-                            let (description, _) = weather::describe_code(current.code);
+                            let (description, _) =
+                                weather::describe_current(current.code, current.is_day);
                             let summary =
                                 format!("{} {:.0}°C {description}", current.city, current.temp_c);
                             window.set_city_search_error(false);

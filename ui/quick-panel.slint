@@ -185,6 +185,16 @@ export component QuickPanelWindow inherits Window {
     in property <[TodoItem]> todos;
     in property <string> time-text;
     in property <string> weather-text;
+    in property <string> weather-icon-kind: "unknown";
+    private property <image> weather-icon: root.weather-icon-kind == "sun" ? Icons.weather-clear
+        : root.weather-icon-kind == "moon" ? Icons.weather-night
+        : root.weather-icon-kind == "sun-cloud" ? Icons.weather-partly
+        : root.weather-icon-kind == "moon-cloud" ? Icons.weather-partly-night
+        : root.weather-icon-kind == "fog" ? Icons.weather-fog
+        : root.weather-icon-kind == "rain" ? Icons.weather-rain
+        : root.weather-icon-kind == "snow" ? Icons.weather-snow
+        : root.weather-icon-kind == "storm" ? Icons.weather-storm
+        : Icons.weather-cloud;
     in property <string> date-title;
     in property <string> weekday-text;
     in property <string> lunar-text;
@@ -233,14 +243,14 @@ export component QuickPanelWindow inherits Window {
                 Text { x: 20px; y: 63px; width: 270px; height: 20px; text: root.date-title + "  " + root.weekday-text; color: Theme.text-2; font-size: Theme.font-12; vertical-alignment: center; }
                 Text { x: 20px; y: 83px; width: 270px; height: 17px; text: root.lunar-text; color: Theme.text-3; font-size: Theme.font-10; vertical-alignment: center; overflow: elide; }
                 Rectangle {
-                    x: parent.width - 137px;
-                    y: 42px;
-                    width: 124px;
-                    height: 50px;
+                    x: parent.width - 171px;
+                    y: 38px;
+                    width: 158px;
+                    height: 58px;
                     border-radius: Theme.r-lg;
                     background: Theme.bg-surface.with-alpha(72%);
-                    SvgIcon { x: 10px; y: 9px; source: Icons.sun; size: 26px; tint: Theme.warning; }
-                    Text { x: 43px; y: 6px; width: 74px; height: 38px; text: root.weather-text == "" ? "天气加载中" : root.weather-text; color: Theme.text-2; font-size: Theme.font-10; wrap: word-wrap; vertical-alignment: center; overflow: elide; }
+                    Image { x: 8px; y: 5px; width: 48px; height: 48px; source: root.weather-icon; image-fit: contain; }
+                    Text { x: 61px; y: 6px; width: 90px; height: 46px; text: root.weather-text == "" ? "天气加载中" : root.weather-text; color: Theme.text-2; font-size: Theme.font-10; wrap: word-wrap; vertical-alignment: center; overflow: elide; }
                 }
                 HeaderButton { x: parent.width - 75px; y: 7px; icon: Icons.gear; label: "打开设置"; clicked => { root.open-settings(); } }
                 HeaderButton { x: parent.width - 41px; y: 7px; icon: Icons.close; label: "关闭面板"; danger: true; clicked => { root.close-requested(); } }

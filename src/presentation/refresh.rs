@@ -360,7 +360,7 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
         // -------- 天气：只读后台线程缓存的结果，绝不在这里发网络请求（避免卡界面）--------
         let weather_summary = weather::cached(conn)
             .map(|w| {
-                let (desc, _) = weather::describe_code(w.code);
+                let (desc, _) = weather::describe_current(w.code, w.is_day);
                 format!("{} {:.0}°C {desc}", w.city, w.temp_c)
             })
             .unwrap_or_default();
