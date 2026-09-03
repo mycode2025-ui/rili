@@ -1111,32 +1111,32 @@ export component AppWindow inherits Window {
         TouchArea { clicked => { root.local-delete-open = false; } }
         Rectangle {
             x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
-            width: 480px; height: 286px; border-radius: Theme.r-xl;
+            width: 400px; height: 264px; border-radius: Theme.r-xl;
             border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface;
             drop-shadow-color: Theme.shadow-3-color-a; drop-shadow-blur: Theme.shadow-3-blur-a; drop-shadow-offset-y: Theme.shadow-3-y-a;
             TouchArea { }
             VerticalLayout {
-                padding: Theme.space-5; spacing: Theme.space-3;
+                padding: Theme.space-4; spacing: Theme.space-2;
                 HorizontalLayout {
-                    height: 34px; cross-axis-alignment: center;
+                    height: 32px; cross-axis-alignment: center;
                     SvgIcon { source: Icons.trash; size: 19px; tint: Theme.danger; }
                     Rectangle { width: Theme.space-2; }
                     Text { text: "删除本地事项"; color: Theme.text-1; font-size: Theme.font-16; font-weight: 700; vertical-alignment: center; horizontal-stretch: 1; }
                     IconButton { icon: Icons.close; size: 30px; borderless: true; clicked => { root.local-delete-open = false; } }
                 }
                 Text {
-                    text: "只处理本机创建的事项；共享、文件导入及订阅日历不会受影响。";
+                    text: "仅删除本机创建事项，共享、导入及订阅日历不受影响。";
                     color: Theme.text-2; font-size: Theme.font-12; wrap: word-wrap;
                 }
                 VerticalLayout {
                     spacing: Theme.space-2;
                     GhostButton {
-                        height: 38px; text: "仅删除当天（" + root.selected-date-text + "）";
+                        height: 36px; text: "仅删除当天（" + root.selected-date-text + "）";
                         selected: root.local-delete-scope == "day";
                         clicked => { root.local-delete-scope = "day"; }
                     }
                     GhostButton {
-                        height: 38px; text: "删除全部本地事项";
+                        height: 36px; text: "删除全部本地事项";
                         selected: root.local-delete-scope == "all";
                         clicked => { root.local-delete-scope = "all"; }
                     }
