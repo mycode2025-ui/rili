@@ -20,6 +20,11 @@ export component MiniDay inherits Rectangle {
     callback clicked();
 
     height: 24px;
+    // Calendar rows must divide the available width into seven identical
+    // columns. Without neutral layout hints, one- and two-digit labels report
+    // different preferred widths and HorizontalLayout subtly shifts columns.
+    min-width: 0px;
+    preferred-width: 0px;
     border-radius: Theme.radius-sm;
     background: data.is-today ? Theme.today-bg : (selected ? Theme.accent-soft : transparent);
     TouchArea { mouse-cursor: data.in-current-month ? pointer : default; clicked => { if (data.in-current-month) { root.clicked(); } } }
@@ -131,4 +136,3 @@ export component DesktopWidgetManagerItem inherits Rectangle {
         }
     }
 }
-
