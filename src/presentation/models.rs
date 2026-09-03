@@ -41,7 +41,7 @@ pub(crate) fn apply_weather_to_widget(
                 weekday: weekday.into(),
                 description: description.into(),
                 temperature: format!("{:.0}°/{:.0}°", day.temp_max, day.temp_min).into(),
-                icon_kind: weather::icon_key(day.code, true).into(),
+                icon_kind: weather::icon_key(day.code).into(),
             }
         })
         .collect::<Vec<_>>();
@@ -49,7 +49,7 @@ pub(crate) fn apply_weather_to_widget(
     widget.set_weather_city(current.city.clone().into());
     widget.set_weather_temperature(format!("{:.0}°", current.temp_c).into());
     widget.set_weather_description(description.into());
-    widget.set_weather_icon_kind(weather::icon_key(current.code, current.is_day).into());
+    widget.set_weather_icon_kind(weather::icon_key(current.code).into());
     widget.set_weather_updated(updated.into());
     widget.set_weather_days(ModelRc::new(VecModel::from(forecast)));
 }

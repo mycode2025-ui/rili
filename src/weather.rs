@@ -79,15 +79,11 @@ pub fn describe_code(code: i64) -> (&'static str, &'static str) {
     }
 }
 
-/// 返回桌面天气卡片使用的本地 SVG 类型。晴朗和少云会根据昼夜切换太阳/月亮，
-/// 其余类型直接与 WMO 天气代码对应，确保图标和中文描述来自同一份数据。
-pub fn icon_key(code: i64, is_day: bool) -> &'static str {
+/// 返回桌面天气卡片使用的本地 SVG 类型。图标只跟随 WMO 天气代码，
+/// 不再按昼夜二次替换，确保“晴”始终对应太阳、“大致晴朗”始终对应晴间多云。
+pub fn icon_key(code: i64) -> &'static str {
     let (_, kind) = describe_code(code);
-    match (kind, is_day) {
-        ("sun", false) => "moon",
-        ("sun-cloud", false) => "moon-cloud",
-        _ => kind,
-    }
+    kind
 }
 
 #[derive(Deserialize)]
@@ -552,13 +548,12 @@ mod tests {
     }
 
     #[test]
-    fn weather_icons_follow_code_and_daylight() {
-        assert_eq!(icon_key(0, true), "sun");
-        assert_eq!(icon_key(0, false), "moon");
-        assert_eq!(icon_key(1, true), "sun-cloud");
-        assert_eq!(icon_key(1, false), "moon-cloud");
-        assert_eq!(icon_key(63, true), "rain");
-        assert_eq!(icon_key(75, true), "snow");
-        assert_eq!(icon_key(95, true), "storm");
+    fn weather_icons_follow_condition_codes() {
+        assert_eq!(icon_key(0), "sun");
+        assert_eq!(icon_key(1), "sun-cloud");
+        assert_eq!(icon_key(2), "cloud");
+        assert_eq!(icon_key(63), "rain");
+        assert_eq!(icon_key(75), "snow");
+        assert_eq!(icon_key(95), "storm");
     }
 }
