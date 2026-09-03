@@ -3,6 +3,7 @@ import { Icons, SvgIcon } from "icons.slint";
 
 export struct EventItem {
     id: int,
+    occurrence-date: string,
     title: string,
     time-text: string,
     meta-text: string,
@@ -79,7 +80,7 @@ export component SidePanel inherits Rectangle {
     in property <[string]> calendar-names;
     in-out property <int> selected-section: 0;
     callback request-add(string);
-    callback open-event(int);
+    callback open-event(int, string);
     callback open-note(int);
     callback add-event(string, string, string, string, int);
     callback delete-event(int);
@@ -125,7 +126,7 @@ export component SidePanel inherits Rectangle {
         }
         Rectangle { height: Theme.space-3; }
         if root.selected-section == 0: SectionTitle { text: "今日日程"; }
-        for event in events-for-day: AgendaRow { visible: root.selected-section == 0; event: event; open => { root.open-event(event.id); } }
+        for event in events-for-day: AgendaRow { visible: root.selected-section == 0; event: event; open => { root.open-event(event.id, event.occurrence-date); } }
         if root.selected-section == 0 && events-for-day.length == 0: Text { text: "今天没有安排"; color: Theme.text-3; font-size: Theme.font-12; }
         if root.selected-section == 1: SectionTitle { text: "今日待办"; meta: todos-for-day.length + " 项"; }
         for todo in todos-for-day: TodoRow { visible: root.selected-section == 1; todo: todo; toggle => { root.toggle-todo(todo.id); } }

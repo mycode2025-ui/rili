@@ -58,9 +58,61 @@ pub(crate) fn register_quick_panel_callbacks(
     }
     {
         let ui_weak = ui.as_weak();
+        let widget_weak = widget.as_weak();
         let quick_weak = quick_panel.as_weak();
-        quick_panel.on_open_event(move |id| {
+        let state = state.clone();
+        quick_panel.on_prev_month(move || {
+            shift_month(&state, -1);
+            if let (Some(ui), Some(widget), Some(quick)) = (
+                ui_weak.upgrade(),
+                widget_weak.upgrade(),
+                quick_weak.upgrade(),
+            ) {
+                refresh_all(&ui, &widget, &state);
+                sync_quick_panel(&quick, &ui, &widget);
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let widget_weak = widget.as_weak();
+        let quick_weak = quick_panel.as_weak();
+        let state = state.clone();
+        quick_panel.on_next_month(move || {
+            shift_month(&state, 1);
+            if let (Some(ui), Some(widget), Some(quick)) = (
+                ui_weak.upgrade(),
+                widget_weak.upgrade(),
+                quick_weak.upgrade(),
+            ) {
+                refresh_all(&ui, &widget, &state);
+                sync_quick_panel(&quick, &ui, &widget);
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let widget_weak = widget.as_weak();
+        let quick_weak = quick_panel.as_weak();
+        let state = state.clone();
+        quick_panel.on_goto_today(move || {
+            goto_today(&state);
+            if let (Some(ui), Some(widget), Some(quick)) = (
+                ui_weak.upgrade(),
+                widget_weak.upgrade(),
+                quick_weak.upgrade(),
+            ) {
+                refresh_all(&ui, &widget, &state);
+                sync_quick_panel(&quick, &ui, &widget);
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let quick_weak = quick_panel.as_weak();
+        quick_panel.on_open_event(move |id, occurrence_date| {
             if let (Some(ui), Some(quick)) = (ui_weak.upgrade(), quick_weak.upgrade()) {
+                ui.set_event_open_date_hint(occurrence_date);
                 ui.invoke_open_event(id);
                 show_and_focus_main_window(&ui);
                 let _ = quick.hide();

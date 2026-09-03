@@ -257,7 +257,7 @@ pub(crate) fn register_widget_bridge_callbacks(
         let ui_weak = ui.as_weak();
         let widget_weak = widget.as_weak();
         let state = state.clone();
-        widget.on_open_main_view(move |kind, id| {
+        widget.on_open_main_view(move |kind, id, occurrence_date| {
             let mode = match kind.as_str() {
                 "calendar" => 0,
                 "todo" => 4,
@@ -271,6 +271,7 @@ pub(crate) fn register_widget_bridge_callbacks(
                 refresh_all(&ui, &widget, &state);
                 show_and_focus_main_window(&ui);
                 if kind.as_str() == "event" && id > 0 {
+                    ui.set_event_open_date_hint(occurrence_date);
                     ui.invoke_open_event(id);
                 }
             }

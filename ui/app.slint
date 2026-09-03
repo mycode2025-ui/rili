@@ -182,13 +182,17 @@ export component AppWindow inherits Window {
     in-out property <string> editor-calendar-name: "默认";
     in-out property <int> editor-duration: 60;
     in-out property <string> editor-error: "";
+    in-out property <string> editor-occurrence-date: "";
+    in-out property <string> event-open-date-hint: "";
+    in-out property <bool> editor-can-delete: false;
+    in-out property <bool> editor-is-repeating: false;
     in-out property <bool> todo-add-open: false;
     in-out property <string> todo-add-target: "normal";
     in-out property <string> todo-draft-title: "";
     in-out property <bool> calendar-add-open: false;
     in-out property <string> calendar-draft-name: "";
-    in-out property <bool> local-delete-open: false;
-    in-out property <string> local-delete-scope: "day";
+    in-out property <bool> event-delete-open: false;
+    in-out property <string> event-delete-scope: "occurrence";
 
     callback prev-month();
     callback next-month();
@@ -236,8 +240,7 @@ export component AppWindow inherits Window {
     callback move-todo-status(int, string);
     callback add-todo-target(string, string);
     callback add-event(string, string, string, string, int);
-    callback delete-event(int);
-    callback delete-local-events(string);
+    callback delete-event-occurrence(int, string, string);
     callback add-todo(string);
     callback toggle-todo(int);
     callback delete-todo(int);
@@ -289,6 +292,9 @@ export component AppWindow inherits Window {
         root.editor-calendar-name = "默认";
         root.editor-duration = 60;
         root.editor-error = "";
+        root.editor-occurrence-date = root.new-event-date-default;
+        root.editor-can-delete = false;
+        root.editor-is-repeating = false;
         root.new-event-open = true;
     }
 
@@ -562,13 +568,6 @@ export component AppWindow inherits Window {
                                 show-icon: true;
                                 clicked => { root.open-new-event-editor(); }
                             }
-                            if view-mode == 0: GhostButton {
-                                text: "清理本地";
-                                clicked => {
-                                    root.local-delete-scope = "day";
-                                    root.local-delete-open = true;
-                                }
-                            }
                             Rectangle {
                                 width: 206px; height: 32px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface-2;
                                 HorizontalLayout {
@@ -647,7 +646,7 @@ export component AppWindow inherits Window {
                                     week-starts-sunday: week-starts-sunday; show-week-numbers: show-week-numbers;
                                     prev-month => { prev-month(); } next-month => { next-month(); }
                                     goto-today => { goto-today(); } select-day(d) => { select-day(d); }
-                                    open-event(id) => { root.open-event(id); }
+                                    open-event(id, date) => { root.event-open-date-hint = date; root.open-event(id); }
                                 }
                             }
                         }
@@ -662,7 +661,7 @@ export component AppWindow inherits Window {
                                     current-time-text: root.current-time-text;
                                     prev-week => { prev-week(); } next-week => { next-week(); }
                                     goto-today => { goto-today(); } select-date(y, m, d) => { select-date(y, m, d); }
-                                    open-event(id) => { root.open-event(id); }
+                                    open-event(id, date) => { root.event-open-date-hint = date; root.open-event(id); }
                                 }
                             }
                         }
@@ -689,7 +688,7 @@ export component AppWindow inherits Window {
                                 add-event => { root.open-new-event-editor(); }
                                 add-todo => { root.set-view-mode(4); }
                                 add-countdown => { root.set-view-mode(8); root.action-message = "请在记录页添加倒数日"; }
-                                open-event(id) => { root.open-event(id); }
+                                open-event(id, date) => { root.event-open-date-hint = date; root.open-event(id); }
                                 open-countdown => { root.set-view-mode(8); }
                             }
                         }
@@ -715,7 +714,7 @@ export component AppWindow inherits Window {
                             habits: habits;
                             calendars: calendars;
                             calendar-names: calendar-names;
-                            open-event(id) => { root.open-event(id); }
+                            open-event(id, date) => { root.event-open-date-hint = date; root.open-event(id); }
                             open-note(id) => { root.set-view-mode(11); }
                             request-add(kind) => {
                                 if (kind == "event") { root.open-new-event-editor(); }
@@ -723,7 +722,6 @@ export component AppWindow inherits Window {
                                 else { root.add-note("新便签", ""); root.set-view-mode(11); }
                             }
                             add-event(t, r, m, c, cal) => { add-event(t, r, m, c, cal); }
-                            delete-event(id) => { delete-event(id); }
                             add-todo(t) => { add-todo(t); }
                             toggle-todo(id) => { toggle-todo(id); }
                             delete-todo(id) => { delete-todo(id); }
@@ -1111,61 +1109,6 @@ export component AppWindow inherits Window {
             }
         }
     }
-    if local-delete-open: Rectangle {
-        width: parent.width; height: parent.height; background: Theme.bg-scrim;
-        TouchArea { clicked => { root.local-delete-open = false; } }
-        Rectangle {
-            x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
-            width: 350px; height: 264px; border-radius: Theme.r-xl;
-            border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface;
-            drop-shadow-color: Theme.shadow-3-color-a; drop-shadow-blur: Theme.shadow-3-blur-a; drop-shadow-offset-y: Theme.shadow-3-y-a;
-            TouchArea { }
-            VerticalLayout {
-                padding: Theme.space-4; spacing: Theme.space-2;
-                HorizontalLayout {
-                    height: 32px; cross-axis-alignment: center;
-                    SvgIcon { source: Icons.trash; size: 19px; tint: Theme.danger; }
-                    Rectangle { width: Theme.space-2; }
-                    Text { text: "删除本地事项"; color: Theme.text-1; font-size: Theme.font-16; font-weight: 700; vertical-alignment: center; horizontal-stretch: 1; }
-                    IconButton { icon: Icons.close; size: 30px; borderless: true; clicked => { root.local-delete-open = false; } }
-                }
-                Text {
-                    text: "仅删除本地事项；共享、导入和订阅不受影响。";
-                    color: Theme.text-2; font-size: Theme.font-12; wrap: word-wrap;
-                }
-                VerticalLayout {
-                    spacing: Theme.space-2;
-                    GhostButton {
-                        height: 36px; text: "仅删除当天（" + root.selected-date-text + "）";
-                        selected: root.local-delete-scope == "day";
-                        clicked => { root.local-delete-scope = "day"; }
-                    }
-                    GhostButton {
-                        height: 36px; text: "删除全部本地事项";
-                        selected: root.local-delete-scope == "all";
-                        clicked => { root.local-delete-scope = "all"; }
-                    }
-                }
-                Text {
-                    text: root.local-delete-scope == "day" ? "重复事项只跳过当天，不会删除整组。" : "该操作不可撤销，建议先导出备份。";
-                    color: root.local-delete-scope == "all" ? Theme.danger : Theme.text-3;
-                    font-size: Theme.font-11;
-                }
-                HorizontalLayout {
-                    height: 32px; spacing: Theme.space-2;
-                    Rectangle { horizontal-stretch: 1; }
-                    GhostButton { text: "取消"; clicked => { root.local-delete-open = false; } }
-                    DangerGhostButton {
-                        height: 32px; min-width: 92px; text: "确认删除";
-                        clicked => {
-                            root.delete-local-events(root.local-delete-scope);
-                            root.local-delete-open = false;
-                        }
-                    }
-                }
-            }
-        }
-    }
     if todo-add-open: Rectangle {
         width: parent.width; height: parent.height; background: Theme.bg-scrim;
         TouchArea { clicked => { root.todo-add-open = false; } }
@@ -1224,6 +1167,8 @@ export component AppWindow inherits Window {
             draft-calendar-id: root.editor-calendar-id;
             draft-calendar-name: root.editor-calendar-name;
             draft-duration: root.editor-duration;
+            editing: root.editing-event-id > 0;
+            can-delete: root.editor-can-delete;
             validation-message: root.editor-error;
             calendars: root.calendars;
             picker-year <=> root.picker-year; picker-month <=> root.picker-month; picker-day <=> root.picker-day;
@@ -1238,6 +1183,68 @@ export component AppWindow inherits Window {
                 }
             }
             cancel => { root.editor-error = ""; root.new-event-open = false; }
+            request-delete => {
+                root.event-delete-scope = "occurrence";
+                root.event-delete-open = true;
+            }
+        }
+    }
+
+    if event-delete-open: Rectangle {
+        width: parent.width; height: parent.height; background: Theme.bg-scrim;
+        TouchArea { clicked => { root.event-delete-open = false; } }
+        Rectangle {
+            x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+            width: 380px; height: root.editor-is-repeating ? 270px : 220px;
+            border-radius: Theme.r-xl; border-width: 1px;
+            border-color: Theme.border-default; background: Theme.bg-surface;
+            drop-shadow-color: Theme.shadow-3-color-a; drop-shadow-blur: Theme.shadow-3-blur-a; drop-shadow-offset-y: Theme.shadow-3-y-a;
+            TouchArea { }
+            VerticalLayout {
+                padding: Theme.space-4; spacing: Theme.space-2;
+                HorizontalLayout {
+                    height: 32px; cross-axis-alignment: center;
+                    SvgIcon { source: Icons.trash; size: 19px; tint: Theme.danger; }
+                    Rectangle { width: Theme.space-2; }
+                    Text { text: "删除日程"; color: Theme.text-1; font-size: Theme.font-16; font-weight: 700; vertical-alignment: center; horizontal-stretch: 1; }
+                    IconButton { icon: Icons.close; size: 30px; borderless: true; clicked => { root.event-delete-open = false; } }
+                }
+                Text { text: root.editor-title; color: Theme.text-1; font-size: Theme.font-13; font-weight: 600; overflow: elide; }
+                Text { text: root.editor-occurrence-date; color: Theme.text-3; font-size: Theme.font-11; }
+                VerticalLayout {
+                    spacing: Theme.space-2;
+                    GhostButton {
+                        height: 36px;
+                        text: root.editor-is-repeating ? "仅删除当天" : "删除这条日程";
+                        selected: root.event-delete-scope == "occurrence";
+                        clicked => { root.event-delete-scope = "occurrence"; }
+                    }
+                    if root.editor-is-repeating: GhostButton {
+                        height: 36px; text: "删除当天及后续所有日程";
+                        selected: root.event-delete-scope == "future";
+                        clicked => { root.event-delete-scope = "future"; }
+                    }
+                }
+                Text {
+                    text: root.editor-is-repeating ? (root.event-delete-scope == "future" ? "这一天和之后的重复日程都将删除。" : "只跳过这一天，其他重复日期保持不变。") : "此操作只影响当前本地日程。";
+                    color: root.event-delete-scope == "future" ? Theme.danger : Theme.text-3;
+                    font-size: Theme.font-11;
+                }
+                Rectangle { vertical-stretch: 1; }
+                HorizontalLayout {
+                    height: 32px; spacing: Theme.space-2;
+                    Rectangle { horizontal-stretch: 1; }
+                    GhostButton { text: "取消"; clicked => { root.event-delete-open = false; } }
+                    DangerGhostButton {
+                        height: 32px; min-width: 92px; text: "确认删除";
+                        clicked => {
+                            root.delete-event-occurrence(root.editing-event-id, root.editor-occurrence-date, root.event-delete-scope);
+                            root.event-delete-open = false;
+                            root.new-event-open = false;
+                        }
+                    }
+                }
+            }
         }
     }
 }

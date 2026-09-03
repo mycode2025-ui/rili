@@ -484,7 +484,7 @@ export component WidgetWindow inherits Window {
     callback close-widget();
     callback pin-changed(bool);
     callback open-widget-settings(string);
-    callback open-main-view(string, int);
+    callback open-main-view(string, int, string);
     callback focus-toggle();
     callback focus-start();
     callback focus-complete();
@@ -528,7 +528,7 @@ export component WidgetWindow inherits Window {
                     for col in 7: WidgetDay {
                         day: days[week * 7 + col];
                         selected: days[week * 7 + col].day == selected-day && days[week * 7 + col].in-current-month;
-                        clicked => { root.select-day(days[week * 7 + col].day); root.open-main-view("calendar", days[week * 7 + col].day); }
+                        clicked => { root.select-day(days[week * 7 + col].day); root.open-main-view("calendar", days[week * 7 + col].day, ""); }
                     }
                 }
             }
@@ -553,7 +553,7 @@ export component WidgetWindow inherits Window {
                     visible: i < 4;
                     event: event;
                     current-minutes: root.current-minutes;
-                    clicked => { root.open-main-view("event", event.id); }
+                    clicked => { root.open-main-view("event", event.id, event.occurrence-date); }
                 }
                 if today-events.length == 0: Text { text: "今天没有安排"; color: Theme.widget-text-3; font-size: Theme.font-11; horizontal-alignment: center; }
                 Rectangle {
@@ -566,7 +566,7 @@ export component WidgetWindow inherits Window {
                         SvgIcon { source: Icons.arrow-right; size: 14px; tint: Theme.widget-text-3; }
                         Text { text: "在 TimeHub 中查看全部 " + today-events.length + " 项"; color: Theme.widget-text-3; font-size: Theme.font-11; vertical-alignment: center; }
                     }
-                    more-touch := TouchArea { mouse-cursor: pointer; clicked => { root.open-main-view("today", 0); } }
+                    more-touch := TouchArea { mouse-cursor: pointer; clicked => { root.open-main-view("today", 0, ""); } }
                 }
             }
         }
@@ -589,7 +589,7 @@ export component WidgetWindow inherits Window {
                 for item[i] in countdowns: CountdownRow {
                     visible: i < 3;
                     item: item;
-                    clicked => { root.open-main-view("countdown", item.id); }
+                    clicked => { root.open-main-view("countdown", item.id, ""); }
                 }
                 if countdowns.length == 0: Text { text: "暂无倒数日"; color: Theme.widget-text-3; font-size: Theme.font-11; horizontal-alignment: center; }
             }
@@ -626,7 +626,7 @@ export component WidgetWindow inherits Window {
             }
             Text { x: 16px; y: 147px; text: root.day-progress-text; color: Theme.widget-text-2; font-size: Theme.font-11; font-weight: 500; }
             Text { x: 160px; y: 147px; width: 128px; text: root.day-remaining-text; horizontal-alignment: right; color: Theme.widget-text-2; font-size: Theme.font-11; }
-            TouchArea { x: 0px; y: 40px; width: parent.width; height: parent.height - 40px; mouse-cursor: pointer; clicked => { root.open-main-view("today", 0); } }
+            TouchArea { x: 0px; y: 40px; width: parent.width; height: parent.height - 40px; mouse-cursor: pointer; clicked => { root.open-main-view("today", 0, ""); } }
         }
 
         DesktopCard {

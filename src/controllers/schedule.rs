@@ -55,7 +55,29 @@ pub(crate) fn register_schedule_callbacks(
                 (event, calendar_name)
             };
             if let (Some(ui), Some(event)) = (ui_weak.upgrade(), event) {
+                let hinted_date = ui.get_event_open_date_hint().to_string();
+                ui.set_event_open_date_hint("".into());
+                let occurrence_date = NaiveDate::parse_from_str(&hinted_date, "%Y-%m-%d")
+                    .ok()
+                    .filter(|date| {
+                        NaiveDate::parse_from_str(&event.date, "%Y-%m-%d")
+                            .ok()
+                            .is_some_and(|base| {
+                                recurrence::occurrences_in_range(
+                                    base,
+                                    recurrence::RepeatRule::parse(&event.repeat_rule),
+                                    *date,
+                                    *date,
+                                )
+                                .contains(date)
+                            })
+                    })
+                    .map(|date| date.to_string())
+                    .unwrap_or_else(|| event.date.clone());
                 ui.set_editing_event_id(id);
+                ui.set_editor_occurrence_date(occurrence_date.into());
+                ui.set_editor_can_delete(event.source_kind == "local");
+                ui.set_editor_is_repeating(event.repeat_rule != "none");
                 ui.set_editor_title(event.title.into());
                 ui.set_editor_date(event.date.into());
                 ui.set_editor_time(event.time.unwrap_or_default().into());

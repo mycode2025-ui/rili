@@ -7,6 +7,7 @@ export struct EventTag {
 }
 
 export struct CalendarDay {
+    date: string,
     day: int,
     in-current-month: bool,
     is-today: bool,
@@ -29,7 +30,7 @@ component DayCell inherits Rectangle {
     in property <bool> selected;
     in property <bool> transparent-background: false;
     callback clicked <=> touch.clicked;
-    callback open-event(int);
+    callback open-event(int, string);
 
     border-radius: 0px;
     border-width: 1px;
@@ -96,7 +97,7 @@ component DayCell inherits Rectangle {
             border-width: 1px;
             border-color: tag.color;
             background: tag.color.with-alpha(15%);
-            TouchArea { mouse-cursor: pointer; clicked => { root.open-event(tag.id); } }
+            TouchArea { mouse-cursor: pointer; clicked => { root.open-event(tag.id, root.data.date); } }
             HorizontalLayout {
                 padding-left: 4px;
                 padding-right: 4px;
@@ -135,7 +136,7 @@ export component CalendarView inherits Rectangle {
     callback next-month();
     callback goto-today();
     callback select-day(int);
-    callback open-event(int);
+    callback open-event(int, string);
 
     background: transparent-background ? transparent : Theme.panel-bg;
     border-radius: Theme.radius-lg;
@@ -205,7 +206,7 @@ export component CalendarView inherits Rectangle {
                         select-day(days[week-index * 7 + col].day);
                     }
                 }
-                open-event(id) => { root.open-event(id); }
+                open-event(id, date) => { root.open-event(id, date); }
             }
         }
     }

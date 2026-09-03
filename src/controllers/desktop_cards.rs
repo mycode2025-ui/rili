@@ -170,9 +170,9 @@ pub(crate) fn register_desktop_card_callbacks(
     macro_rules! forward_widget_main_view {
         ($window:expr) => {{
             let widget_weak = widget.as_weak();
-            $window.on_open_main_view(move |kind, id| {
+            $window.on_open_main_view(move |kind, id, occurrence_date| {
                 if let Some(widget) = widget_weak.upgrade() {
-                    widget.invoke_open_main_view(kind, id);
+                    widget.invoke_open_main_view(kind, id, occurrence_date);
                 }
             });
         }};

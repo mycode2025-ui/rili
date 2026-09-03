@@ -95,7 +95,7 @@ export component WeekView inherits Rectangle {
     callback next-week();
     callback goto-today();
     callback select-date(int, int, int);
-    callback open-event(int);
+    callback open-event(int, string);
 
     background: Theme.panel-bg;
     border-radius: Theme.radius-lg;
@@ -141,7 +141,7 @@ export component WeekView inherits Rectangle {
                         height: 22px;
                         border-radius: Theme.radius-sm;
                         background: e.color;
-                        TouchArea { mouse-cursor: pointer; clicked => { root.open-event(e.id); } }
+                        TouchArea { mouse-cursor: pointer; clicked => { root.open-event(e.id, e.occurrence-date); } }
                         Text { x: 6px; width: parent.width - 12px; text: e.title; color: Theme.on-accent; font-size: Theme.font-11; vertical-alignment: center; overflow: elide; }
                     }
                 }
@@ -188,7 +188,7 @@ export component WeekView inherits Rectangle {
                             visible: !e.all-day;
                             data: e;
                             column-width: parent.width;
-                            clicked => { root.open-event(e.id); }
+                            clicked => { root.open-event(e.id, e.occurrence-date); }
                         }
                     }
                 }

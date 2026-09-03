@@ -577,6 +577,9 @@ pub(crate) fn open_full_event_editor(ui: &AppWindow, date: NaiveDate) {
     ui.set_editor_calendar_name("默认".into());
     ui.set_editor_duration(60);
     ui.set_editor_error("".into());
+    ui.set_editor_occurrence_date(date.to_string().into());
+    ui.set_editor_can_delete(false);
+    ui.set_editor_is_repeating(false);
     ui.set_new_event_open(true);
     show_and_focus_main_window(ui);
 }

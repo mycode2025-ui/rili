@@ -164,6 +164,7 @@ pub(crate) fn to_ui_event_occ(
         .unwrap_or((0, true));
     EventItem {
         id: occ.event.id as i32,
+        occurrence_date: occ.occurrence_date.clone().into(),
         title: occ.event.title.clone().into(),
         time_text: occ.event.time.clone().unwrap_or_default().into(),
         meta_text: event_meta_text(occ).into(),
@@ -441,6 +442,7 @@ pub(crate) fn build_month_days(
             })
             .collect();
         days.push(CalendarDay {
+            date: date_str.into(),
             day: date.day() as i32,
             in_current_month: date.month() == month && date.year() == year,
             is_today: date == today,

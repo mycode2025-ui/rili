@@ -65,6 +65,8 @@ component ReminderChip inherits Rectangle {
 }
 
 export component NewEventDialog inherits Rectangle {
+    in property <bool> editing: false;
+    in property <bool> can-delete: false;
     in-out property <string> draft-title: "研发周会";
     in-out property <string> draft-date: "明天";
     in-out property <string> draft-time: "15:00";
@@ -95,6 +97,7 @@ export component NewEventDialog inherits Rectangle {
     callback parse(string);
     callback save(string, string, string, string, string, string, int, int);
     callback cancel();
+    callback request-delete();
     callback prepare-date-picker(string);
     callback prepare-time-picker(string);
     callback drag-requested();
@@ -116,7 +119,7 @@ export component NewEventDialog inherits Rectangle {
             }
             HorizontalLayout {
                 padding-left: 18px; padding-right: 18px;
-                Text { text: "新建日程"; color: Theme.text-1; font-size: Theme.font-15; font-weight: 600; vertical-alignment: center; horizontal-stretch: 1; }
+                Text { text: root.editing ? "编辑日程" : "新建日程"; color: Theme.text-1; font-size: Theme.font-15; font-weight: 600; vertical-alignment: center; horizontal-stretch: 1; }
                 Rectangle { width: 28px; height: 28px; border-radius: Theme.r-md; SvgIcon { source: Icons.close; size: 14px; tint: Theme.text-2; x: 7px; y: 7px; } TouchArea { mouse-cursor: pointer; clicked => { root.cancel(); } } }
             }
         }
@@ -182,6 +185,11 @@ export component NewEventDialog inherits Rectangle {
             height: 60px; border-width: 1px; border-color: Theme.border-subtle; background: Theme.bg-surface-2;
             HorizontalLayout {
                 padding-left: 18px; padding-right: 18px; spacing: Theme.space-2;
+                if root.editing && root.can-delete: Rectangle {
+                    width: 58px; height: 30px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.danger; background: Theme.bg-surface;
+                    Text { text: "删除"; color: Theme.danger; font-size: Theme.font-12-5; horizontal-alignment: center; vertical-alignment: center; }
+                    TouchArea { mouse-cursor: pointer; clicked => { root.request-delete(); } }
+                }
                 Rectangle { horizontal-stretch: 1; }
                 Rectangle { width: 54px; height: 30px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface; Text { text: "取消"; color: Theme.text-1; font-size: Theme.font-12-5; horizontal-alignment: center; vertical-alignment: center; } TouchArea { clicked => { root.cancel(); } } }
                 Rectangle { width: 54px; height: 30px; border-radius: Theme.r-md; background: Theme.accent; Text { text: "保存"; color: Theme.on-accent; font-size: Theme.font-12-5; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; } TouchArea { clicked => {

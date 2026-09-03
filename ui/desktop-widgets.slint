@@ -164,7 +164,7 @@ export component CalendarWidgetWindow inherits Window {
     callback toggle-window-size();
     callback pin-changed(bool);
     callback open-widget-settings(string);
-    callback open-main-view(string, int);
+    callback open-main-view(string, int, string);
     callback select-day(int);
     callback request-new-event();
     callback remove-widget();
@@ -209,7 +209,7 @@ export component CalendarWidgetWindow inherits Window {
                     selected: root.days[week * 7 + col].day == root.selected-day && root.days[week * 7 + col].in-current-month;
                     clicked => {
                         root.select-day(root.days[week * 7 + col].day);
-                        root.open-main-view("calendar", root.days[week * 7 + col].day);
+                        root.open-main-view("calendar", root.days[week * 7 + col].day, "");
                     }
                 }
             }
@@ -255,9 +255,9 @@ export component CalendarWidgetWindow inherits Window {
                 selected-day: root.selected-day;
                 select-day(day) => {
                     root.select-day(day);
-                    root.open-main-view("calendar", day);
+                    root.open-main-view("calendar", day, "");
                 }
-                open-event(id) => { root.open-main-view("event", id); }
+                open-event(id, date) => { root.open-main-view("event", id, date); }
             }
         }
     }
@@ -302,7 +302,7 @@ export component EventsWidgetWindow inherits Window {
     callback end-window-drag();
     callback pin-changed(bool);
     callback open-widget-settings(string);
-    callback open-main-view(string, int);
+    callback open-main-view(string, int, string);
     callback request-new-event();
     callback remove-widget();
     callback begin-window-resize();
@@ -333,13 +333,13 @@ export component EventsWidgetWindow inherits Window {
                     for event in root.today-events: EventRow {
                         event: event;
                         current-minutes: root.current-minutes;
-                        clicked => { root.open-main-view("event", event.id); }
+                        clicked => { root.open-main-view("event", event.id, event.occurrence-date); }
                     }
                     if root.today-events.length == 0: Text { height: 28px; text: "今天没有安排"; color: Theme.widget-text-3; font-size: Theme.font-11; horizontal-alignment: center; vertical-alignment: center; }
                     if root.upcoming-events.length > 0: Text { height: 18px; text: "接下来"; color: Theme.widget-text-3; font-size: Theme.font-10-5; font-weight: 600; vertical-alignment: center; }
                     for event in root.upcoming-events: FutureEventRow {
                         event: event;
-                        clicked => { root.open-main-view("event", event.id); }
+                        clicked => { root.open-main-view("event", event.id, event.occurrence-date); }
                     }
                 }
             }
@@ -358,7 +358,7 @@ export component EventsWidgetWindow inherits Window {
                         vertical-alignment: center;
                     }
                 }
-                more-touch := TouchArea { mouse-cursor: pointer; clicked => { root.open-main-view("today", 0); } }
+                more-touch := TouchArea { mouse-cursor: pointer; clicked => { root.open-main-view("today", 0, ""); } }
             }
         }
     }
@@ -390,7 +390,7 @@ export component CountdownWidgetWindow inherits Window {
     callback end-window-drag();
     callback pin-changed(bool);
     callback open-widget-settings(string);
-    callback open-main-view(string, int);
+    callback open-main-view(string, int, string);
     callback create-countdown(string, string);
     callback remove-widget();
 
@@ -415,7 +415,7 @@ export component CountdownWidgetWindow inherits Window {
             for item[i] in root.countdowns: CountdownRow {
                 visible: i < 3;
                 item: item;
-                clicked => { root.open-main-view("countdown", item.id); }
+                clicked => { root.open-main-view("countdown", item.id, ""); }
             }
             if root.countdowns.length == 0: Text {
                 text: "暂无倒数日";
@@ -461,7 +461,7 @@ export component ClockWidgetWindow inherits Window {
     callback end-window-drag();
     callback pin-changed(bool);
     callback open-widget-settings(string);
-    callback open-main-view(string, int);
+    callback open-main-view(string, int, string);
     callback create-reminder(string, string);
     callback remove-widget();
 
@@ -500,7 +500,7 @@ export component ClockWidgetWindow inherits Window {
         }
         Text { x: 16px; y: 147px; text: root.day-progress-text; color: Theme.widget-text-2; font-size: Theme.font-11; font-weight: 500; }
         Text { x: 160px; y: 147px; width: 128px; text: root.day-remaining-text; horizontal-alignment: right; color: Theme.widget-text-2; font-size: Theme.font-11; }
-        TouchArea { x: 0px; y: 40px; width: parent.width; height: parent.height - 40px; mouse-cursor: pointer; clicked => { root.open-main-view("today", 0); } }
+        TouchArea { x: 0px; y: 40px; width: parent.width; height: parent.height - 40px; mouse-cursor: pointer; clicked => { root.open-main-view("today", 0, ""); } }
         if root.create-open: WidgetCreatePanel {
             x: 10px; y: 40px; width: parent.width - 20px; height: parent.height - 50px;
             heading: "新建提醒"; title-label: "提醒内容"; detail-label: "时间";

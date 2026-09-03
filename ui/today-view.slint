@@ -132,7 +132,7 @@ export component TodayView inherits Rectangle {
     callback add-event();
     callback add-todo();
     callback add-countdown();
-    callback open-event(int);
+    callback open-event(int, string);
     callback open-countdown();
     background: Theme.bg-app;
     min-width: 0px;
@@ -198,7 +198,7 @@ export component TodayView inherits Rectangle {
                             width: 100%; height: 100%;
                             VerticalLayout {
                                 width: 100%; padding: Theme.space-3; spacing: 0px;
-                                for event in events: TodayEventRow { event: event; clicked => { root.open-event(event.id); } }
+                                for event in events: TodayEventRow { event: event; clicked => { root.open-event(event.id, event.occurrence-date); } }
                                 if events.length == 0: Text { height: 40px; text: "今天没有安排"; color: Theme.text-3; font-size: Theme.font-12; horizontal-alignment: center; vertical-alignment: center; }
                             }
                         }

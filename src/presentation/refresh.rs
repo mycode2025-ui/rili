@@ -90,6 +90,7 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
                 .collect();
             let extra_count = day_occs.len().saturating_sub(MAX_TAGS) as i32;
             days.push(CalendarDay {
+                date: date_str.into(),
                 day: date.day() as i32,
                 in_current_month: date.month() == month && date.year() == year,
                 is_today: date == today,

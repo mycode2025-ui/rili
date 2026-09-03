@@ -107,7 +107,7 @@ pub fn open() -> Result<Connection> {
         );
         CREATE INDEX IF NOT EXISTS idx_event_sources_subscription ON event_sources(subscription_id);
 
-        -- 重复日程按天删除时只记录例外，不破坏整组重复规则。
+        -- 普通日期表示跳过单次发生；from:YYYY-MM-DD 表示从该次起截断重复序列。
         CREATE TABLE IF NOT EXISTS event_exceptions (
             event_id        INTEGER NOT NULL,
             occurrence_date TEXT NOT NULL,
@@ -1016,14 +1016,33 @@ pub fn list_event_occurrences(
         .query_map(params![start.to_string(), end.to_string()], row_to_event)?
         .collect::<rusqlite::Result<Vec<_>>>()?;
 
+    // Exact ISO dates skip one occurrence. A `from:YYYY-MM-DD` marker truncates
+    // a recurring series immediately before that occurrence without changing
+    // the recurrence rule or manufacturing a large number of future rows.
     let mut exception_stmt = conn.prepare(
-        "SELECT event_id, occurrence_date FROM event_exceptions WHERE occurrence_date BETWEEN ?1 AND ?2",
+        "SELECT event_id, occurrence_date FROM event_exceptions \
+         WHERE occurrence_date BETWEEN ?1 AND ?2 OR occurrence_date LIKE 'from:%'",
     )?;
-    let exceptions = exception_stmt
+    let exception_rows = exception_stmt
         .query_map(params![start.to_string(), end.to_string()], |row| {
             Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
         })?
-        .collect::<rusqlite::Result<std::collections::HashSet<_>>>()?;
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    let mut exact_exceptions = std::collections::HashSet::new();
+    let mut series_cutoffs: std::collections::HashMap<i64, NaiveDate> =
+        std::collections::HashMap::new();
+    for (event_id, value) in exception_rows {
+        if let Some(date) = value.strip_prefix("from:") {
+            if let Ok(date) = NaiveDate::parse_from_str(date, "%Y-%m-%d") {
+                series_cutoffs
+                    .entry(event_id)
+                    .and_modify(|current| *current = (*current).min(date))
+                    .or_insert(date);
+            }
+        } else {
+            exact_exceptions.insert((event_id, value));
+        }
+    }
 
     let mut out = Vec::new();
     for event in events {
@@ -1032,7 +1051,11 @@ pub fn list_event_occurrences(
         };
         let rule = crate::recurrence::RepeatRule::parse(&event.repeat_rule);
         for occ in crate::recurrence::occurrences_in_range(base, rule, start, end) {
-            if exceptions.contains(&(event.id, occ.to_string())) {
+            if series_cutoffs
+                .get(&event.id)
+                .is_some_and(|cutoff| occ >= *cutoff)
+                || exact_exceptions.contains(&(event.id, occ.to_string()))
+            {
                 continue;
             }
             out.push(EventOccurrence {
@@ -1152,47 +1175,73 @@ pub fn set_event_source_kind(conn: &Connection, id: i64, source_kind: &str) -> R
     Ok(())
 }
 
-/// 只清理指定日期的本地事项。普通事项删除记录；重复事项仅跳过当天。
-pub fn delete_local_event_occurrences(conn: &Connection, date: NaiveDate) -> Result<usize> {
-    let occurrences = list_event_occurrences(conn, date, date)?;
-    let local = occurrences
-        .into_iter()
-        .filter(|occurrence| occurrence.event.source_kind == "local")
-        .collect::<Vec<_>>();
-    let tx = conn.unchecked_transaction()?;
-    for occurrence in &local {
-        if occurrence.event.repeat_rule == "none" {
-            tx.execute(
-                "DELETE FROM reminder_log WHERE event_id = ?1",
-                params![occurrence.event.id],
-            )?;
-            tx.execute(
-                "DELETE FROM events WHERE id = ?1 AND source_kind = 'local'",
-                params![occurrence.event.id],
-            )?;
-        } else {
-            tx.execute(
-                "INSERT OR IGNORE INTO event_exceptions (event_id, occurrence_date) VALUES (?1, ?2)",
-                params![occurrence.event.id, occurrence.occurrence_date],
-            )?;
-        }
-    }
-    tx.commit()?;
-    Ok(local.len())
+fn local_event_at_occurrence(
+    conn: &Connection,
+    id: i64,
+    occurrence_date: NaiveDate,
+) -> Result<Event> {
+    let event = get_event(conn, id)?.context("日程不存在")?;
+    anyhow::ensure!(event.source_kind == "local", "共享或外部日程不能在本地删除");
+    let base = NaiveDate::parse_from_str(&event.date, "%Y-%m-%d").context("日程日期无效")?;
+    let occurs = crate::recurrence::occurrences_in_range(
+        base,
+        crate::recurrence::RepeatRule::parse(&event.repeat_rule),
+        occurrence_date,
+        occurrence_date,
+    )
+    .contains(&occurrence_date);
+    anyhow::ensure!(occurs, "所选日期不是该日程的发生日期");
+    Ok(event)
 }
 
-/// 删除全部本地事项，明确保留所有非 local 来源。
-pub fn delete_all_local_events(conn: &Connection) -> Result<usize> {
+/// 删除一条本地日程的本次发生。非重复日程直接删除记录；重复日程只写入
+/// 当天例外，过去和未来的其他发生均保留。
+pub fn delete_event_occurrence(
+    conn: &Connection,
+    id: i64,
+    occurrence_date: NaiveDate,
+) -> Result<usize> {
+    let event = local_event_at_occurrence(conn, id, occurrence_date)?;
+    if event.repeat_rule == "none" {
+        return delete_event(conn, id);
+    }
     let tx = conn.unchecked_transaction()?;
     tx.execute(
-        "DELETE FROM reminder_log WHERE event_id IN (SELECT id FROM events WHERE source_kind = 'local')",
-        [],
+        "DELETE FROM reminder_log WHERE event_id = ?1 AND occurrence_date = ?2",
+        params![id, occurrence_date.to_string()],
+    )?;
+    let affected = tx.execute(
+        "INSERT OR IGNORE INTO event_exceptions (event_id, occurrence_date) VALUES (?1, ?2)",
+        params![id, occurrence_date.to_string()],
+    )?;
+    tx.commit()?;
+    Ok(affected)
+}
+
+/// 删除一条本地日程从本次开始的整个后续序列。非重复日程等同于删除该条；
+/// 重复日程使用一个持久化截止标记，避免无限枚举未来日期。
+pub fn delete_event_from_occurrence(
+    conn: &Connection,
+    id: i64,
+    occurrence_date: NaiveDate,
+) -> Result<usize> {
+    let event = local_event_at_occurrence(conn, id, occurrence_date)?;
+    if event.repeat_rule == "none" {
+        return delete_event(conn, id);
+    }
+    let tx = conn.unchecked_transaction()?;
+    tx.execute(
+        "DELETE FROM reminder_log WHERE event_id = ?1 AND occurrence_date >= ?2",
+        params![id, occurrence_date.to_string()],
     )?;
     tx.execute(
-        "DELETE FROM event_exceptions WHERE event_id IN (SELECT id FROM events WHERE source_kind = 'local')",
-        [],
+        "DELETE FROM event_exceptions WHERE event_id = ?1 AND occurrence_date LIKE 'from:%'",
+        params![id],
     )?;
-    let affected = tx.execute("DELETE FROM events WHERE source_kind = 'local'", [])?;
+    let affected = tx.execute(
+        "INSERT INTO event_exceptions (event_id, occurrence_date) VALUES (?1, ?2)",
+        params![id, format!("from:{occurrence_date}")],
+    )?;
     tx.commit()?;
     Ok(affected)
 }
@@ -2046,7 +2095,7 @@ mod tests {
     }
 
     #[test]
-    fn local_cleanup_preserves_shared_and_external_events() {
+    fn occurrence_deletion_targets_one_local_series_only() {
         let conn = Connection::open_in_memory().unwrap();
         conn.execute_batch(
             "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -2102,7 +2151,7 @@ mod tests {
             )
             .unwrap()
         };
-        make("本地一次", target, "none");
+        let local_once = make("本地一次", target, "none");
         let repeating = make("本地重复", target - chrono::Duration::days(7), "weekly");
         let shared = make("共享", target, "none");
         set_event_source_kind(&conn, shared.id, "shared").unwrap();
@@ -2111,21 +2160,47 @@ mod tests {
         let subscribed = make("订阅", target, "none");
         set_event_source_kind(&conn, subscribed.id, "subscription").unwrap();
 
-        assert_eq!(delete_event(&conn, shared.id).unwrap(), 0);
+        assert!(delete_event_occurrence(&conn, shared.id, target).is_err());
         assert!(get_event(&conn, shared.id).unwrap().is_some());
 
-        assert_eq!(delete_local_event_occurrences(&conn, target).unwrap(), 2);
+        assert_eq!(
+            delete_event_occurrence(&conn, repeating.id, target).unwrap(),
+            1
+        );
         let target_events = list_event_occurrences(&conn, target, target).unwrap();
-        assert_eq!(target_events.len(), 3);
+        assert_eq!(target_events.len(), 4);
         assert!(target_events
             .iter()
-            .all(|item| item.event.source_kind != "local"));
+            .any(|item| item.event.id == local_once.id));
+        assert!(!target_events
+            .iter()
+            .any(|item| item.event.id == repeating.id));
         assert!(get_event(&conn, repeating.id).unwrap().is_some());
 
-        assert_eq!(delete_all_local_events(&conn).unwrap(), 1);
+        let next = target + chrono::Duration::days(7);
+        assert_eq!(
+            delete_event_from_occurrence(&conn, repeating.id, next).unwrap(),
+            1
+        );
+        assert!(list_event_occurrences(&conn, next, next)
+            .unwrap()
+            .iter()
+            .all(|item| item.event.id != repeating.id));
+
+        assert_eq!(
+            delete_event_occurrence(&conn, local_once.id, target).unwrap(),
+            1
+        );
         let remaining = list_all_events(&conn).unwrap();
-        assert_eq!(remaining.len(), 3);
-        assert!(remaining.iter().all(|event| event.source_kind != "local"));
+        assert_eq!(remaining.len(), 4);
+        assert_eq!(
+            remaining
+                .iter()
+                .filter(|event| event.source_kind == "local")
+                .map(|event| event.id)
+                .collect::<Vec<_>>(),
+            vec![repeating.id]
+        );
     }
 
     fn course_test_db() -> Connection {

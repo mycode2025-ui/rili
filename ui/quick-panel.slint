@@ -5,118 +5,168 @@ import { EventItem, TodoItem } from "side-panel.slint";
 
 export { Theme }
 
-component QuickChip inherits Rectangle {
-    in property <string> label;
-    callback clicked();
-    height: 30px; border-radius: Theme.r-md; border-width: 1px;
-    border-color: touch.has-hover ? Theme.border-strong : Theme.border-default;
-    background: touch.pressed ? Theme.accent-subtle : (touch.has-hover ? Theme.bg-hover : Theme.bg-surface-2);
-    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
-    Text { text: root.label; color: Theme.text-1; font-size: Theme.font-11-5; horizontal-alignment: center; vertical-alignment: center; }
-}
-
-component QuickNavButton inherits Rectangle {
+component HeaderButton inherits Rectangle {
     in property <image> icon;
     in property <string> label;
-    in property <bool> active;
+    in property <bool> danger: false;
     callback clicked();
-    width: 44px;
-    height: 34px;
+    width: 30px;
+    height: 30px;
     border-radius: Theme.r-md;
-    background: touch.pressed ? Theme.accent-subtle : (active ? Theme.accent-subtle : (touch.has-hover ? Theme.bg-hover : transparent));
+    background: touch.pressed ? (danger ? Theme.danger-bg : Theme.accent-subtle) : (touch.has-hover ? Theme.bg-hover : transparent);
     accessible-role: button;
-    accessible-label: root.label;
+    accessible-label: label;
     touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
     SvgIcon {
         source: root.icon;
-        size: 20px;
-        tint: active ? Theme.accent : (touch.has-hover ? Theme.text-1 : Theme.text-3);
+        size: 15px;
+        tint: root.danger && touch.has-hover ? Theme.danger : (touch.has-hover ? Theme.text-1 : Theme.text-2);
         x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
     }
     if touch.has-hover: Rectangle {
-        x: (parent.width - self.width) / 2;
-        y: -34px;
-        width: 68px;
-        height: 26px;
+        x: (parent.width - 72px) / 2;
+        y: 34px;
+        width: 72px;
+        height: 25px;
         border-radius: Theme.r-md;
         background: Theme.text-1;
         drop-shadow-color: Theme.shadow-1-color-a;
         drop-shadow-blur: Theme.shadow-1-blur-a;
         drop-shadow-offset-y: Theme.shadow-1-y;
-        Text {
-            text: root.label;
-            color: Theme.bg-surface;
-            font-size: Theme.font-10-5;
-            font-weight: 600;
-            horizontal-alignment: center;
-            vertical-alignment: center;
-        }
+        Text { text: root.label; color: Theme.bg-surface; font-size: Theme.font-10; horizontal-alignment: center; vertical-alignment: center; }
     }
 }
 
-component QuickEvent inherits Rectangle {
-    in property <EventItem> event;
-    callback open();
-    height: 43px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-subtle; background: Theme.bg-surface;
-    touch := TouchArea { mouse-cursor: pointer; clicked => { root.open(); } }
-    HorizontalLayout {
-        width: 100%; height: 100%;
-        padding-left: Theme.space-2; padding-right: Theme.space-2; spacing: Theme.space-2;
-        cross-axis-alignment: center;
-        Rectangle { width: 3px; height: 28px; border-radius: 2px; background: event.color; }
-        Text { width: 34px; text: event.time-text; color: Theme.text-3; font-size: Theme.font-10; vertical-alignment: center; }
-        Text { text: event.title; color: Theme.text-1; font-size: Theme.font-11-5; overflow: elide; vertical-alignment: center; }
-    }
+component MonthButton inherits Rectangle {
+    in property <image> icon;
+    in property <string> label;
+    callback clicked();
+    width: label == "" ? 28px : 46px;
+    height: 28px;
+    border-radius: Theme.r-md;
+    background: touch.pressed ? Theme.accent-subtle : (touch.has-hover ? Theme.bg-hover : transparent);
+    accessible-role: button;
+    accessible-label: label == "" ? "切换月份" : label;
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    if label == "": SvgIcon { source: root.icon; size: 14px; tint: touch.has-hover ? Theme.accent : Theme.text-2; x: 7px; y: 7px; }
+    if label != "": Text { text: root.label; color: touch.has-hover ? Theme.accent : Theme.text-2; font-size: Theme.font-11; horizontal-alignment: center; vertical-alignment: center; }
 }
 
-component QuickTodo inherits Rectangle {
-    in property <TodoItem> todo;
-    callback toggle();
-    height: 44px;
-    touch := TouchArea { mouse-cursor: pointer; clicked => { toggle(); } }
-    HorizontalLayout {
-        width: 100%; height: 100%;
-        padding-left: Theme.space-2; spacing: Theme.space-2;
-        cross-axis-alignment: center;
-        Rectangle {
-            width: 16px; height: 16px; border-radius: 5px; border-width: todo.done ? 0px : 1px; border-color: Theme.border-strong; background: todo.done ? Theme.accent : transparent;
-            if todo.done: SvgIcon { source: Icons.check; size: 11px; tint: Theme.on-accent; x: 2.5px; y: 2.5px; }
-        }
-        Text { text: todo.title; color: todo.done ? Theme.text-disabled : Theme.text-1; font-size: Theme.font-12; overflow: elide; vertical-alignment: center; }
-    }
-}
-
-component PanelDay inherits Rectangle {
-    in property <CalendarDay> day;
-    callback select();
-    min-width: 0px;
-    preferred-width: 0px;
-    horizontal-stretch: 1;
-    height: 26px; border-radius: Theme.r-sm; background: day.is-today ? Theme.accent : transparent;
-    touch := TouchArea { mouse-cursor: day.in-current-month ? pointer : default; clicked => { if (day.in-current-month) { root.select(); } } }
-    Text {
-        x: 0; y: 0; width: 100%; height: 100%;
-        text: day.day;
-        color: day.is-today ? Theme.on-accent : (!day.in-current-month ? Theme.text-disabled : (day.is-weekend ? Theme.weekend : Theme.text-1));
-        font-size: Theme.font-10; font-weight: day.is-today ? 700 : 400;
-        horizontal-alignment: center; vertical-alignment: center;
-    }
-}
-
-component PanelWeekday inherits Rectangle {
+component WeekdayCell inherits Rectangle {
     in property <string> label;
     in property <bool> weekend;
     min-width: 0px;
     preferred-width: 0px;
     horizontal-stretch: 1;
-    height: 20px;
+    height: 22px;
+    Text { text: root.label; color: weekend ? Theme.weekend : Theme.text-3; font-size: Theme.font-10; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+}
+
+component CalendarDayCell inherits Rectangle {
+    in property <CalendarDay> day;
+    callback select();
+    min-width: 0px;
+    preferred-width: 0px;
+    horizontal-stretch: 1;
+    height: 40px;
+    border-radius: Theme.r-md;
+    background: day.is-today ? Theme.accent-subtle : (touch.has-hover && day.in-current-month ? Theme.bg-hover : transparent);
+    touch := TouchArea { mouse-cursor: day.in-current-month ? pointer : default; clicked => { if (day.in-current-month) { root.select(); } } }
     Text {
-        x: 0; y: 0; width: 100%; height: 100%;
-        text: root.label;
-        color: root.weekend ? Theme.weekend : Theme.text-3;
-        font-size: Theme.font-10;
-        horizontal-alignment: center; vertical-alignment: center;
+        x: 0px;
+        y: 2px;
+        width: 100%;
+        height: 19px;
+        text: day.day;
+        color: day.is-today ? Theme.accent : (!day.in-current-month ? Theme.text-disabled : (day.is-weekend ? Theme.weekend : Theme.text-1));
+        font-size: Theme.font-12;
+        font-weight: day.is-today ? 700 : 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    Text {
+        x: 3px;
+        y: 21px;
+        width: parent.width - 6px;
+        height: 13px;
+        text: day.special-text != "" ? day.special-text : day.lunar-text;
+        color: day.special-text != "" ? Theme.accent : (day.in-current-month ? Theme.text-3 : Theme.text-disabled);
+        font-size: Theme.font-8-5;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    if day.has-events: Rectangle {
+        x: (parent.width - 4px) / 2;
+        y: 35px;
+        width: 4px;
+        height: 4px;
+        border-radius: 2px;
+        background: day.is-today ? Theme.accent : Theme.info;
+    }
+}
+
+component OverviewCard inherits Rectangle {
+    in property <image> icon;
+    in property <string> label;
+    in property <string> value;
+    in property <color> tint: Theme.accent;
+    callback clicked();
+    min-width: 0px;
+    preferred-width: 0px;
+    horizontal-stretch: 1;
+    height: 62px;
+    border-radius: Theme.r-lg;
+    border-width: 1px;
+    border-color: touch.has-hover ? tint.with-alpha(55%) : Theme.border-subtle;
+    background: touch.pressed ? tint.with-alpha(14%) : (touch.has-hover ? Theme.bg-hover : Theme.bg-surface-2);
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    Rectangle { x: 10px; y: 12px; width: 34px; height: 34px; border-radius: Theme.r-md; background: tint.with-alpha(13%); SvgIcon { source: root.icon; size: 17px; tint: root.tint; x: 8.5px; y: 8.5px; } }
+    Text { x: 52px; y: 10px; width: parent.width - 60px; height: 20px; text: root.value; color: Theme.text-1; font-size: Theme.font-14; font-weight: 700; vertical-alignment: center; }
+    Text { x: 52px; y: 31px; width: parent.width - 60px; height: 18px; text: root.label; color: Theme.text-3; font-size: Theme.font-10; vertical-alignment: center; overflow: elide; }
+}
+
+component BottomNavButton inherits Rectangle {
+    in property <image> icon;
+    in property <string> label;
+    in property <bool> active;
+    callback clicked();
+    min-width: 0px;
+    preferred-width: 0px;
+    horizontal-stretch: 1;
+    height: 54px;
+    border-radius: Theme.r-md;
+    background: touch.pressed ? Theme.accent-subtle : (touch.has-hover ? Theme.bg-hover : transparent);
+    accessible-role: button;
+    accessible-label: root.label;
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    if active: Rectangle { x: (parent.width - 24px) / 2; y: 2px; width: 24px; height: 3px; border-radius: 1.5px; background: Theme.accent; }
+    SvgIcon { source: root.icon; size: 18px; tint: active ? Theme.accent : (touch.has-hover ? Theme.text-1 : Theme.text-3); x: (parent.width - self.width) / 2; y: 9px; }
+    Text { x: 0px; y: 31px; width: 100%; height: 18px; text: root.label; color: active ? Theme.accent : Theme.text-3; font-size: Theme.font-9; horizontal-alignment: center; vertical-alignment: center; }
+}
+
+component AddButton inherits Rectangle {
+    callback clicked();
+    width: 46px;
+    height: 46px;
+    border-radius: 23px;
+    background: touch.pressed ? Theme.accent-pressed : (touch.has-hover ? Theme.accent-hover : Theme.accent);
+    drop-shadow-color: Theme.accent.with-alpha(36%);
+    drop-shadow-blur: 10px;
+    drop-shadow-offset-y: 4px;
+    accessible-role: button;
+    accessible-label: "新建日程";
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    SvgIcon { source: Icons.plus; size: 23px; tint: Theme.on-accent; x: 11.5px; y: 11.5px; }
+    if touch.has-hover: Rectangle {
+        x: (parent.width - 76px) / 2;
+        y: -31px;
+        width: 76px;
+        height: 25px;
+        border-radius: Theme.r-md;
+        background: Theme.text-1;
+        Text { text: "新建日程"; color: Theme.bg-surface; font-size: Theme.font-10; horizontal-alignment: center; vertical-alignment: center; }
     }
 }
 
@@ -124,9 +174,12 @@ export component QuickPanelWindow inherits Window {
     title: "TimeHub 快速面板";
     default-font-family: Theme.font-family;
     icon: Icons.app-logo;
-    width: 460px; height: 640px; no-frame: true;
+    width: 460px;
+    height: 640px;
+    no-frame: true;
     always-on-top: root.pinned;
-    background: Theme.bg-surface;
+    background: transparent;
+
     in property <[CalendarDay]> days;
     in property <[EventItem]> events;
     in property <[TodoItem]> todos;
@@ -141,99 +194,132 @@ export component QuickPanelWindow inherits Window {
     in-out property <bool> pinned: false;
     callback toggle-todo(int);
     callback open-view(int);
-    callback open-event(int);
+    callback open-event(int, string);
     callback select-day(int);
+    callback prev-month();
+    callback next-month();
+    callback goto-today();
     callback new-event();
     callback open-settings();
     callback close-requested();
 
     Rectangle {
-        width: 100%; height: 100%; background: Theme.bg-surface;
-        border-width: 1px; border-color: Theme.border-default; border-radius: Theme.r-xl; clip: true;
+        x: 5px;
+        y: 5px;
+        width: parent.width - 10px;
+        height: parent.height - 10px;
+        border-radius: Theme.r-xl;
+        border-width: 1px;
+        border-color: Theme.border-default;
+        background: Theme.bg-surface;
+        clip: true;
+        drop-shadow-color: Theme.shadow-3-color-a;
+        drop-shadow-blur: Theme.shadow-3-blur-a;
+        drop-shadow-offset-y: Theme.shadow-3-y-a;
+
         VerticalLayout {
-            width: 100%; height: 100%; spacing: 0px;
-            VerticalLayout {
-                height: 112px; padding-left: Theme.space-5; padding-right: Theme.space-5; padding-top: Theme.space-4; padding-bottom: Theme.space-3; spacing: Theme.space-3;
-                HorizontalLayout {
-                    spacing: Theme.space-2;
-                    Text { text: root.date-title; color: Theme.text-1; font-size: Theme.font-26; font-weight: 700; vertical-alignment: center; }
-                    Text { text: root.weekday-text; color: Theme.text-1; font-size: Theme.font-12; vertical-alignment: center; }
-                    Rectangle { horizontal-stretch: 1; }
-                    Text { text: root.lunar-text; color: Theme.text-1; font-size: Theme.font-11-5; vertical-alignment: center; overflow: elide; }
-                    Rectangle { width: 30px; }
+            width: 100%;
+            height: 100%;
+            spacing: 0px;
+
+            Rectangle {
+                height: 106px;
+                background: Theme.accent-subtle;
+                Rectangle { x: parent.width - 126px; y: -50px; width: 176px; height: 176px; border-radius: 88px; background: Theme.accent.with-alpha(7%); }
+                Rectangle { x: parent.width - 74px; y: 40px; width: 110px; height: 110px; border-radius: 55px; background: Theme.accent.with-alpha(6%); }
+                Text { x: 18px; y: 12px; width: 260px; height: 48px; text: root.time-text == "" ? "17:51:29" : root.time-text; color: Theme.text-1; font-size: Theme.font-42; font-weight: 700; vertical-alignment: center; }
+                Text { x: 20px; y: 63px; width: 270px; height: 20px; text: root.date-title + "  " + root.weekday-text; color: Theme.text-2; font-size: Theme.font-12; vertical-alignment: center; }
+                Text { x: 20px; y: 83px; width: 270px; height: 17px; text: root.lunar-text; color: Theme.text-3; font-size: Theme.font-10; vertical-alignment: center; overflow: elide; }
+                Rectangle {
+                    x: parent.width - 137px;
+                    y: 42px;
+                    width: 124px;
+                    height: 50px;
+                    border-radius: Theme.r-lg;
+                    background: Theme.bg-surface.with-alpha(72%);
+                    SvgIcon { x: 10px; y: 9px; source: Icons.sun; size: 26px; tint: Theme.warning; }
+                    Text { x: 43px; y: 6px; width: 74px; height: 38px; text: root.weather-text == "" ? "天气加载中" : root.weather-text; color: Theme.text-2; font-size: Theme.font-10; wrap: word-wrap; vertical-alignment: center; overflow: elide; }
                 }
-                HorizontalLayout {
-                    spacing: Theme.space-2;
-                    QuickChip { horizontal-stretch: 1; label: "日程 " + events.length; clicked => { root.open-view(2); } }
-                    QuickChip { horizontal-stretch: 1; label: "待办 " + todos.length; clicked => { root.open-view(4); } }
-                    QuickChip { horizontal-stretch: 1; label: "节日 0"; clicked => { root.open-view(2); } }
-                    QuickChip { horizontal-stretch: 1; label: "倒数日 " + root.countdown-count; clicked => { root.open-view(8); } }
-                }
+                HeaderButton { x: parent.width - 75px; y: 7px; icon: Icons.gear; label: "打开设置"; clicked => { root.open-settings(); } }
+                HeaderButton { x: parent.width - 41px; y: 7px; icon: Icons.close; label: "关闭面板"; danger: true; clicked => { root.close-requested(); } }
             }
-            Rectangle { height: 1px; background: Theme.border-subtle; }
-            HorizontalLayout {
-                vertical-stretch: 1; spacing: 0px;
+
+            Rectangle {
+                height: 332px;
+                background: Theme.bg-surface;
                 VerticalLayout {
-                    width: 242px; padding: Theme.space-4; spacing: 10px;
-                    Text { height: 20px; text: "今日日程"; color: Theme.text-3; font-size: Theme.font-11; font-weight: 600; vertical-alignment: center; }
-                    for event in events: QuickEvent { event: event; open => { root.open-event(event.id); } }
-                    if events.length == 0: Rectangle {
-                        height: 56px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-subtle; background: Theme.bg-surface-2;
-                        Text { text: "今天暂无日程"; color: Theme.text-2; font-size: Theme.font-11; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                    Text { height: 20px; text: "今日待办"; color: Theme.text-3; font-size: Theme.font-11; font-weight: 600; vertical-alignment: center; }
-                    for todo in todos: QuickTodo { todo: todo; toggle => { root.toggle-todo(todo.id); } }
-                    if todos.length == 0: Rectangle {
-                        height: 56px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-subtle; background: Theme.bg-surface-2;
-                        Text { text: "今天暂无待办"; color: Theme.text-2; font-size: Theme.font-11; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                    Rectangle { vertical-stretch: 1; }
-                }
-                Rectangle { width: 1px; background: Theme.border-subtle; }
-                VerticalLayout {
-                    padding: Theme.space-4; spacing: Theme.space-3;
-                    Text { text: time-text == "" ? "22:53:12" : time-text; color: Theme.text-1; font-size: Theme.font-32; font-weight: 600; }
-                    HorizontalLayout { spacing: Theme.space-2; cross-axis-alignment: center; SvgIcon { source: Icons.cloud; size: 14px; tint: Theme.text-2; } Text { text: weather-text == "" ? "上海 26°C 多云 · 湿度 68%" : weather-text; color: Theme.text-2; font-size: Theme.font-11; vertical-alignment: center; } }
-                    Text { text: root.month-title; color: Theme.text-1; font-size: Theme.font-11; font-weight: 600; }
+                    padding-left: 14px;
+                    padding-right: 14px;
+                    padding-top: 8px;
+                    padding-bottom: 8px;
+                    spacing: 2px;
                     HorizontalLayout {
+                        height: 32px;
+                        spacing: 3px;
+                        Text { text: root.month-title; color: Theme.text-1; font-size: Theme.font-14; font-weight: 700; vertical-alignment: center; horizontal-stretch: 1; }
+                        MonthButton { icon: Icons.left; label: ""; clicked => { root.prev-month(); } }
+                        MonthButton { icon: Icons.today; label: "今天"; clicked => { root.goto-today(); } }
+                        MonthButton { icon: Icons.right; label: ""; clicked => { root.next-month(); } }
+                    }
+                    HorizontalLayout {
+                        height: 22px;
                         spacing: 0px;
-                        for label[i] in ["一", "二", "三", "四", "五", "六", "日"]: PanelWeekday {
-                            label: label;
-                            weekend: i >= 5;
-                        }
+                        for label[i] in ["一", "二", "三", "四", "五", "六", "日"]: WeekdayCell { label: label; weekend: i >= 5; }
                     }
                     for week in 6: HorizontalLayout {
-                        height: 26px;
+                        height: 40px;
                         spacing: 0px;
-                        for col in 7: PanelDay {
-                            day: days[week * 7 + col];
-                            select => { root.select-day(days[week * 7 + col].day); }
+                        for col in 7: CalendarDayCell {
+                            day: root.days[week * 7 + col];
+                            select => { root.select-day(root.days[week * 7 + col].day); }
                         }
                     }
-                    Rectangle { vertical-stretch: 1; }
                 }
             }
-            Rectangle {
-                height: 55px; background: Theme.bg-surface-2; border-width: 1px; border-color: Theme.border-subtle;
+
+            Rectangle { height: 1px; background: Theme.border-subtle; }
+
+            VerticalLayout {
+                vertical-stretch: 1;
+                padding-left: 14px;
+                padding-right: 14px;
+                padding-top: 10px;
+                padding-bottom: 10px;
+                spacing: 8px;
                 HorizontalLayout {
-                    width: 100%; height: 100%;
-                    padding-top: 10px; padding-bottom: 10px; spacing: 0px;
-                    cross-axis-alignment: center;
-                    Rectangle { horizontal-stretch: 1; QuickNavButton { x: (parent.width - self.width) / 2; icon: Icons.today; label: "今天"; active: root.active-view == 2 || root.active-view == 3; clicked => { root.open-view(2); } } }
-                    Rectangle { horizontal-stretch: 1; QuickNavButton { x: (parent.width - self.width) / 2; icon: Icons.calendar; label: "月历"; active: root.active-view == 0 || root.active-view == 1 || root.active-view == 5; clicked => { root.open-view(0); } } }
-                    Rectangle { horizontal-stretch: 1; QuickNavButton { x: (parent.width - self.width) / 2; icon: Icons.plus; label: "新建"; active: false; clicked => { root.new-event(); } } }
-                    Rectangle { horizontal-stretch: 1; QuickNavButton { x: (parent.width - self.width) / 2; icon: Icons.check; label: "待办"; active: root.active-view == 4; clicked => { root.open-view(4); } } }
-                    Rectangle { horizontal-stretch: 1; QuickNavButton { x: (parent.width - self.width) / 2; icon: Icons.gear; label: "设置"; active: false; clicked => { root.open-settings(); } } }
+                    height: 20px;
+                    Text { text: "今日概览"; color: Theme.text-1; font-size: Theme.font-12; font-weight: 700; vertical-alignment: center; }
+                    Rectangle { horizontal-stretch: 1; }
+                    Text { text: events.length + todos.length == 0 ? "今天很轻松" : "安排得井井有条"; color: Theme.text-3; font-size: Theme.font-10; vertical-alignment: center; }
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    OverviewCard { icon: Icons.calendar; value: events.length + " 项"; label: "日程安排"; tint: Theme.accent; clicked => { root.open-view(2); } }
+                    OverviewCard { icon: Icons.check; value: todos.length + " 项"; label: "待办任务"; tint: Theme.success; clicked => { root.open-view(4); } }
+                    OverviewCard { icon: Icons.timer; value: root.countdown-count + " 项"; label: "重要倒数"; tint: Theme.warning; clicked => { root.open-view(8); } }
+                }
+            }
+
+            Rectangle {
+                height: 62px;
+                background: Theme.bg-surface-2;
+                border-width: 1px;
+                border-color: Theme.border-subtle;
+                HorizontalLayout {
+                    width: 100%;
+                    height: 100%;
+                    padding-left: 8px;
+                    padding-right: 8px;
+                    padding-top: 4px;
+                    padding-bottom: 4px;
+                    spacing: 2px;
+                    BottomNavButton { icon: Icons.today; label: "今天"; active: root.active-view == 2 || root.active-view == 3; clicked => { root.open-view(2); } }
+                    BottomNavButton { icon: Icons.calendar; label: "日历"; active: root.active-view == 0 || root.active-view == 1 || root.active-view == 5; clicked => { root.open-view(0); } }
+                    Rectangle { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; AddButton { x: (parent.width - self.width) / 2; y: 4px; clicked => { root.new-event(); } } }
+                    BottomNavButton { icon: Icons.check; label: "待办"; active: root.active-view == 4; clicked => { root.open-view(4); } }
+                    BottomNavButton { icon: Icons.gear; label: "设置"; active: false; clicked => { root.open-settings(); } }
                 }
             }
         }
-    }
-
-    close-button := Rectangle {
-        x: parent.width - 42px; y: 12px; width: 30px; height: 30px; border-radius: Theme.r-md;
-        background: close-touch.pressed ? Theme.danger-bg : (close-touch.has-hover ? Theme.bg-hover : transparent);
-        accessible-role: button; accessible-label: "关闭快速面板";
-        SvgIcon { source: Icons.close; size: 15px; tint: close-touch.has-hover ? Theme.danger : Theme.text-2; x: 7.5px; y: 7.5px; }
-        close-touch := TouchArea { mouse-cursor: pointer; clicked => { root.close-requested(); } }
     }
 }
