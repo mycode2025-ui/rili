@@ -7,6 +7,31 @@ pub(crate) fn register_settings_callbacks(
 ) {
     {
         let ui_weak = ui.as_weak();
+        ui.on_set_auto_start_enabled(move |enabled| {
+            let result = autostart::set_enabled(enabled);
+            if let Some(ui) = ui_weak.upgrade() {
+                match result {
+                    Ok(()) => {
+                        ui.set_auto_start_enabled(enabled);
+                        ui.set_action_message(
+                            if enabled {
+                                "开机启动已开启"
+                            } else {
+                                "开机启动已关闭"
+                            }
+                            .into(),
+                        );
+                    }
+                    Err(error) => {
+                        ui.set_auto_start_enabled(autostart::is_enabled());
+                        ui.set_action_message(format!("设置开机启动失败：{error}").into());
+                    }
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
         let state = state.clone();
         ui.on_set_notifications_enabled(move |enabled| {
             let s = state.borrow();

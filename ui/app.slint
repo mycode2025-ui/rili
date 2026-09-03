@@ -78,6 +78,7 @@ export component AppWindow inherits Window {
     in property <string> default-event-reminder: "10";
     in property <bool> local-only: false;
     in property <bool> taskbar-clock-enabled: true;
+    in property <bool> auto-start-enabled: false;
     in-out property <int> settings-section: 0;
     in-out property <bool> settings-open: false;
     /// 0=月 1=周 2=日 3=三日 4=待办 5=年 6=工具 7=搜索 8=记录 9=排班 11=便签 12=课程表
@@ -250,6 +251,7 @@ export component AppWindow inherits Window {
     callback set-default-event-reminder(string);
     callback set-local-only(bool);
     callback set-taskbar-clock-enabled(bool);
+    callback set-auto-start-enabled(bool);
     callback settings-action(string);
     callback begin-window-drag();
     callback minimize-window();
@@ -952,6 +954,7 @@ export component AppWindow inherits Window {
                     default-event-reminder: root.default-event-reminder;
                     local-only: root.local-only;
                     taskbar-clock-enabled: root.taskbar-clock-enabled;
+                    auto-start-enabled: root.auto-start-enabled;
                     selected-section <=> root.settings-section;
                     set-theme(index) => { root.set-theme(index); }
                     set-visual-theme(mode) => { root.set-visual-theme(mode); }
@@ -964,6 +967,7 @@ export component AppWindow inherits Window {
                     set-default-event-reminder(value) => { root.set-default-event-reminder(value); }
                     set-local-only(value) => { root.set-local-only(value); }
                     set-taskbar-clock-enabled(value) => { root.set-taskbar-clock-enabled(value); }
+                    set-auto-start-enabled(value) => { root.set-auto-start-enabled(value); }
                     settings-action(action) => { root.settings-action(action); }
                 }
             }

@@ -34,8 +34,8 @@ use windowing::{set_main_view_mode, show_and_focus_main_window};
 
 use rili::window_policy::navigation_refresh_needed;
 use rili::{
-    almanac, app_paths, cli, date_calc, db, holidays, integrations, lunar, natural, recurrence,
-    reminders, weather,
+    almanac, app_paths, autostart, cli, date_calc, db, holidays, integrations, lunar, natural,
+    recurrence, reminders, weather,
 };
 
 /// 新建分类日历时依次挑选的设计规范强调色循环。
@@ -303,6 +303,7 @@ fn run_gui() -> Result<()> {
     ui.set_default_event_reminder(default_event_reminder.into());
     ui.set_local_only(local_only);
     ui.set_taskbar_clock_enabled(taskbar_clock_enabled);
+    ui.set_auto_start_enabled(autostart::is_enabled());
     {
         let visible = *desktop_widget_visibility.borrow();
         sync_desktop_visibility_to_ui(&ui, visible);
@@ -342,6 +343,10 @@ fn run_gui() -> Result<()> {
                 ui.set_action_message("示例提醒已发送，请查看 Windows 通知中心".into());
             }
         });
+    }
+    if debug_view.as_deref() == Some("settings-privacy") {
+        ui.set_settings_section(4);
+        ui.set_settings_open(true);
     }
     if debug_view.as_deref() == Some("tools-then-today") {
         let ui_weak = ui.as_weak();

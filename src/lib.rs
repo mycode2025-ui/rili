@@ -5,6 +5,7 @@
 
 pub mod almanac;
 pub mod app_paths;
+pub mod autostart;
 pub mod cli;
 pub mod date_calc;
 pub mod db;

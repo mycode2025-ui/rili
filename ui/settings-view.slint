@@ -99,6 +99,7 @@ export component SettingsView inherits Rectangle {
     in property <string> default-event-reminder: "10";
     in property <bool> local-only: false;
     in property <bool> taskbar-clock-enabled: true;
+    in property <bool> auto-start-enabled: false;
     callback set-theme(int);
     callback set-visual-theme(int);
     callback set-week-starts-sunday(bool);
@@ -110,6 +111,7 @@ export component SettingsView inherits Rectangle {
     callback set-default-event-reminder(string);
     callback set-local-only(bool);
     callback set-taskbar-clock-enabled(bool);
+    callback set-auto-start-enabled(bool);
     callback settings-action(string);
     background: Theme.bg-app;
 
@@ -235,10 +237,12 @@ export component SettingsView inherits Rectangle {
             }
             if root.selected-section == 4: VerticalLayout {
                 horizontal-stretch: 1;
-                height: 145px;
+                height: 218px;
                 HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "仅本地模式"; description: "关闭外部同步，数据只保存在当前电脑"; horizontal-stretch: 1; } Switch { checked: root.local-only; toggled(value) => { root.set-local-only(value); } } }
                 Rectangle { height: 1px; background: Theme.border-subtle; }
                 HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "数据目录"; description: "查看本地数据库和备份所在位置"; horizontal-stretch: 1; } SettingsAction { label: "打开目录"; clicked => { root.settings-action("open-data-folder"); } } }
+                Rectangle { height: 1px; background: Theme.border-subtle; }
+                HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "开机启动"; description: "登录 Windows 后自动运行 TimeHub"; horizontal-stretch: 1; } Switch { checked: root.auto-start-enabled; toggled(value) => { root.set-auto-start-enabled(value); } } }
             }
             if root.selected-section == 5: VerticalLayout {
                 horizontal-stretch: 1;
