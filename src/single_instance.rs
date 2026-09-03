@@ -2,6 +2,8 @@
 
 use anyhow::{Context, Result};
 
+const MUTEX_NAME: &str = "Local\\TimeHub.Desktop.SingleInstance\0";
+
 #[cfg(windows)]
 pub struct Guard(*mut core::ffi::c_void);
 
@@ -33,9 +35,7 @@ unsafe extern "system" {
 #[cfg(windows)]
 pub fn acquire() -> Result<Option<Guard>> {
     const ERROR_ALREADY_EXISTS: u32 = 183;
-    let name: Vec<u16> = "Local\\TimeHub.Desktop.SingleInstance\0"
-        .encode_utf16()
-        .collect();
+    let name: Vec<u16> = MUTEX_NAME.encode_utf16().collect();
     let handle = unsafe { CreateMutexW(core::ptr::null(), 0, name.as_ptr()) };
     if handle.is_null() {
         return Err(std::io::Error::last_os_error()).context("无法创建 TimeHub 单实例锁");

@@ -79,19 +79,22 @@ pub(crate) fn refresh_notes(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<Re
     sync_desktop_widgets(widget);
 }
 
-pub(crate) fn refresh_habits(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefCell<AppState>>) {
+pub(crate) fn refresh_habits(
+    ui: &AppWindow,
+    _widget: &WidgetWindow,
+    state: &Rc<RefCell<AppState>>,
+) {
     let habits = db::list_habits(&state.borrow().conn, false)
         .unwrap_or_default()
         .into_iter()
         .map(to_ui_habit)
         .collect::<Vec<_>>();
     ui.set_habits(ModelRc::new(VecModel::from(habits)));
-    update_tool_status(ui, widget, state);
 }
 
 pub(crate) fn refresh_courses(
     ui: &AppWindow,
-    widget: &WidgetWindow,
+    _widget: &WidgetWindow,
     state: &Rc<RefCell<AppState>>,
 ) {
     let s = state.borrow();
@@ -122,22 +125,97 @@ pub(crate) fn refresh_courses(
         )
         .into(),
     );
-    update_tool_status(ui, widget, state);
 }
 
 pub(crate) fn refresh_search(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
     let s = state.borrow();
-    let results = db::search(&s.conn, &s.search_query, 50)
-        .unwrap_or_default()
-        .into_iter()
-        .map(|hit| SearchItem {
-            id: hit.id as i32,
-            kind: hit.kind.into(),
-            title: hit.title.into(),
-            meta: hit.meta.into(),
-            date: hit.date.into(),
-        })
-        .collect::<Vec<_>>();
+    let results = if s.view_mode == 7 {
+        db::search(&s.conn, &s.search_query, 50)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|hit| SearchItem {
+                id: hit.id as i32,
+                kind: hit.kind.into(),
+                title: hit.title.into(),
+                meta: hit.meta.into(),
+                date: hit.date.into(),
+            })
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
     ui.set_search_query(s.search_query.clone().into());
     ui.set_search_results(ModelRc::new(VecModel::from(results)));
+}
+
+pub(crate) fn refresh_subscriptions(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
+    let items = db::list_subscriptions(&state.borrow().conn)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|subscription| {
+            let has_error = subscription.last_error.is_some();
+            let (status, detail) = if let Some(error) = subscription.last_error {
+                ("同步失败".to_string(), error)
+            } else if let Some(last_sync) = subscription.last_sync {
+                ("已同步".to_string(), format!("上次同步 {last_sync}"))
+            } else {
+                ("待同步".to_string(), "已保存，等待首次同步".to_string())
+            };
+            SubscriptionItem {
+                id: subscription.id as i32,
+                name: subscription.name.into(),
+                status: status.into(),
+                detail: detail.into(),
+                has_error,
+            }
+        })
+        .collect::<Vec<_>>();
+    ui.set_subscriptions(ModelRc::new(VecModel::from(items)));
+}
+
+pub(crate) fn refresh_records(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
+    let s = state.borrow();
+    let records = if s.view_mode == 8 {
+        let today = Local::now().date_naive();
+        db::list_special_events(&s.conn)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|event| to_ui_record(event, today))
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
+    ui.set_records(ModelRc::new(VecModel::from(records)));
+}
+
+pub(crate) fn refresh_shifts(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
+    let s = state.borrow();
+    let first_of_month = NaiveDate::from_ymd_opt(s.year, s.month, 1);
+    let types = if s.view_mode == 9 {
+        db::list_shift_types(&s.conn)
+            .unwrap_or_default()
+            .into_iter()
+            .map(to_ui_shift_type)
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
+    let assignments = if s.view_mode == 9 {
+        first_of_month
+            .and_then(|start| {
+                db::list_shift_assignments(&s.conn, start, month_end(s.year, s.month)?).ok()
+            })
+            .unwrap_or_default()
+            .into_iter()
+            .map(to_ui_shift_assignment)
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
+    ui.set_shift_types(ModelRc::new(VecModel::from(types)));
+    ui.set_shift_assignments(ModelRc::new(VecModel::from(assignments)));
+    ui.set_shift_start_date(s.shift_start_date.clone().into());
+    ui.set_shift_end_date(s.shift_end_date.clone().into());
+    ui.set_shift_sequence(s.shift_sequence.clone().into());
+    ui.set_shift_result(s.shift_result.clone().into());
 }

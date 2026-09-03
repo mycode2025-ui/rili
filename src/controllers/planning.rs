@@ -105,7 +105,6 @@ pub(crate) fn register_planning_callbacks(
     }
     {
         let ui_weak = ui.as_weak();
-        let widget_weak = widget.as_weak();
         let state = state.clone();
         ui.on_generate_shift(move |start, end, sequence| {
             let start_text = start.trim().to_string();
@@ -144,14 +143,13 @@ pub(crate) fn register_planning_callbacks(
                     Err(e) => format!("生成失败：{e}"),
                 };
             }
-            if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_all(&ui, &widget, &state);
+            if let Some(ui) = ui_weak.upgrade() {
+                refresh_shifts(&ui, &state);
             }
         });
     }
     {
         let ui_weak = ui.as_weak();
-        let widget_weak = widget.as_weak();
         let state = state.clone();
         ui.on_delete_shift(move |id| {
             {
@@ -160,8 +158,8 @@ pub(crate) fn register_planning_callbacks(
                     eprintln!("清空班次失败: {e}");
                 }
             }
-            if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_all(&ui, &widget, &state);
+            if let Some(ui) = ui_weak.upgrade() {
+                refresh_shifts(&ui, &state);
             }
         });
     }

@@ -10,12 +10,8 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
         selected_day,
         days_model,
         events_for_day,
-        todos_for_day,
-        notes,
-        habits,
         calendars_ui,
         calendar_names,
-        subscription_items,
         selected_date_text,
         today_events,
         upcoming_events,
@@ -25,26 +21,8 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
         timeline_title,
         timeline_days,
         weather_summary,
-        search_query,
-        search_results,
-        records,
-        shift_types,
-        shift_assignments,
-        shift_start_date,
-        shift_end_date,
-        shift_sequence,
-        shift_result,
-        today_todos,
-        recent_notes,
         countdowns,
         year_months,
-        board_todo_items,
-        board_doing_items,
-        board_done_items,
-        board_urgent_important,
-        board_not_urgent_important,
-        board_urgent_not_important,
-        board_not_urgent_not_important,
     ) = {
         let s = state.borrow();
         let year = s.year;
@@ -63,28 +41,6 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
         let calendars_ui: Vec<CalendarItem> = calendars.iter().map(to_ui_calendar).collect();
         let calendar_names: Vec<SharedString> =
             calendars.iter().map(|c| c.name.clone().into()).collect();
-        let subscription_items: Vec<SubscriptionItem> = db::list_subscriptions(conn)
-            .unwrap_or_default()
-            .into_iter()
-            .map(|subscription| {
-                let has_error = subscription.last_error.is_some();
-                let (status, detail) = if let Some(error) = subscription.last_error {
-                    ("同步失败".to_string(), error)
-                } else if let Some(last_sync) = subscription.last_sync {
-                    ("已同步".to_string(), format!("上次同步 {last_sync}"))
-                } else {
-                    ("待同步".to_string(), "已保存，等待首次同步".to_string())
-                };
-                SubscriptionItem {
-                    id: subscription.id as i32,
-                    name: subscription.name.into(),
-                    status: status.into(),
-                    detail: detail.into(),
-                    has_error,
-                }
-            })
-            .collect();
-
         let Some(first_of_month) = NaiveDate::from_ymd_opt(year, month, 1) else {
             return;
         };
@@ -227,27 +183,6 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
                 })
                 .collect();
 
-        let todos_for_day: Vec<TodoItem> = db::list_todos(conn, Some(selected_date), None)
-            .unwrap_or_default()
-            .into_iter()
-            .map(to_ui_todo)
-            .collect();
-
-        let today_todos: Vec<TodoItem> = db::list_todos(conn, Some(today), None)
-            .unwrap_or_default()
-            .into_iter()
-            .map(to_ui_todo)
-            .collect();
-
-        let notes: Vec<NoteItem> = db::list_notes(conn)
-            .unwrap_or_default()
-            .into_iter()
-            .map(to_ui_note)
-            .collect();
-        // 每条便签都对应一个独立桌面卡片；中转模型因此保留全部便签，
-        // 而不是只截取列表预览用的前五条。
-        let recent_notes: Vec<NoteItem> = notes.clone();
-
         let mut countdowns: Vec<CountdownItem> = db::list_special_events(conn)
             .unwrap_or_default()
             .into_iter()
@@ -256,48 +191,6 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
             .collect();
         countdowns.sort_by_key(|item| (item.days < 0, item.days, item.id));
         countdowns.truncate(3);
-
-        let habits: Vec<HabitItem> = db::list_habits(conn, false)
-            .unwrap_or_default()
-            .into_iter()
-            .map(to_ui_habit)
-            .collect();
-
-        let records: Vec<RecordItem> = if s.view_mode == 8 {
-            db::list_special_events(conn)
-                .unwrap_or_default()
-                .into_iter()
-                .map(|event| to_ui_record(event, today))
-                .collect()
-        } else {
-            Vec::new()
-        };
-        let shift_types: Vec<ShiftTypeItem> = if s.view_mode == 9 {
-            db::list_shift_types(conn)
-                .unwrap_or_default()
-                .into_iter()
-                .map(to_ui_shift_type)
-                .collect()
-        } else {
-            Vec::new()
-        };
-        let shift_assignments: Vec<ShiftAssignmentItem> = if s.view_mode == 9 {
-            db::list_shift_assignments(
-                conn,
-                first_of_month,
-                month_end(year, month).unwrap_or(first_of_month),
-            )
-            .unwrap_or_default()
-            .into_iter()
-            .map(to_ui_shift_assignment)
-            .collect()
-        } else {
-            Vec::new()
-        };
-        let shift_start_date = s.shift_start_date.clone();
-        let shift_end_date = s.shift_end_date.clone();
-        let shift_sequence = s.shift_sequence.clone();
-        let shift_result = s.shift_result.clone();
 
         let weekday_cn = ["一", "二", "三", "四", "五", "六", "日"]
             [selected_date.weekday().num_days_from_monday() as usize];
@@ -471,80 +364,14 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
             })
             .unwrap_or_default();
 
-        let search_query = s.search_query.clone();
-        let search_results: Vec<SearchItem> = if s.view_mode == 7 {
-            db::search(conn, &search_query, 50)
-                .unwrap_or_default()
-                .into_iter()
-                .map(|hit| SearchItem {
-                    id: hit.id as i32,
-                    kind: hit.kind.into(),
-                    title: hit.title.into(),
-                    meta: hit.meta.into(),
-                    date: hit.date.into(),
-                })
-                .collect()
-        } else {
-            Vec::new()
-        };
-
-        // -------- 待办看板 / 四象限：基于全部未完成待办（已完成的单独放进看板"已完成"列，
-        // 不出现在四象限里——已经做完的事没有"重不重要/急不急"的意义）。
-        let all_todos = if s.view_mode == 4 {
-            db::list_all_todos(conn).unwrap_or_default()
-        } else {
-            Vec::new()
-        };
-        let board_todo_items: Vec<TodoBoardItem> = all_todos
-            .iter()
-            .filter(|t| t.status == "todo")
-            .map(|t| to_board_item(t, today))
-            .collect();
-        let board_doing_items: Vec<TodoBoardItem> = all_todos
-            .iter()
-            .filter(|t| t.status == "doing")
-            .map(|t| to_board_item(t, today))
-            .collect();
-        let board_done_items: Vec<TodoBoardItem> = all_todos
-            .iter()
-            .filter(|t| t.status == "done")
-            .map(|t| to_board_item(t, today))
-            .collect();
-        let not_done_todos: Vec<&db::Todo> =
-            all_todos.iter().filter(|t| t.status != "done").collect();
-        let board_urgent_important: Vec<TodoBoardItem> = not_done_todos
-            .iter()
-            .filter(|t| t.important && todo_is_urgent(&t.due_date, today))
-            .map(|t| to_board_item(t, today))
-            .collect();
-        let board_not_urgent_important: Vec<TodoBoardItem> = not_done_todos
-            .iter()
-            .filter(|t| t.important && !todo_is_urgent(&t.due_date, today))
-            .map(|t| to_board_item(t, today))
-            .collect();
-        let board_urgent_not_important: Vec<TodoBoardItem> = not_done_todos
-            .iter()
-            .filter(|t| !t.important && todo_is_urgent(&t.due_date, today))
-            .map(|t| to_board_item(t, today))
-            .collect();
-        let board_not_urgent_not_important: Vec<TodoBoardItem> = not_done_todos
-            .iter()
-            .filter(|t| !t.important && !todo_is_urgent(&t.due_date, today))
-            .map(|t| to_board_item(t, today))
-            .collect();
-
         (
             year,
             month,
             selected_day,
             days,
             events_for_day,
-            todos_for_day,
-            notes,
-            habits,
             calendars_ui,
             calendar_names,
-            subscription_items,
             selected_date_text,
             today_events,
             upcoming_events,
@@ -554,26 +381,8 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
             timeline_title,
             timeline_days,
             weather_summary,
-            search_query,
-            search_results,
-            records,
-            shift_types,
-            shift_assignments,
-            shift_start_date,
-            shift_end_date,
-            shift_sequence,
-            shift_result,
-            today_todos,
-            recent_notes,
             countdowns,
             year_months,
-            board_todo_items,
-            board_doing_items,
-            board_done_items,
-            board_urgent_important,
-            board_not_urgent_important,
-            board_urgent_not_important,
-            board_not_urgent_not_important,
         )
     };
 
@@ -585,12 +394,8 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
     ui.set_new_event_date_default(format!("{year:04}-{month:02}-{selected_day:02}").into());
     ui.set_selected_date_text(selected_date_text.clone().into());
     ui.set_events_for_day(ModelRc::new(VecModel::from(events_for_day)));
-    ui.set_todos_for_day(ModelRc::new(VecModel::from(todos_for_day)));
-    ui.set_notes(ModelRc::new(VecModel::from(notes)));
-    ui.set_habits(ModelRc::new(VecModel::from(habits)));
     ui.set_calendars(ModelRc::new(VecModel::from(calendars_ui)));
     ui.set_calendar_names(ModelRc::new(VecModel::from(calendar_names)));
-    ui.set_subscriptions(ModelRc::new(VecModel::from(subscription_items)));
     ui.set_week_title(week_title.into());
     ui.set_week_days(ModelRc::new(VecModel::from(week_days)));
     ui.set_timeline_title(timeline_title.into());
@@ -650,45 +455,10 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
     ui.set_today_weather_fact_text(weather_fact.into());
     ui.set_today_year_progress(year_progress);
     ui.set_today_year_progress_text(format!("{:.1}%", year_progress * 100.0).into());
-    ui.set_search_query(search_query.into());
-    ui.set_search_results(ModelRc::new(VecModel::from(search_results)));
-    ui.set_records(ModelRc::new(VecModel::from(records)));
-    ui.set_shift_types(ModelRc::new(VecModel::from(shift_types)));
-    ui.set_shift_assignments(ModelRc::new(VecModel::from(shift_assignments)));
-    ui.set_shift_start_date(shift_start_date.into());
-    ui.set_shift_end_date(shift_end_date.into());
-    ui.set_shift_sequence(shift_sequence.into());
-    ui.set_shift_result(shift_result.into());
     ui.set_calendar_year(year);
     ui.set_year_months(ModelRc::new(VecModel::from(year_months)));
     if state.borrow().view_mode == 12 {
-        let s = state.borrow();
-        let courses = db::list_courses(&s.conn).unwrap_or_default();
-        let active_count = courses
-            .iter()
-            .filter(|course| {
-                course.start_week <= s.course_week as i64 && s.course_week as i64 <= course.end_week
-            })
-            .count() as i32;
-        let actual_week = course_week_for_date(s.course_term_start, today);
-        let (week_start, week_end) = course_week_range(s.course_term_start, s.course_week);
-        ui.set_course_items(ModelRc::new(VecModel::from(
-            courses.into_iter().map(to_ui_course).collect::<Vec<_>>(),
-        )));
-        ui.set_course_week(s.course_week);
-        ui.set_course_actual_week(actual_week);
-        ui.set_course_term_start(s.course_term_start.to_string().into());
-        ui.set_course_active_count(active_count);
-        ui.set_course_week_title(
-            format!(
-                "{}月{}日 – {}月{}日",
-                week_start.month(),
-                week_start.day(),
-                week_end.month(),
-                week_end.day()
-            )
-            .into(),
-        );
+        refresh_courses(ui, widget, state);
     }
     if state.borrow().view_mode == 6 {
         let s = state.borrow();
@@ -730,17 +500,6 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
     } else {
         weather_summary.clone().into()
     });
-    ui.set_board_todo_items(ModelRc::new(VecModel::from(board_todo_items)));
-    ui.set_board_doing_items(ModelRc::new(VecModel::from(board_doing_items)));
-    ui.set_board_done_items(ModelRc::new(VecModel::from(board_done_items)));
-    ui.set_board_urgent_important(ModelRc::new(VecModel::from(board_urgent_important)));
-    ui.set_board_not_urgent_important(ModelRc::new(VecModel::from(board_not_urgent_important)));
-    ui.set_board_urgent_not_important(ModelRc::new(VecModel::from(board_urgent_not_important)));
-    ui.set_board_not_urgent_not_important(ModelRc::new(VecModel::from(
-        board_not_urgent_not_important,
-    )));
-
-    let todo_completed_count = today_todos.iter().filter(|todo| todo.done).count() as i32;
     let today = Local::now().date_naive();
     let weekday =
         ["一", "二", "三", "四", "五", "六", "日"][today.weekday().num_days_from_monday() as usize];
@@ -748,14 +507,11 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
         format!("{}月{}日 星期{}", today.month(), today.day(), weekday).into(),
     );
     widget.set_today_lunar_text(format!("农历{}", lunar::short_label(today)).into());
-    widget.set_todo_completed_count(todo_completed_count);
     widget.set_month_title(month_title);
     widget.set_days(ModelRc::new(VecModel::from(days_model)));
     widget.set_selected_day(selected_day as i32);
     widget.set_today_events(ModelRc::new(VecModel::from(today_events)));
     widget.set_upcoming_events(ModelRc::new(VecModel::from(upcoming_events)));
-    widget.set_today_todos(ModelRc::new(VecModel::from(today_todos)));
-    widget.set_recent_notes(ModelRc::new(VecModel::from(recent_notes)));
     widget.set_countdowns(ModelRc::new(VecModel::from(countdowns)));
     widget.set_weather_text(weather_summary.into());
     let current_weather = {
@@ -764,5 +520,12 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
     };
     apply_weather_to_widget(widget, current_weather.as_ref());
     widget.set_today_full_text(today_full_text.into());
+    refresh_todos(ui, widget, state);
+    refresh_notes(ui, widget, state);
+    refresh_habits(ui, widget, state);
+    refresh_search(ui, state);
+    refresh_subscriptions(ui, state);
+    refresh_records(ui, state);
+    refresh_shifts(ui, state);
     update_tool_status(ui, widget, state);
 }
