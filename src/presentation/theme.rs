@@ -227,6 +227,23 @@ pub(crate) fn apply_font_family(
     });
 }
 
+/// Copy the current application appearance into the transient notification
+/// window just before it is shown. This keeps the separate native window in
+/// sync without threading another window parameter through every settings
+/// controller.
+pub(crate) fn sync_notification_theme(ui: &AppWindow, notification: &NotificationWindow) {
+    let source = ui.global::<Theme>();
+    let target = notification.global::<Theme>();
+    target.set_theme_mode(source.get_theme_mode());
+    target.set_system_dark(source.get_system_dark());
+    target.set_font_delta(source.get_font_delta());
+    target.set_density_mode(source.get_density_mode());
+    target.set_reduce_motion(source.get_reduce_motion());
+    target.set_font_family(source.get_font_family());
+    target.set_accent(source.get_accent());
+    target.set_today_bg(source.get_today_bg());
+}
+
 fn with_desktop_widget_theme(kind: &str, mut action: impl FnMut(Theme<'_>)) -> bool {
     DESKTOP_WIDGET_WINDOWS.with(|slot| {
         let Some(windows) = slot.borrow().as_ref().cloned() else {

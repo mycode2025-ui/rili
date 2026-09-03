@@ -31,6 +31,7 @@ fn main() {
         "ui/widget.slint",
         "ui/desktop-widgets.slint",
         "ui/quick-panel.slint",
+        "ui/notification-window.slint",
         "ui/taskbar-clock.slint",
         "ui/new-event-dialog.slint",
         "ui/date-time-picker.slint",

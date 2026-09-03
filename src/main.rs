@@ -244,6 +244,51 @@ fn run_gui(startup: bool) -> Result<()> {
             .into(),
     );
     let quick_panel = QuickPanelWindow::new()?;
+    let notification = NotificationWindow::new()?;
+    let notification_timer = Rc::new(slint::Timer::default());
+    {
+        let ui_weak = ui.as_weak();
+        let notification_weak = notification.as_weak();
+        let notification_timer = notification_timer.clone();
+        ui.on_show_action_notification(move |message| {
+            notification_timer.stop();
+            let Some(notification) = notification_weak.upgrade() else {
+                return;
+            };
+            if message.is_empty() {
+                let _ = notification.hide();
+                return;
+            }
+            if let Some(ui) = ui_weak.upgrade() {
+                sync_notification_theme(&ui, &notification);
+            }
+            notification.set_message(message);
+            show_screen_notification(&notification);
+
+            let ui_weak = ui_weak.clone();
+            let notification_weak = notification.as_weak();
+            notification_timer.start(
+                slint::TimerMode::SingleShot,
+                Duration::from_secs(4),
+                move || {
+                    if let Some(notification) = notification_weak.upgrade() {
+                        let _ = notification.hide();
+                    }
+                    if let Some(ui) = ui_weak.upgrade() {
+                        ui.set_action_message("".into());
+                    }
+                },
+            );
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        notification.on_close_requested(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_action_message("".into());
+            }
+        });
+    }
     let widgets_visible =
         db::get_setting(&state.borrow().conn, "desktop_widgets_visible", "1")? == "1";
     let widget_shown = Rc::new(Cell::new(widgets_visible));

@@ -14,6 +14,7 @@ import { SidePanel, EventItem, TodoItem, NoteItem, HabitItem, CalendarItem } fro
 import { WidgetWindow, CountdownItem, WeatherDayItem } from "widget.slint";
 import { CalendarWidgetWindow, EventsWidgetWindow, CountdownWidgetWindow, ClockWidgetWindow, WeatherWidgetWindow, FocusWidgetWindow, TodoWidgetWindow, NotesWidgetWindow, WidgetAppearanceWindow } from "desktop-widgets.slint";
 import { QuickPanelWindow } from "quick-panel.slint";
+import { NotificationWindow } from "notification-window.slint";
 import { NewEventDialog, NewEventWindow } from "new-event-dialog.slint";
 import { ThemeComparisonWindow } from "theme-comparison.slint";
 import { NotesView } from "notes-view.slint";
@@ -23,7 +24,7 @@ import { Icons, SvgIcon } from "icons.slint";
 import { Palette, ScrollView } from "std-widgets.slint";
 import { MainWindowDragArea, MiniDay, ToolbarButton, SidebarQuickAction, OverviewMetricCard, DesktopWidgetManagerItem } from "app-shell-components.slint";
 
-export { CalendarDay, EventItem, TodoItem, NoteItem, HabitItem, CalendarItem, WeekDayItem, TimelineDay, TimelineEvent, TodoBoardItem, YearMonth, SearchItem, RecordItem, ShiftTypeItem, ShiftAssignmentItem, CourseItem, SubscriptionItem, CountdownItem, WeatherDayItem, WidgetWindow, CalendarWidgetWindow, EventsWidgetWindow, CountdownWidgetWindow, ClockWidgetWindow, WeatherWidgetWindow, FocusWidgetWindow, TodoWidgetWindow, NotesWidgetWindow, WidgetAppearanceWindow, QuickPanelWindow, NewEventWindow, ThemeComparisonWindow, Theme }
+export { CalendarDay, EventItem, TodoItem, NoteItem, HabitItem, CalendarItem, WeekDayItem, TimelineDay, TimelineEvent, TodoBoardItem, YearMonth, SearchItem, RecordItem, ShiftTypeItem, ShiftAssignmentItem, CourseItem, SubscriptionItem, CountdownItem, WeatherDayItem, WidgetWindow, CalendarWidgetWindow, EventsWidgetWindow, CountdownWidgetWindow, ClockWidgetWindow, WeatherWidgetWindow, FocusWidgetWindow, TodoWidgetWindow, NotesWidgetWindow, WidgetAppearanceWindow, QuickPanelWindow, NotificationWindow, NewEventWindow, ThemeComparisonWindow, Theme }
 
 export component AppWindow inherits Window {
     title: "日历";
@@ -167,6 +168,8 @@ export component AppWindow inherits Window {
     in-out property <bool> new-event-open: false;
     in-out property <bool> notification-open: false;
     in-out property <string> action-message: "";
+    callback show-action-notification(string);
+    changed action-message => { root.show-action-notification(root.action-message); }
     in property <string> new-event-date-default;
     in-out property <int> editing-event-id: 0;
     in-out property <string> editor-title: "";
@@ -1161,35 +1164,6 @@ export component AppWindow inherits Window {
             }
         }
     }
-    if action-message != "": Rectangle {
-        // 操作反馈采用接近系统通知的尺寸，并贴近工作区右下角；最大化时
-        // 底部工作区边缘正好位于任务栏上沿，不再额外避让应用状态栏。
-        x: parent.width - self.width - Theme.space-4;
-        y: parent.height - self.height - Theme.space-2;
-        width: 410px; height: 76px; border-radius: Theme.r-xl;
-        background: Theme.bg-surface; border-width: 1px; border-color: Theme.border-default;
-        drop-shadow-color: Theme.shadow-2-color-a;
-        drop-shadow-blur: Theme.shadow-2-blur-a;
-        drop-shadow-offset-y: Theme.shadow-2-y-a;
-        HorizontalLayout { padding: Theme.space-3; spacing: Theme.space-3; cross-axis-alignment: center;
-            Rectangle {
-                width: 38px; height: 38px; border-radius: Theme.r-lg; background: Theme.accent-subtle;
-                SvgIcon { source: Icons.bell; size: 19px; tint: Theme.accent; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; }
-            }
-            VerticalLayout {
-                horizontal-stretch: 1; spacing: 3px;
-                Text { text: "TimeHub 通知"; color: Theme.text-1; font-size: Theme.font-12-5; font-weight: 600; overflow: elide; }
-                Text { text: root.action-message; color: Theme.text-2; font-size: Theme.font-11-5; overflow: elide; }
-            }
-            IconButton { icon: Icons.close; size: 28px; icon-size: 12px; borderless: true; clicked => { root.action-message = ""; } }
-        }
-    }
-    Timer {
-        interval: 4s;
-        running: root.action-message != "";
-        triggered => { root.action-message = ""; }
-    }
-
     if todo-add-open: Rectangle {
         width: parent.width; height: parent.height; background: Theme.bg-scrim;
         TouchArea { clicked => { root.todo-add-open = false; } }

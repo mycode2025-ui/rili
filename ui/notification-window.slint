@@ -1,0 +1,89 @@
+import { Theme } from "design-system.slint";
+import { Icons, SvgIcon } from "icons.slint";
+
+export { Theme }
+
+// 独立于主窗口的轻量通知。原生窗口位置由 Rust 根据 Windows 任务栏计算，
+// 因此它始终贴在屏幕工作区右下角，而不是应用内容区右下角。
+export component NotificationWindow inherits Window {
+    title: "TimeHub 通知";
+    default-font-family: Theme.font-family;
+    width: 410px;
+    height: 76px;
+    no-frame: true;
+    always-on-top: true;
+    background: transparent;
+
+    in property <string> message;
+    callback close-requested();
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        border-radius: Theme.r-xl;
+        background: Theme.bg-surface;
+        border-width: 1px;
+        border-color: Theme.border-default;
+        drop-shadow-color: Theme.shadow-2-color-a;
+        drop-shadow-blur: Theme.shadow-2-blur-a;
+        drop-shadow-offset-y: Theme.shadow-2-y-a;
+
+        HorizontalLayout {
+            padding: Theme.space-3;
+            spacing: Theme.space-3;
+            cross-axis-alignment: center;
+
+            Rectangle {
+                width: 38px;
+                height: 38px;
+                border-radius: Theme.r-lg;
+                background: Theme.accent-subtle;
+                SvgIcon {
+                    source: Icons.bell;
+                    size: 19px;
+                    tint: Theme.accent;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                }
+            }
+
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: 3px;
+                Text {
+                    text: "TimeHub 通知";
+                    color: Theme.text-1;
+                    font-size: Theme.font-12-5;
+                    font-weight: 600;
+                    overflow: elide;
+                }
+                Text {
+                    text: root.message;
+                    color: Theme.text-2;
+                    font-size: Theme.font-11-5;
+                    overflow: elide;
+                }
+            }
+
+            close-button := Rectangle {
+                width: 28px;
+                height: 28px;
+                border-radius: Theme.r-md;
+                background: close-touch.has-hover ? Theme.bg-hover : transparent;
+                accessible-role: button;
+                accessible-label: "关闭通知";
+                close-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.close-requested(); }
+                }
+                SvgIcon {
+                    source: Icons.close;
+                    size: 12px;
+                    tint: Theme.text-2;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                }
+            }
+        }
+    }
+}

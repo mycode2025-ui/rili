@@ -318,6 +318,37 @@ pub(crate) fn position_quick_panel_at_rect(quick: &QuickPanelWindow, taskbar: Ta
         .set_position(slint::PhysicalPosition::new(x, y));
 }
 
+/// Place a notification against the current screen work area's taskbar edge.
+/// For the usual bottom taskbar this is the screen's bottom-right corner,
+/// immediately above the taskbar. Unlike the quick panel, showing a
+/// notification must not steal keyboard focus from the user's current app.
+pub(crate) fn show_screen_notification(notification: &NotificationWindow) {
+    if let Some(taskbar) = windows_taskbar_rect() {
+        let scale = taskbar.scale;
+        let width = (410.0 * scale).round() as i32;
+        let height = (76.0 * scale).round() as i32;
+        let gap = (12.0 * scale).round() as i32;
+        let (x, y) = rili::window_policy::taskbar_panel_position(
+            rili::window_policy::ScreenRect {
+                left: taskbar.left,
+                top: taskbar.top,
+                right: taskbar.right,
+                bottom: taskbar.bottom,
+            },
+            taskbar.edge,
+            width,
+            height,
+            gap,
+        );
+        notification
+            .window()
+            .set_position(slint::PhysicalPosition::new(x, y));
+    }
+    notification.window().set_minimized(false);
+    let _ = notification.show();
+    remove_widget_from_taskbar(notification);
+}
+
 pub(crate) static TASKBAR_CLOCK_HOOK_ENABLED: AtomicBool = AtomicBool::new(false);
 pub(crate) static TASKBAR_CLOCK_CLICKED: AtomicBool = AtomicBool::new(false);
 #[cfg(target_os = "windows")]
