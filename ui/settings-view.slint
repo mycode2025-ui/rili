@@ -1,7 +1,7 @@
 import { Theme } from "theme.slint";
 import { Icons, SvgIcon } from "icons.slint";
 import { Dropdown } from "widgets.slint";
-import { Palette } from "std-widgets.slint";
+import { Palette, ScrollView } from "std-widgets.slint";
 
 component SettingsNavItem inherits Rectangle {
     in property <string> label;
@@ -153,9 +153,11 @@ export component SettingsView inherits Rectangle {
                 Rectangle { vertical-stretch: 1; }
             }
         }
-        VerticalLayout {
+        ScrollView {
             horizontal-stretch: 1;
-            padding-left: Theme.space-5; padding-right: Theme.space-5; padding-top: Theme.space-4; spacing: 0px;
+            VerticalLayout {
+            width: parent.width;
+            padding-left: Theme.space-5; padding-right: Theme.space-5; padding-top: Theme.space-4; padding-bottom: Theme.space-4; spacing: 0px;
             Text { text: root.selected-section == 0 ? "外观" : (root.selected-section == 1 ? "日历" : (root.selected-section == 2 ? "通知" : (root.selected-section == 3 ? "同步" : (root.selected-section == 4 ? "隐私" : (root.selected-section == 5 ? "快捷键" : (root.selected-section == 6 ? "数据" : "关于")))))); color: Theme.text-1; font-size: Theme.font-15; font-weight: 600; }
             Text { text: root.selected-section == 0 ? "自定义 TimeHub 在窗口中的显示方式。" : "管理该功能的本地偏好与操作。"; color: Theme.text-3; font-size: Theme.font-12; }
             Rectangle { height: Theme.space-6; }
@@ -166,6 +168,36 @@ export component SettingsView inherits Rectangle {
                 ThemeCard { label: "浅色"; mode: 1; selected: visual-theme == 1; choose(mode) => { visual-theme = mode; Theme.theme-mode = mode; Palette.color-scheme = ColorScheme.light; root.set-visual-theme(mode); } }
                 ThemeCard { label: "深色"; mode: 2; selected: visual-theme == 2; choose(mode) => { visual-theme = mode; Theme.theme-mode = mode; Palette.color-scheme = ColorScheme.dark; root.set-visual-theme(mode); } }
                 ThemeCard { label: "跟随系统"; mode: 0; selected: visual-theme == 0; choose(mode) => { visual-theme = mode; Theme.theme-mode = mode; Palette.color-scheme = ColorScheme.unknown; root.set-visual-theme(mode); } }
+            }
+            Rectangle { visible: root.selected-section == 0; height: root.selected-section == 0 ? 1px : 0px; background: Theme.border-subtle; }
+            HorizontalLayout {
+                visible: root.selected-section == 0;
+                height: root.selected-section == 0 ? 118px : 0px;
+                cross-axis-alignment: center;
+                SettingInfo { title: "桌面卡片外观"; description: "当前：" + root.widget-style-name + "；点击卡片齿轮可切换目标"; horizontal-stretch: 1; }
+                VerticalLayout {
+                    width: 390px; spacing: Theme.space-2;
+                    HorizontalLayout {
+                        height: 30px; spacing: Theme.space-2; cross-axis-alignment: center;
+                        Text { text: "透明度"; color: Theme.text-2; font-size: Theme.font-11; vertical-alignment: center; }
+                        SmallChoice { min-width: 34px; label: "−"; clicked => { root.set-widget-style-opacity(Math.max(35, root.widget-style-opacity - 5)); } }
+                        Text { width: 44px; text: root.widget-style-opacity + "%"; color: Theme.text-1; font-size: Theme.font-12; horizontal-alignment: center; vertical-alignment: center; }
+                        SmallChoice { min-width: 34px; label: "+"; clicked => { root.set-widget-style-opacity(Math.min(100, root.widget-style-opacity + 5)); } }
+                        Rectangle { horizontal-stretch: 1; }
+                        SmallChoice { label: "跟随"; selected: root.widget-style-theme == 0; clicked => { root.set-widget-style-theme(0); } }
+                        SmallChoice { label: "浅色"; selected: root.widget-style-theme == 1; clicked => { root.set-widget-style-theme(1); } }
+                        SmallChoice { label: "深色"; selected: root.widget-style-theme == 2; clicked => { root.set-widget-style-theme(2); } }
+                    }
+                    HorizontalLayout {
+                        height: 30px; spacing: 7px; cross-axis-alignment: center;
+                        SmallChoice { min-width: 56px; label: "跟随色"; selected: root.widget-style-accent < 0; clicked => { root.set-widget-style-accent(-1); } }
+                        for swatch[i] in [Theme.c-blue, Theme.c-green, Theme.c-orange, Theme.c-red, Theme.c-purple, Theme.c-cyan, Theme.c-pink, Theme.c-lime]: Rectangle {
+                            width: 24px; height: 24px; border-radius: 12px; border-width: root.widget-style-accent == i ? 2px : 0px; border-color: swatch; background: transparent;
+                            Rectangle { width: 18px; height: 18px; x: 3px; y: 3px; border-radius: 9px; background: swatch; }
+                            TouchArea { mouse-cursor: pointer; clicked => { root.set-widget-style-accent(i); } }
+                        }
+                    }
+                }
             }
             Rectangle { visible: root.selected-section == 0; height: root.selected-section == 0 ? 1px : 0px; background: Theme.border-subtle; }
             HorizontalLayout {
@@ -243,36 +275,6 @@ export component SettingsView inherits Rectangle {
                 SettingInfo { title: "快速面板"; description: "固定显示在系统时钟上方，可选窗口置顶"; horizontal-stretch: 1; }
                 Switch { checked: root.quick-panel-pinned; toggled(value) => { root.set-quick-panel-pinned(value); } }
             }
-            Rectangle { visible: root.selected-section == 0; height: root.selected-section == 0 ? 1px : 0px; background: Theme.border-subtle; }
-            HorizontalLayout {
-                visible: root.selected-section == 0;
-                height: root.selected-section == 0 ? 118px : 0px;
-                cross-axis-alignment: center;
-                SettingInfo { title: "桌面卡片外观"; description: "当前：" + root.widget-style-name + "；点击卡片齿轮可切换目标"; horizontal-stretch: 1; }
-                VerticalLayout {
-                    width: 390px; spacing: Theme.space-2;
-                    HorizontalLayout {
-                        height: 30px; spacing: Theme.space-2; cross-axis-alignment: center;
-                        Text { text: "透明度"; color: Theme.text-2; font-size: Theme.font-11; vertical-alignment: center; }
-                        SmallChoice { min-width: 34px; label: "−"; clicked => { root.set-widget-style-opacity(Math.max(35, root.widget-style-opacity - 5)); } }
-                        Text { width: 44px; text: root.widget-style-opacity + "%"; color: Theme.text-1; font-size: Theme.font-12; horizontal-alignment: center; vertical-alignment: center; }
-                        SmallChoice { min-width: 34px; label: "+"; clicked => { root.set-widget-style-opacity(Math.min(100, root.widget-style-opacity + 5)); } }
-                        Rectangle { horizontal-stretch: 1; }
-                        SmallChoice { label: "跟随"; selected: root.widget-style-theme == 0; clicked => { root.set-widget-style-theme(0); } }
-                        SmallChoice { label: "浅色"; selected: root.widget-style-theme == 1; clicked => { root.set-widget-style-theme(1); } }
-                        SmallChoice { label: "深色"; selected: root.widget-style-theme == 2; clicked => { root.set-widget-style-theme(2); } }
-                    }
-                    HorizontalLayout {
-                        height: 30px; spacing: 7px; cross-axis-alignment: center;
-                        SmallChoice { min-width: 56px; label: "跟随色"; selected: root.widget-style-accent < 0; clicked => { root.set-widget-style-accent(-1); } }
-                        for swatch[i] in [Theme.c-blue, Theme.c-green, Theme.c-orange, Theme.c-red, Theme.c-purple, Theme.c-cyan, Theme.c-pink, Theme.c-lime]: Rectangle {
-                            width: 24px; height: 24px; border-radius: 12px; border-width: root.widget-style-accent == i ? 2px : 0px; border-color: swatch; background: transparent;
-                            Rectangle { width: 18px; height: 18px; x: 3px; y: 3px; border-radius: 9px; background: swatch; }
-                            TouchArea { mouse-cursor: pointer; clicked => { root.set-widget-style-accent(i); } }
-                        }
-                    }
-                }
-            }
             if root.selected-section == 1: VerticalLayout {
                 horizontal-stretch: 1;
                 height: 218px;
@@ -342,6 +344,7 @@ export component SettingsView inherits Rectangle {
                 HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "诊断"; description: "检查数据库、提醒与同步配置"; horizontal-stretch: 1; } SettingsAction { label: "运行诊断"; clicked => { root.settings-action("diagnostics"); } } }
             }
             Rectangle { vertical-stretch: 1; }
+            }
         }
     }
 }
