@@ -79,6 +79,9 @@ pub(crate) fn apply_theme(
             if let Some(editor) = windows.event_editor.borrow().as_ref() {
                 apply(editor.global::<Theme>());
             }
+            if let Some(editor) = windows.appearance_editor.borrow().as_ref() {
+                apply(editor.global::<Theme>());
+            }
             apply_widget(windows.countdown.global::<Theme>());
             apply_widget(windows.clock.global::<Theme>());
             apply_widget(windows.weather.global::<Theme>());
@@ -112,6 +115,9 @@ pub(crate) fn apply_visual_theme(
             apply_widget(windows.calendar.global::<Theme>());
             apply_widget(windows.events.global::<Theme>());
             if let Some(editor) = windows.event_editor.borrow().as_ref() {
+                editor.global::<Theme>().set_theme_mode(mode);
+            }
+            if let Some(editor) = windows.appearance_editor.borrow().as_ref() {
                 editor.global::<Theme>().set_theme_mode(mode);
             }
             apply_widget(windows.countdown.global::<Theme>());
@@ -166,6 +172,12 @@ pub(crate) fn apply_accessibility_preferences(
                 theme.set_density_mode(density);
                 theme.set_reduce_motion(reduce_motion);
             }
+            if let Some(editor) = windows.appearance_editor.borrow().as_ref() {
+                let theme = editor.global::<Theme>();
+                theme.set_font_delta(font_delta);
+                theme.set_density_mode(density);
+                theme.set_reduce_motion(reduce_motion);
+            }
             for window in windows.notes.borrow().iter() {
                 let theme = window.global::<Theme>();
                 theme.set_font_delta(font_delta);
@@ -205,6 +217,9 @@ pub(crate) fn apply_font_family(
             if let Some(editor) = windows.event_editor.borrow().as_ref() {
                 editor.global::<Theme>().set_font_family(family.into());
             }
+            if let Some(editor) = windows.appearance_editor.borrow().as_ref() {
+                editor.global::<Theme>().set_font_family(family.into());
+            }
             for window in windows.notes.borrow().iter() {
                 window.global::<Theme>().set_font_family(family.into());
             }
@@ -217,7 +232,8 @@ fn with_desktop_widget_theme(kind: &str, mut action: impl FnMut(Theme<'_>)) -> b
         let Some(windows) = slot.borrow().as_ref().cloned() else {
             return false;
         };
-        match kind {
+        let base_kind = kind.split(':').next().unwrap_or(kind);
+        match base_kind {
             "calendar" => action(windows.calendar.global::<Theme>()),
             "events" => action(windows.events.global::<Theme>()),
             "countdown" => action(windows.countdown.global::<Theme>()),
@@ -278,20 +294,103 @@ pub(crate) fn apply_desktop_widget_style(
 }
 
 pub(crate) fn desktop_widget_style(conn: &Connection, kind: &str) -> (i32, i32, i32) {
-    let opacity = db::get_setting(conn, &format!("widget_{kind}_opacity"), "80")
+    let (global_opacity, global_theme, global_accent) = desktop_widget_global_style(conn);
+    let (opacity_override, theme_override, accent_override) =
+        desktop_widget_instance_overrides(conn, kind);
+    (
+        if opacity_override < 0 {
+            global_opacity
+        } else {
+            opacity_override
+        },
+        if theme_override < 0 {
+            global_theme
+        } else {
+            theme_override
+        },
+        if accent_override < 0 {
+            global_accent
+        } else {
+            accent_override
+        },
+    )
+}
+
+pub(crate) fn desktop_widget_global_style(conn: &Connection) -> (i32, i32, i32) {
+    // Treat the former calendar-scoped values as a one-time-compatible default
+    // so users do not see their chosen opacity jump after this model change.
+    let legacy_opacity =
+        db::get_setting(conn, "widget_calendar_opacity", "80").unwrap_or_else(|_| "80".to_string());
+    let legacy_theme =
+        db::get_setting(conn, "widget_calendar_theme", "0").unwrap_or_else(|_| "0".to_string());
+    let legacy_accent =
+        db::get_setting(conn, "widget_calendar_accent", "-1").unwrap_or_else(|_| "-1".to_string());
+    let opacity = db::get_setting(conn, "desktop_widget_opacity", &legacy_opacity)
         .ok()
         .and_then(|value| value.parse().ok())
         .unwrap_or(80)
         .clamp(35, 100);
-    let theme = db::get_setting(conn, &format!("widget_{kind}_theme"), "0")
+    let theme = db::get_setting(conn, "desktop_widget_theme", &legacy_theme)
         .ok()
         .and_then(|value| value.parse().ok())
         .unwrap_or(0)
         .clamp(0, 2);
-    let accent = db::get_setting(conn, &format!("widget_{kind}_accent"), "-1")
+    let accent = db::get_setting(conn, "desktop_widget_accent", &legacy_accent)
         .ok()
         .and_then(|value| value.parse().ok())
         .unwrap_or(-1)
         .clamp(-1, 7);
     (opacity, theme, accent)
+}
+
+pub(crate) fn desktop_widget_instance_overrides(
+    conn: &Connection,
+    instance_key: &str,
+) -> (i32, i32, i32) {
+    let prefix = format!("widget_instance_{instance_key}");
+    let read = |suffix: &str, minimum: i32, maximum: i32| {
+        db::get_setting(conn, &format!("{prefix}_{suffix}"), "-1")
+            .ok()
+            .and_then(|value| value.parse::<i32>().ok())
+            .map(|value| {
+                if value < 0 {
+                    -1
+                } else {
+                    value.clamp(minimum.max(0), maximum)
+                }
+            })
+            .unwrap_or(-1)
+    };
+    (
+        read("opacity", -1, 100),
+        read("theme", -1, 2),
+        read("accent", -1, 7),
+    )
+}
+
+pub(crate) fn apply_all_desktop_widget_styles(conn: &Connection, app_theme: i32, app_accent: i32) {
+    let mut keys = vec![
+        "calendar:1".to_string(),
+        "events:1".to_string(),
+        "countdown:1".to_string(),
+        "clock:1".to_string(),
+        "weather:1".to_string(),
+        "focus:1".to_string(),
+        "todo:1".to_string(),
+    ];
+    DESKTOP_WIDGET_WINDOWS.with(|slot| {
+        if let Some(windows) = slot.borrow().as_ref() {
+            keys.extend(
+                windows
+                    .notes
+                    .borrow()
+                    .iter()
+                    .map(|note| format!("note_{}", note.get_note_id())),
+            );
+        }
+    });
+    for key in keys {
+        let (opacity, theme, accent) = desktop_widget_style(conn, &key);
+        apply_desktop_widget_style(&key, opacity, theme, accent, app_theme, app_accent);
+    }
 }

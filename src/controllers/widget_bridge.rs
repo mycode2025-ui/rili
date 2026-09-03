@@ -3,6 +3,7 @@ use crate::*;
 pub(crate) fn register_widget_bridge_callbacks(
     ui: &AppWindow,
     widget: &WidgetWindow,
+    desktop_widgets: &Rc<DesktopWidgetWindows>,
     state: &Rc<RefCell<AppState>>,
     widget_shown: &Rc<Cell<bool>>,
 ) {
@@ -78,11 +79,13 @@ pub(crate) fn register_widget_bridge_callbacks(
     }
     {
         let ui_weak = ui.as_weak();
+        let desktop_widgets = desktop_widgets.clone();
         let state = state.clone();
-        widget.on_open_widget_settings(move |kind| {
+        widget.on_open_widget_settings(move |instance_key| {
             if let Some(ui) = ui_weak.upgrade() {
-                let kind = kind.to_string();
-                let name = match kind.as_str() {
+                let instance_key = instance_key.to_string();
+                let base_kind = instance_key.split(':').next().unwrap_or(&instance_key);
+                let name = match base_kind {
                     "calendar" => "月历".to_string(),
                     "events" => "今日日程".to_string(),
                     "countdown" => "倒数日".to_string(),
@@ -95,16 +98,90 @@ pub(crate) fn register_widget_bridge_callbacks(
                     }
                     _ => "桌面卡片".to_string(),
                 };
-                let (opacity, card_theme, card_accent) =
-                    desktop_widget_style(&state.borrow().conn, &kind);
-                ui.set_widget_style_kind(kind.into());
-                ui.set_widget_style_name(name.into());
-                ui.set_widget_style_opacity(opacity);
-                ui.set_widget_style_theme(card_theme);
-                ui.set_widget_style_accent(card_accent);
-                ui.set_settings_section(0);
-                ui.set_settings_open(true);
-                show_and_focus_main_window(&ui);
+                if let Some(previous) = desktop_widgets.appearance_editor.borrow_mut().take() {
+                    let _ = previous.hide();
+                }
+                let Ok(editor) = WidgetAppearanceWindow::new() else {
+                    ui.set_action_message("无法打开卡片外观设置".into());
+                    return;
+                };
+                let (global_opacity, _, _) = desktop_widget_global_style(&state.borrow().conn);
+                let (opacity_override, theme_override, accent_override) =
+                    desktop_widget_instance_overrides(&state.borrow().conn, &instance_key);
+                editor.set_instance_key(instance_key.clone().into());
+                editor.set_card_name(name.into());
+                editor.set_global_opacity(global_opacity);
+                editor.set_opacity_override(opacity_override);
+                editor.set_theme_override(theme_override);
+                editor.set_accent_override(accent_override);
+                {
+                    let source = ui.global::<Theme>();
+                    let target = editor.global::<Theme>();
+                    target.set_theme_mode(source.get_theme_mode());
+                    target.set_system_dark(source.get_system_dark());
+                    target.set_accent(source.get_accent());
+                    target.set_today_bg(source.get_today_bg());
+                    target.set_font_delta(source.get_font_delta());
+                    target.set_density_mode(source.get_density_mode());
+                    target.set_reduce_motion(source.get_reduce_motion());
+                    target.set_font_family(source.get_font_family());
+                }
+                {
+                    let editor_weak = editor.as_weak();
+                    editor.on_close_requested(move || {
+                        if let Some(editor) = editor_weak.upgrade() {
+                            let _ = editor.hide();
+                        }
+                    });
+                }
+                {
+                    let editor_weak = editor.as_weak();
+                    let ui_weak = ui.as_weak();
+                    let state = state.clone();
+                    let instance_key = instance_key.clone();
+                    editor.on_save(move |opacity, theme, accent| {
+                        let prefix = format!("widget_instance_{instance_key}");
+                        let result = db::set_settings(
+                            &mut state.borrow_mut().conn,
+                            &[
+                                (&format!("{prefix}_opacity"), &opacity.to_string()),
+                                (&format!("{prefix}_theme"), &theme.to_string()),
+                                (&format!("{prefix}_accent"), &accent.to_string()),
+                            ],
+                        );
+                        if let Some(ui) = ui_weak.upgrade() {
+                            match result {
+                                Ok(()) => {
+                                    let (effective_opacity, effective_theme, effective_accent) =
+                                        desktop_widget_style(&state.borrow().conn, &instance_key);
+                                    apply_desktop_widget_style(
+                                        &instance_key,
+                                        effective_opacity,
+                                        effective_theme,
+                                        effective_accent,
+                                        ui.get_visual_theme(),
+                                        ui.get_theme_index(),
+                                    );
+                                    ui.set_action_message("已保存这张卡片的独立外观".into());
+                                    if let Some(editor) = editor_weak.upgrade() {
+                                        let _ = editor.hide();
+                                    }
+                                }
+                                Err(error) => ui.set_action_message(
+                                    format!("保存卡片外观失败：{error}").into(),
+                                ),
+                            }
+                        }
+                    });
+                }
+                let position = ui.window().position();
+                let size = ui.window().size();
+                editor.window().set_position(slint::PhysicalPosition::new(
+                    position.x + (size.width as i32 - 430).max(0) / 2,
+                    position.y + (size.height as i32 - 286).max(0) / 2,
+                ));
+                let _ = editor.show();
+                *desktop_widgets.appearance_editor.borrow_mut() = Some(editor);
             }
         });
     }

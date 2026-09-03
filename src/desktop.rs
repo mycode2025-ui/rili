@@ -50,6 +50,7 @@ pub(crate) struct DesktopWidgetWindows {
     pub(crate) calendar: CalendarWidgetWindow,
     pub(crate) events: EventsWidgetWindow,
     pub(crate) event_editor: RefCell<Option<NewEventWindow>>,
+    pub(crate) appearance_editor: RefCell<Option<WidgetAppearanceWindow>>,
     pub(crate) countdown: CountdownWidgetWindow,
     pub(crate) clock: ClockWidgetWindow,
     pub(crate) weather: WeatherWidgetWindow,
@@ -64,6 +65,7 @@ impl DesktopWidgetWindows {
             calendar: CalendarWidgetWindow::new()?,
             events: EventsWidgetWindow::new()?,
             event_editor: RefCell::new(None),
+            appearance_editor: RefCell::new(None),
             countdown: CountdownWidgetWindow::new()?,
             clock: ClockWidgetWindow::new()?,
             weather: WeatherWidgetWindow::new()?,
@@ -456,6 +458,9 @@ impl DesktopWidgetWindows {
         let _ = self.calendar.hide();
         let _ = self.events.hide();
         if let Some(editor) = self.event_editor.borrow().as_ref() {
+            let _ = editor.hide();
+        }
+        if let Some(editor) = self.appearance_editor.borrow().as_ref() {
             let _ = editor.hide();
         }
         let _ = self.countdown.hide();

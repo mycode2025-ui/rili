@@ -174,7 +174,7 @@ export component SettingsView inherits Rectangle {
                 visible: root.selected-section == 0;
                 height: root.selected-section == 0 ? 118px : 0px;
                 cross-axis-alignment: center;
-                SettingInfo { title: "桌面卡片外观"; description: "当前：" + root.widget-style-name + "；点击卡片齿轮可切换目标"; horizontal-stretch: 1; }
+                SettingInfo { title: "桌面卡片统一外观"; description: "作为全部卡片的默认值；单张卡片可通过自身齿轮覆盖"; horizontal-stretch: 1; }
                 VerticalLayout {
                     width: 390px; spacing: Theme.space-2;
                     HorizontalLayout {

@@ -149,23 +149,23 @@ pub(crate) fn register_desktop_card_callbacks(
         });
     }
     macro_rules! forward_widget_settings {
-        ($window:expr) => {{
+        ($window:expr, $instance_key:literal) => {{
             let widget_weak = widget.as_weak();
-            $window.on_open_widget_settings(move |kind| {
+            $window.on_open_widget_settings(move |_kind| {
                 if let Some(widget) = widget_weak.upgrade() {
-                    widget.invoke_open_widget_settings(kind);
+                    widget.invoke_open_widget_settings($instance_key.into());
                 }
             });
         }};
     }
 
-    forward_widget_settings!(desktop_widgets.calendar);
-    forward_widget_settings!(desktop_widgets.events);
-    forward_widget_settings!(desktop_widgets.countdown);
-    forward_widget_settings!(desktop_widgets.clock);
-    forward_widget_settings!(desktop_widgets.weather);
-    forward_widget_settings!(desktop_widgets.focus);
-    forward_widget_settings!(desktop_widgets.todo);
+    forward_widget_settings!(desktop_widgets.calendar, "calendar:1");
+    forward_widget_settings!(desktop_widgets.events, "events:1");
+    forward_widget_settings!(desktop_widgets.countdown, "countdown:1");
+    forward_widget_settings!(desktop_widgets.clock, "clock:1");
+    forward_widget_settings!(desktop_widgets.weather, "weather:1");
+    forward_widget_settings!(desktop_widgets.focus, "focus:1");
+    forward_widget_settings!(desktop_widgets.todo, "todo:1");
 
     macro_rules! forward_widget_main_view {
         ($window:expr) => {{

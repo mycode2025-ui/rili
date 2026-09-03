@@ -48,16 +48,12 @@ pub(crate) fn register_appearance_callbacks(
                 let Some(ui) = ui_weak.upgrade() else {
                     return;
                 };
-                let kind = ui.get_widget_style_kind().to_string();
-                let key = format!("widget_{kind}_{}", $suffix);
+                let key = format!("desktop_widget_{}", $suffix);
                 match db::set_setting(&state.borrow().conn, &key, &value.to_string()) {
                     Ok(()) => {
                         ui.$property(value);
-                        apply_desktop_widget_style(
-                            &kind,
-                            ui.get_widget_style_opacity(),
-                            ui.get_widget_style_theme(),
-                            ui.get_widget_style_accent(),
+                        apply_all_desktop_widget_styles(
+                            &state.borrow().conn,
                             ui.get_visual_theme(),
                             ui.get_theme_index(),
                         );

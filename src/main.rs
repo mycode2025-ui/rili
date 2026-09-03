@@ -354,10 +354,9 @@ fn run_gui(startup: bool) -> Result<()> {
     ui.set_taskbar_clock_enabled(taskbar_clock_enabled);
     ui.set_auto_start_enabled(autostart::is_enabled());
     {
-        let (opacity, card_theme, card_accent) =
-            desktop_widget_style(&state.borrow().conn, "calendar");
-        ui.set_widget_style_kind("calendar".into());
-        ui.set_widget_style_name("月历".into());
+        let (opacity, card_theme, card_accent) = desktop_widget_global_style(&state.borrow().conn);
+        ui.set_widget_style_kind("global".into());
+        ui.set_widget_style_name("统一默认".into());
         ui.set_widget_style_opacity(opacity);
         ui.set_widget_style_theme(card_theme);
         ui.set_widget_style_accent(card_accent);
@@ -372,25 +371,7 @@ fn run_gui(startup: bool) -> Result<()> {
     apply_visual_theme(&ui, &widget, &quick_panel, visual_theme);
     {
         let state = state.borrow();
-        for kind in [
-            "calendar",
-            "events",
-            "countdown",
-            "clock",
-            "weather",
-            "focus",
-            "todo",
-        ] {
-            let (opacity, card_theme, card_accent) = desktop_widget_style(&state.conn, kind);
-            apply_desktop_widget_style(
-                kind,
-                opacity,
-                card_theme,
-                card_accent,
-                visual_theme,
-                theme_index,
-            );
-        }
+        apply_all_desktop_widget_styles(&state.conn, visual_theme, theme_index);
     }
     apply_accessibility_preferences(
         &ui,
@@ -537,6 +518,7 @@ fn run_gui(startup: bool) -> Result<()> {
     controllers::widget_bridge::register_widget_bridge_callbacks(
         &ui,
         &widget,
+        &desktop_widgets,
         &state,
         &widget_shown,
     );
