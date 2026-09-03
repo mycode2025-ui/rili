@@ -68,6 +68,7 @@ pub(crate) fn apply_theme(
             }
             apply(windows.countdown.global::<Theme>());
             apply(windows.clock.global::<Theme>());
+            apply(windows.weather.global::<Theme>());
             apply(windows.focus.global::<Theme>());
             apply(windows.todo.global::<Theme>());
             for window in windows.notes.borrow().iter() {
@@ -97,6 +98,7 @@ pub(crate) fn apply_visual_theme(
             }
             windows.countdown.global::<Theme>().set_theme_mode(mode);
             windows.clock.global::<Theme>().set_theme_mode(mode);
+            windows.weather.global::<Theme>().set_theme_mode(mode);
             windows.focus.global::<Theme>().set_theme_mode(mode);
             windows.todo.global::<Theme>().set_theme_mode(mode);
             for window in windows.notes.borrow().iter() {
@@ -132,6 +134,7 @@ pub(crate) fn apply_accessibility_preferences(
                 windows.events.global::<Theme>(),
                 windows.countdown.global::<Theme>(),
                 windows.clock.global::<Theme>(),
+                windows.weather.global::<Theme>(),
                 windows.focus.global::<Theme>(),
                 windows.todo.global::<Theme>(),
             ] {

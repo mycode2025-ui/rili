@@ -75,6 +75,7 @@ pub(crate) fn register_desktop_card_callbacks(
     wire_widget_chrome!(desktop_widgets.events, "events");
     wire_widget_chrome!(desktop_widgets.countdown, "countdown");
     wire_widget_chrome!(desktop_widgets.clock, "clock");
+    wire_widget_chrome!(desktop_widgets.weather, "weather");
     wire_widget_chrome!(desktop_widgets.focus, "focus");
     wire_widget_chrome!(desktop_widgets.todo, "todo");
 
@@ -173,6 +174,7 @@ pub(crate) fn register_desktop_card_callbacks(
     forward_widget_settings!(desktop_widgets.events);
     forward_widget_settings!(desktop_widgets.countdown);
     forward_widget_settings!(desktop_widgets.clock);
+    forward_widget_settings!(desktop_widgets.weather);
     forward_widget_settings!(desktop_widgets.focus);
     forward_widget_settings!(desktop_widgets.todo);
 

@@ -82,6 +82,15 @@ pub(crate) fn register_widget_bridge_callbacks(
         let state = state.clone();
         widget.on_open_widget_settings(move |kind| {
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
+                if kind.as_str() == "weather" {
+                    state.borrow_mut().view_mode = 6;
+                    ui.set_view_mode(6);
+                    ui.set_settings_open(false);
+                    ui.set_action_message("已打开天气设置".into());
+                    refresh_all(&ui, &widget, &state);
+                    show_and_focus_main_window(&ui);
+                    return;
+                }
                 let section = match kind.as_str() {
                     "calendar" | "events" => 1,
                     "countdown" | "focus" => 2,

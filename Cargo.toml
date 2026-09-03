@@ -36,11 +36,19 @@ slint-build = "1.17.1"
 winresource = "0.1"
 
 [profile.release]
-opt-level = 3
-lto = "thin"
-codegen-units = 1
+# 日常本地 Release 优先保证构建速度。这个 GUI 的主要开销在 Slint 生成代码，
+# opt-level=1 已消除调试构建的主要运行时开销；更激进的优化留给按需分发构建。
+opt-level = 1
+lto = false
+codegen-units = 256
+incremental = true
 strip = true
 panic = "abort"
+
+[profile.release.build-override]
+# 构建脚本和过程宏只在编译期运行，无需按 Release 级别优化。
+opt-level = 0
+codegen-units = 256
 
 [profile.dev]
 debug = 0

@@ -11,8 +11,8 @@ import { ShiftView, ShiftTypeItem, ShiftAssignmentItem } from "shift-view.slint"
 import { SettingsView } from "settings-view.slint";
 import { KanbanView, QuadrantView, TodoStatsView, TodoBoardItem } from "todo-board.slint";
 import { SidePanel, EventItem, TodoItem, NoteItem, HabitItem, CalendarItem } from "side-panel.slint";
-import { WidgetWindow, CountdownItem } from "widget.slint";
-import { CalendarWidgetWindow, EventsWidgetWindow, CountdownWidgetWindow, ClockWidgetWindow, FocusWidgetWindow, TodoWidgetWindow, NotesWidgetWindow } from "desktop-widgets.slint";
+import { WidgetWindow, CountdownItem, WeatherDayItem } from "widget.slint";
+import { CalendarWidgetWindow, EventsWidgetWindow, CountdownWidgetWindow, ClockWidgetWindow, WeatherWidgetWindow, FocusWidgetWindow, TodoWidgetWindow, NotesWidgetWindow } from "desktop-widgets.slint";
 import { QuickPanelWindow } from "quick-panel.slint";
 import { NewEventDialog, NewEventWindow } from "new-event-dialog.slint";
 import { ThemeComparisonWindow } from "theme-comparison.slint";
@@ -23,7 +23,7 @@ import { Icons, SvgIcon } from "icons.slint";
 import { Palette, ScrollView } from "std-widgets.slint";
 import { MainWindowDragArea, MiniDay, ToolbarButton, SidebarQuickAction, OverviewMetricCard, DesktopWidgetManagerItem } from "app-shell-components.slint";
 
-export { CalendarDay, EventItem, TodoItem, NoteItem, HabitItem, CalendarItem, WeekDayItem, TimelineDay, TimelineEvent, TodoBoardItem, YearMonth, SearchItem, RecordItem, ShiftTypeItem, ShiftAssignmentItem, CourseItem, SubscriptionItem, CountdownItem, WidgetWindow, CalendarWidgetWindow, EventsWidgetWindow, CountdownWidgetWindow, ClockWidgetWindow, FocusWidgetWindow, TodoWidgetWindow, NotesWidgetWindow, QuickPanelWindow, NewEventWindow, ThemeComparisonWindow, Theme }
+export { CalendarDay, EventItem, TodoItem, NoteItem, HabitItem, CalendarItem, WeekDayItem, TimelineDay, TimelineEvent, TodoBoardItem, YearMonth, SearchItem, RecordItem, ShiftTypeItem, ShiftAssignmentItem, CourseItem, SubscriptionItem, CountdownItem, WeatherDayItem, WidgetWindow, CalendarWidgetWindow, EventsWidgetWindow, CountdownWidgetWindow, ClockWidgetWindow, WeatherWidgetWindow, FocusWidgetWindow, TodoWidgetWindow, NotesWidgetWindow, QuickPanelWindow, NewEventWindow, ThemeComparisonWindow, Theme }
 
 export component AppWindow inherits Window {
     title: "日历";
@@ -54,6 +54,7 @@ export component AppWindow inherits Window {
     in-out property <bool> desktop-events-visible: true;
     in-out property <bool> desktop-countdown-visible: true;
     in-out property <bool> desktop-clock-visible: true;
+    in-out property <bool> desktop-weather-visible: false;
     in-out property <bool> desktop-focus-visible: true;
     in-out property <bool> desktop-todo-visible: true;
     in-out property <bool> desktop-notes-visible: true;
@@ -1052,7 +1053,7 @@ export component AppWindow inherits Window {
                     if row == 2: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "专注计时"; description: "番茄钟与专注任务"; icon: Icons.target; installed: root.desktop-focus-visible; toggled(v) => { root.desktop-focus-visible = v; root.set-desktop-widget-visible("focus", v); } }
                     if row == 2: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "今日待办"; description: "快速查看和完成待办"; icon: Icons.check; installed: root.desktop-todo-visible; toggled(v) => { root.desktop-todo-visible = v; root.set-desktop-widget-visible("todo", v); } }
                     if row == 3: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "便签"; description: "快速新建和管理便签"; icon: Icons.note; installed: root.desktop-notes-visible; toggled(v) => { root.desktop-notes-visible = v; root.set-desktop-widget-visible("notes", v); } }
-                    if row == 3: Rectangle { width: (parent.width - Theme.space-3) / 2; background: transparent; }
+                    if row == 3: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "天气"; description: "当前天气与未来五日预报"; icon: Icons.cloud; installed: root.desktop-weather-visible; toggled(v) => { root.desktop-weather-visible = v; root.set-desktop-widget-visible("weather", v); } }
                 }
                 Rectangle { height: 1px; background: Theme.border-subtle; }
                 HorizontalLayout {

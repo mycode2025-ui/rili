@@ -13,6 +13,7 @@ pub(crate) struct DesktopWidgetVisibility {
     pub(crate) events: bool,
     pub(crate) countdown: bool,
     pub(crate) clock: bool,
+    pub(crate) weather: bool,
     pub(crate) focus: bool,
     pub(crate) todo: bool,
     pub(crate) notes: bool,
@@ -24,6 +25,7 @@ impl DesktopWidgetVisibility {
             || self.events
             || self.countdown
             || self.clock
+            || self.weather
             || self.focus
             || self.todo
             || self.notes
@@ -35,6 +37,7 @@ impl DesktopWidgetVisibility {
             "events" => self.events = visible,
             "countdown" => self.countdown = visible,
             "clock" => self.clock = visible,
+            "weather" => self.weather = visible,
             "focus" => self.focus = visible,
             "todo" => self.todo = visible,
             "notes" => self.notes = visible,
@@ -49,6 +52,7 @@ pub(crate) struct DesktopWidgetWindows {
     pub(crate) event_editor: RefCell<Option<NewEventWindow>>,
     pub(crate) countdown: CountdownWidgetWindow,
     pub(crate) clock: ClockWidgetWindow,
+    pub(crate) weather: WeatherWidgetWindow,
     pub(crate) focus: FocusWidgetWindow,
     pub(crate) todo: TodoWidgetWindow,
     pub(crate) notes: RefCell<Vec<NotesWidgetWindow>>,
@@ -62,6 +66,7 @@ impl DesktopWidgetWindows {
             event_editor: RefCell::new(None),
             countdown: CountdownWidgetWindow::new()?,
             clock: ClockWidgetWindow::new()?,
+            weather: WeatherWidgetWindow::new()?,
             focus: FocusWidgetWindow::new()?,
             todo: TodoWidgetWindow::new()?,
             notes: RefCell::new(Vec::new()),
@@ -92,6 +97,14 @@ impl DesktopWidgetWindows {
             .set_day_progress_text(source.get_day_progress_text());
         self.clock
             .set_day_remaining_text(source.get_day_remaining_text());
+
+        self.weather.set_city(source.get_weather_city());
+        self.weather
+            .set_temperature(source.get_weather_temperature());
+        self.weather
+            .set_description(source.get_weather_description());
+        self.weather.set_updated_text(source.get_weather_updated());
+        self.weather.set_forecast(source.get_weather_days());
 
         self.focus.set_focus_time_text(source.get_focus_time_text());
         self.focus.set_focus_task(source.get_focus_task());
@@ -313,6 +326,7 @@ impl DesktopWidgetWindows {
         apply_visibility!(self.events, visible.events);
         apply_visibility!(self.countdown, visible.countdown);
         apply_visibility!(self.clock, visible.clock);
+        apply_visibility!(self.weather, visible.weather);
         apply_visibility!(self.focus, visible.focus);
         apply_visibility!(self.todo, visible.todo);
         if visible.notes {
@@ -336,6 +350,7 @@ impl DesktopWidgetWindows {
                 let events = self.events.as_weak();
                 let countdown = self.countdown.as_weak();
                 let clock = self.clock.as_weak();
+                let weather = self.weather.as_weak();
                 let focus = self.focus.as_weak();
                 let todo = self.todo.as_weak();
                 let notes: Vec<_> = self
@@ -365,6 +380,12 @@ impl DesktopWidgetWindows {
                     }
                     if visible.clock {
                         if let Some(window) = clock.upgrade() {
+                            remove_widget_from_taskbar(&window);
+                            set_widget_click_through(&window, click_through);
+                        }
+                    }
+                    if visible.weather {
+                        if let Some(window) = weather.upgrade() {
                             remove_widget_from_taskbar(&window);
                             set_widget_click_through(&window, click_through);
                         }
@@ -404,6 +425,7 @@ impl DesktopWidgetWindows {
         }
         let _ = self.countdown.hide();
         let _ = self.clock.hide();
+        let _ = self.weather.hide();
         let _ = self.focus.hide();
         let _ = self.todo.hide();
         for window in self.notes.borrow().iter() {
@@ -424,6 +446,9 @@ impl DesktopWidgetWindows {
         if visible.clock {
             set_widget_click_through(&self.clock, enabled);
         }
+        if visible.weather {
+            set_widget_click_through(&self.weather, enabled);
+        }
         if visible.focus {
             set_widget_click_through(&self.focus, enabled);
         }
@@ -443,6 +468,7 @@ pub(crate) fn sync_desktop_visibility_to_ui(ui: &AppWindow, visible: DesktopWidg
     ui.set_desktop_events_visible(visible.events);
     ui.set_desktop_countdown_visible(visible.countdown);
     ui.set_desktop_clock_visible(visible.clock);
+    ui.set_desktop_weather_visible(visible.weather);
     ui.set_desktop_focus_visible(visible.focus);
     ui.set_desktop_todo_visible(visible.todo);
     ui.set_desktop_notes_visible(visible.notes);

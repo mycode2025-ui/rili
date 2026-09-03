@@ -203,6 +203,7 @@ fn run_gui() -> Result<()> {
         events: db::get_setting(&state.borrow().conn, "widget_events_visible", "1")? == "1",
         countdown: db::get_setting(&state.borrow().conn, "widget_countdown_visible", "1")? == "1",
         clock: db::get_setting(&state.borrow().conn, "widget_clock_visible", "1")? == "1",
+        weather: db::get_setting(&state.borrow().conn, "widget_weather_visible", "0")? == "1",
         focus: db::get_setting(&state.borrow().conn, "widget_focus_visible", "1")? == "1",
         todo: db::get_setting(&state.borrow().conn, "widget_todo_visible", "1")? == "1",
         notes: db::get_setting(&state.borrow().conn, "widget_notes_visible", "1")? == "1",
@@ -228,6 +229,7 @@ fn run_gui() -> Result<()> {
             58,
         );
         restore_widget_window(&desktop_widgets.clock, &state.conn, "clock", 88, 502);
+        restore_widget_window(&desktop_widgets.weather, &state.conn, "weather", 88, 740);
         restore_widget_window(&desktop_widgets.focus, &state.conn, "focus", 616, 502);
         restore_widget_window(&desktop_widgets.todo, &state.conn, "todo", 1144, 502);
         // The quick panel is a taskbar flyout, not a freely positioned desktop
@@ -261,6 +263,13 @@ fn run_gui() -> Result<()> {
             db::get_setting(
                 &state.conn,
                 "widget_clock_pinned",
+                if widget_pinned { "1" } else { "0" },
+            )? == "1",
+        );
+        desktop_widgets.weather.set_pinned(
+            db::get_setting(
+                &state.conn,
+                "widget_weather_pinned",
                 if widget_pinned { "1" } else { "0" },
             )? == "1",
         );

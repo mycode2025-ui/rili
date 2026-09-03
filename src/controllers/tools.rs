@@ -141,7 +141,7 @@ pub(crate) fn register_tool_callbacks(
             let widget_weak = widget_weak.clone();
             std::thread::spawn(move || {
                 let result = db::open().and_then(|conn| weather::refresh_once(&conn));
-                let (weather_text, status_text) = match result {
+                let (weather_text, status_text, weather_data) = match result {
                     Ok(w) => {
                         let (desc, _) = weather::describe_code(w.code);
                         let text = format!("{} {:.0}°C {desc}", w.city, w.temp_c);
@@ -153,6 +153,7 @@ pub(crate) fn register_tool_callbacks(
                         (
                             Some(text.clone()),
                             format!("{text} · 已更新 {} · {source}", w.updated_at),
+                            Some(w),
                         )
                     }
                     Err(e) => {
@@ -165,9 +166,10 @@ pub(crate) fn register_tool_callbacks(
                                 (
                                     Some(text.clone()),
                                     format!("{text} · 使用 {} 缓存；刷新失败: {e:#}", w.updated_at),
+                                    Some(w),
                                 )
                             }
-                            None => (None, format!("天气刷新失败: {e:#}")),
+                            None => (None, format!("天气刷新失败: {e:#}"), None),
                         }
                     }
                 };
@@ -181,6 +183,8 @@ pub(crate) fn register_tool_callbacks(
                         }
                         if let Some(widget) = widget_weak.upgrade() {
                             widget.set_weather_text(weather_text.into());
+                            apply_weather_to_widget(&widget, weather_data.as_ref());
+                            sync_desktop_widgets(&widget);
                         }
                     }
                 });

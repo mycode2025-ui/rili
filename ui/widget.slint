@@ -6,6 +6,7 @@ import { Icons, SvgIcon } from "icons.slint";
 export { Theme }
 
 export struct CountdownItem { id: int, title: string, days: int, date-text: string, color: color }
+export struct WeatherDayItem { weekday: string, description: string, temperature: string }
 
 export component DesktopCard inherits Rectangle {
     background: Theme.widget-glass;
@@ -447,6 +448,11 @@ export component WidgetWindow inherits Window {
     in property <[NoteItem]> recent-notes;
     in property <[CountdownItem]> countdowns;
     in property <string> weather-text;
+    in property <string> weather-city;
+    in property <string> weather-temperature;
+    in property <string> weather-description;
+    in property <string> weather-updated;
+    in property <[WeatherDayItem]> weather-days;
     in property <string> current-time-text;
     in property <string> current-time-main: "22:53";
     in property <string> current-seconds: "07";

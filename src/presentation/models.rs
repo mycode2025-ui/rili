@@ -2,6 +2,55 @@
 
 use crate::*;
 
+pub(crate) fn apply_weather_to_widget(
+    widget: &WidgetWindow,
+    current: Option<&weather::WeatherNow>,
+) {
+    let Some(current) = current else {
+        widget.set_weather_city("".into());
+        widget.set_weather_temperature("".into());
+        widget.set_weather_description("".into());
+        widget.set_weather_updated("等待后台刷新".into());
+        widget.set_weather_days(ModelRc::new(VecModel::default()));
+        return;
+    };
+
+    let (description, _) = weather::describe_code(current.code);
+    let updated = chrono::DateTime::parse_from_rfc3339(&current.updated_at)
+        .map(|value| {
+            value
+                .with_timezone(&Local)
+                .format("更新于 %H:%M")
+                .to_string()
+        })
+        .unwrap_or_else(|_| "天气缓存".to_string());
+    let forecast = current
+        .daily
+        .iter()
+        .take(5)
+        .map(|day| {
+            let weekday = NaiveDate::parse_from_str(&day.date, "%Y-%m-%d")
+                .map(|date| {
+                    ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+                        [date.weekday().num_days_from_monday() as usize]
+                })
+                .unwrap_or("--");
+            let (description, _) = weather::describe_code(day.code);
+            WeatherDayItem {
+                weekday: weekday.into(),
+                description: description.into(),
+                temperature: format!("{:.0}°/{:.0}°", day.temp_max, day.temp_min).into(),
+            }
+        })
+        .collect::<Vec<_>>();
+
+    widget.set_weather_city(current.city.clone().into());
+    widget.set_weather_temperature(format!("{:.0}°", current.temp_c).into());
+    widget.set_weather_description(description.into());
+    widget.set_weather_updated(updated.into());
+    widget.set_weather_days(ModelRc::new(VecModel::from(forecast)));
+}
+
 pub(crate) fn sync_quick_panel(quick: &QuickPanelWindow, ui: &AppWindow, widget: &WidgetWindow) {
     let today = Local::now().date_naive();
     let weekday = match today.weekday() {

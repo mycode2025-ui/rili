@@ -1,0 +1,4 @@
+[target.x86_64-pc-windows-msvc]
+# rust-lld 随 Rust 工具链提供，兼容 MSVC 目标，并显著缩短大型 Slint
+# 可执行文件的最终链接时间，无需开发机额外安装 LLVM。
+linker = "rust-lld"

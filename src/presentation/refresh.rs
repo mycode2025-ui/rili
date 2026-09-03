@@ -758,6 +758,11 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
     widget.set_recent_notes(ModelRc::new(VecModel::from(recent_notes)));
     widget.set_countdowns(ModelRc::new(VecModel::from(countdowns)));
     widget.set_weather_text(weather_summary.into());
+    let current_weather = {
+        let state = state.borrow();
+        weather::cached(&state.conn)
+    };
+    apply_weather_to_widget(widget, current_weather.as_ref());
     widget.set_today_full_text(today_full_text.into());
     update_tool_status(ui, widget, state);
 }
