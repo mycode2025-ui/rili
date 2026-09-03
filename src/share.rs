@@ -93,7 +93,7 @@ pub fn import_bundle(
             continue;
         }
         let repeat_rule = event.repeat_rule.to_string();
-        db::create_event(
+        let created = db::create_event(
             conn,
             db::NewEvent {
                 title: &event.title,
@@ -106,6 +106,7 @@ pub fn import_bundle(
                 calendar_id,
             },
         )?;
+        db::set_event_source_kind(conn, created.id, "shared")?;
         count += 1;
     }
     Ok(count)

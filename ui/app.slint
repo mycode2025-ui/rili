@@ -18,7 +18,7 @@ import { NewEventDialog, NewEventWindow } from "new-event-dialog.slint";
 import { ThemeComparisonWindow } from "theme-comparison.slint";
 import { NotesView } from "notes-view.slint";
 import { CourseView, CourseItem } from "course-view.slint";
-import { GhostButton, Dropdown, ThemeCheckBox, NavButton, IconButton, PrimaryButton } from "widgets.slint";
+import { GhostButton, DangerGhostButton, Dropdown, ThemeCheckBox, NavButton, IconButton, PrimaryButton } from "widgets.slint";
 import { Icons, SvgIcon } from "icons.slint";
 import { Palette, ScrollView } from "std-widgets.slint";
 import { MainWindowDragArea, MiniDay, ToolbarButton, SidebarQuickAction, OverviewMetricCard, DesktopWidgetManagerItem } from "app-shell-components.slint";
@@ -184,6 +184,8 @@ export component AppWindow inherits Window {
     in-out property <string> todo-draft-title: "";
     in-out property <bool> calendar-add-open: false;
     in-out property <string> calendar-draft-name: "";
+    in-out property <bool> local-delete-open: false;
+    in-out property <string> local-delete-scope: "day";
 
     callback prev-month();
     callback next-month();
@@ -232,6 +234,7 @@ export component AppWindow inherits Window {
     callback add-todo-target(string, string);
     callback add-event(string, string, string, string, int);
     callback delete-event(int);
+    callback delete-local-events(string);
     callback add-todo(string);
     callback toggle-todo(int);
     callback delete-todo(int);
@@ -553,6 +556,13 @@ export component AppWindow inherits Window {
                                 icon: Icons.plus;
                                 show-icon: true;
                                 clicked => { root.open-new-event-editor(); }
+                            }
+                            if view-mode == 0: GhostButton {
+                                text: "清理本地";
+                                clicked => {
+                                    root.local-delete-scope = "day";
+                                    root.local-delete-open = true;
+                                }
                             }
                             Rectangle {
                                 width: 206px; height: 32px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface-2;
@@ -1092,6 +1102,61 @@ export component AppWindow inherits Window {
                         Text { text: "开启后点击会落到卡片下方窗口；可回到这里关闭"; color: Theme.text-3; font-size: Theme.font-10-5; }
                     }
                     ThemeCheckBox { width: 96px; text: root.desktop-click-through ? "已开启" : "已关闭"; checked: root.desktop-click-through; toggled(v) => { root.desktop-click-through = v; root.set-desktop-click-through(v); } }
+                }
+            }
+        }
+    }
+    if local-delete-open: Rectangle {
+        width: parent.width; height: parent.height; background: Theme.bg-scrim;
+        TouchArea { clicked => { root.local-delete-open = false; } }
+        Rectangle {
+            x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+            width: 480px; height: 286px; border-radius: Theme.r-xl;
+            border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface;
+            drop-shadow-color: Theme.shadow-3-color-a; drop-shadow-blur: Theme.shadow-3-blur-a; drop-shadow-offset-y: Theme.shadow-3-y-a;
+            TouchArea { }
+            VerticalLayout {
+                padding: Theme.space-5; spacing: Theme.space-3;
+                HorizontalLayout {
+                    height: 34px; cross-axis-alignment: center;
+                    SvgIcon { source: Icons.trash; size: 19px; tint: Theme.danger; }
+                    Rectangle { width: Theme.space-2; }
+                    Text { text: "删除本地事项"; color: Theme.text-1; font-size: Theme.font-16; font-weight: 700; vertical-alignment: center; horizontal-stretch: 1; }
+                    IconButton { icon: Icons.close; size: 30px; borderless: true; clicked => { root.local-delete-open = false; } }
+                }
+                Text {
+                    text: "只处理本机创建的事项；共享、文件导入及订阅日历不会受影响。";
+                    color: Theme.text-2; font-size: Theme.font-12; wrap: word-wrap;
+                }
+                VerticalLayout {
+                    spacing: Theme.space-2;
+                    GhostButton {
+                        height: 38px; text: "仅删除当天（" + root.selected-date-text + "）";
+                        selected: root.local-delete-scope == "day";
+                        clicked => { root.local-delete-scope = "day"; }
+                    }
+                    GhostButton {
+                        height: 38px; text: "删除全部本地事项";
+                        selected: root.local-delete-scope == "all";
+                        clicked => { root.local-delete-scope = "all"; }
+                    }
+                }
+                Text {
+                    text: root.local-delete-scope == "day" ? "重复事项只跳过当天，不会删除整组。" : "该操作不可撤销，建议先导出备份。";
+                    color: root.local-delete-scope == "all" ? Theme.danger : Theme.text-3;
+                    font-size: Theme.font-11;
+                }
+                HorizontalLayout {
+                    height: 32px; spacing: Theme.space-2;
+                    Rectangle { horizontal-stretch: 1; }
+                    GhostButton { text: "取消"; clicked => { root.local-delete-open = false; } }
+                    DangerGhostButton {
+                        height: 32px; min-width: 92px; text: "确认删除";
+                        clicked => {
+                            root.delete-local-events(root.local-delete-scope);
+                            root.local-delete-open = false;
+                        }
+                    }
                 }
             }
         }

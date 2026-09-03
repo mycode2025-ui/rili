@@ -958,7 +958,7 @@ pub fn run(cli: Cli) -> Result<()> {
                             continue;
                         }
                         let repeat_rule = ev.repeat_rule.to_string();
-                        db::create_event(
+                        let created_event = db::create_event(
                             &conn,
                             db::NewEvent {
                                 title: &ev.title,
@@ -971,6 +971,7 @@ pub fn run(cli: Cli) -> Result<()> {
                                 calendar_id,
                             },
                         )?;
+                        db::set_event_source_kind(&conn, created_event.id, "imported")?;
                         created += 1;
                     }
                     Ok(json!({ "imported": created }))

@@ -22,6 +22,7 @@ pub fn open() -> Result<Connection> {
             repeat_rule       TEXT NOT NULL DEFAULT 'none',   -- none/daily/weekly/weekly:1,3/monthly/monthly-nth:3:4/yearly
             reminder_offsets  TEXT NOT NULL DEFAULT '',       -- 逗号分隔的“提前 N 分钟”，如 "0,30,1440"
             category          TEXT NOT NULL DEFAULT 'event',  -- event/birthday/anniversary/countdown
+            source_kind       TEXT NOT NULL DEFAULT 'local',  -- local/shared/imported/subscription
             created_at        TEXT NOT NULL,
             updated_at        TEXT NOT NULL
         );
@@ -105,6 +106,13 @@ pub fn open() -> Result<Connection> {
             UNIQUE(subscription_id, external_uid)
         );
         CREATE INDEX IF NOT EXISTS idx_event_sources_subscription ON event_sources(subscription_id);
+
+        -- 重复日程按天删除时只记录例外，不破坏整组重复规则。
+        CREATE TABLE IF NOT EXISTS event_exceptions (
+            event_id        INTEGER NOT NULL,
+            occurrence_date TEXT NOT NULL,
+            PRIMARY KEY (event_id, occurrence_date)
+        );
 
         -- 本地排班：班次定义与日期分配分开保存，生成周期时同一天采用 upsert，避免重复生成。
         CREATE TABLE IF NOT EXISTS shift_types (
@@ -245,6 +253,16 @@ fn migrate_add_columns(conn: &Connection) -> Result<()> {
             [],
         )?;
     }
+    if !existing.iter().any(|c| c == "source_kind") {
+        conn.execute(
+            "ALTER TABLE events ADD COLUMN source_kind TEXT NOT NULL DEFAULT 'local'",
+            [],
+        )?;
+    }
+    conn.execute(
+        "UPDATE events SET source_kind = 'subscription' WHERE id IN (SELECT event_id FROM event_sources)",
+        [],
+    )?;
 
     let mut stmt = conn.prepare("PRAGMA table_info(todos)")?;
     let existing: Vec<String> = stmt
@@ -522,6 +540,7 @@ pub fn upsert_subscribed_event(conn: &Connection, subscribed: SubscribedEvent<'_
                 ..EventUpdate::default()
             },
         )?;
+        set_event_source_kind(conn, event_id, "subscription")?;
     } else {
         let reminder = default_event_reminder(conn)?;
         let event = create_event(
@@ -537,6 +556,7 @@ pub fn upsert_subscribed_event(conn: &Connection, subscribed: SubscribedEvent<'_
                 calendar_id: subscribed.calendar_id,
             },
         )?;
+        set_event_source_kind(conn, event.id, "subscription")?;
         conn.execute(
             "INSERT INTO event_sources (event_id, subscription_id, external_uid) VALUES (?1, ?2, ?3)",
             params![
@@ -867,6 +887,12 @@ pub struct Event {
     pub calendar_id: i64,
     pub created_at: String,
     pub updated_at: String,
+    #[serde(default = "default_event_source_kind")]
+    pub source_kind: String,
+}
+
+fn default_event_source_kind() -> String {
+    "local".to_string()
 }
 
 /// 新建日程所需的完整字段。使用命名字段避免多个 `&str` / `Option<&str>`
@@ -924,11 +950,12 @@ fn row_to_event(row: &rusqlite::Row) -> rusqlite::Result<Event> {
         calendar_id: row.get(9)?,
         created_at: row.get(10)?,
         updated_at: row.get(11)?,
+        source_kind: row.get(12)?,
     })
 }
 
 const EVENT_COLUMNS: &str =
-    "id, title, date, time, duration_minutes, note, repeat_rule, reminder_offsets, category, calendar_id, created_at, updated_at";
+    "id, title, date, time, duration_minutes, note, repeat_rule, reminder_offsets, category, calendar_id, created_at, updated_at, source_kind";
 
 /// 列出在 [start, end] 区间内有"至少一次基准记录落在区间"的日程（不展开重复）。
 /// 展示层应优先使用 [`list_event_occurrences`]，它会把重复日程展开成每一次具体发生日期。
@@ -989,6 +1016,15 @@ pub fn list_event_occurrences(
         .query_map(params![start.to_string(), end.to_string()], row_to_event)?
         .collect::<rusqlite::Result<Vec<_>>>()?;
 
+    let mut exception_stmt = conn.prepare(
+        "SELECT event_id, occurrence_date FROM event_exceptions WHERE occurrence_date BETWEEN ?1 AND ?2",
+    )?;
+    let exceptions = exception_stmt
+        .query_map(params![start.to_string(), end.to_string()], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })?
+        .collect::<rusqlite::Result<std::collections::HashSet<_>>>()?;
+
     let mut out = Vec::new();
     for event in events {
         let Ok(base) = NaiveDate::parse_from_str(&event.date, "%Y-%m-%d") else {
@@ -996,6 +1032,9 @@ pub fn list_event_occurrences(
         };
         let rule = crate::recurrence::RepeatRule::parse(&event.repeat_rule);
         for occ in crate::recurrence::occurrences_in_range(base, rule, start, end) {
+            if exceptions.contains(&(event.id, occ.to_string())) {
+                continue;
+            }
             out.push(EventOccurrence {
                 event: event.clone(),
                 occurrence_date: occ.to_string(),
@@ -1075,7 +1114,87 @@ pub fn update_event(conn: &Connection, id: i64, changes: EventUpdate<'_>) -> Res
 }
 
 pub fn delete_event(conn: &Connection, id: i64) -> Result<usize> {
-    Ok(conn.execute("DELETE FROM events WHERE id = ?1", params![id])?)
+    let is_local = conn
+        .query_row(
+            "SELECT source_kind = 'local' FROM events WHERE id = ?1",
+            params![id],
+            |row| row.get::<_, bool>(0),
+        )
+        .optional()?
+        .unwrap_or(false);
+    if !is_local {
+        return Ok(0);
+    }
+    let tx = conn.unchecked_transaction()?;
+    tx.execute("DELETE FROM reminder_log WHERE event_id = ?1", params![id])?;
+    tx.execute(
+        "DELETE FROM event_exceptions WHERE event_id = ?1",
+        params![id],
+    )?;
+    tx.execute("DELETE FROM event_sources WHERE event_id = ?1", params![id])?;
+    let affected = tx.execute("DELETE FROM events WHERE id = ?1", params![id])?;
+    tx.commit()?;
+    Ok(affected)
+}
+
+pub fn set_event_source_kind(conn: &Connection, id: i64, source_kind: &str) -> Result<()> {
+    anyhow::ensure!(
+        matches!(
+            source_kind,
+            "local" | "shared" | "imported" | "subscription"
+        ),
+        "未知日程来源"
+    );
+    conn.execute(
+        "UPDATE events SET source_kind = ?1 WHERE id = ?2",
+        params![source_kind, id],
+    )?;
+    Ok(())
+}
+
+/// 只清理指定日期的本地事项。普通事项删除记录；重复事项仅跳过当天。
+pub fn delete_local_event_occurrences(conn: &Connection, date: NaiveDate) -> Result<usize> {
+    let occurrences = list_event_occurrences(conn, date, date)?;
+    let local = occurrences
+        .into_iter()
+        .filter(|occurrence| occurrence.event.source_kind == "local")
+        .collect::<Vec<_>>();
+    let tx = conn.unchecked_transaction()?;
+    for occurrence in &local {
+        if occurrence.event.repeat_rule == "none" {
+            tx.execute(
+                "DELETE FROM reminder_log WHERE event_id = ?1",
+                params![occurrence.event.id],
+            )?;
+            tx.execute(
+                "DELETE FROM events WHERE id = ?1 AND source_kind = 'local'",
+                params![occurrence.event.id],
+            )?;
+        } else {
+            tx.execute(
+                "INSERT OR IGNORE INTO event_exceptions (event_id, occurrence_date) VALUES (?1, ?2)",
+                params![occurrence.event.id, occurrence.occurrence_date],
+            )?;
+        }
+    }
+    tx.commit()?;
+    Ok(local.len())
+}
+
+/// 删除全部本地事项，明确保留所有非 local 来源。
+pub fn delete_all_local_events(conn: &Connection) -> Result<usize> {
+    let tx = conn.unchecked_transaction()?;
+    tx.execute(
+        "DELETE FROM reminder_log WHERE event_id IN (SELECT id FROM events WHERE source_kind = 'local')",
+        [],
+    )?;
+    tx.execute(
+        "DELETE FROM event_exceptions WHERE event_id IN (SELECT id FROM events WHERE source_kind = 'local')",
+        [],
+    )?;
+    let affected = tx.execute("DELETE FROM events WHERE source_kind = 'local'", [])?;
+    tx.commit()?;
+    Ok(affected)
 }
 
 /// 记录一条提醒已经发送过，返回 false 表示这条提醒之前已经发送过（本次应跳过）。
@@ -1645,8 +1764,8 @@ pub fn import_backup(conn: &mut Connection, backup: &LocalBackup) -> Result<Impo
     let mut event_count = 0;
     for event in &backup.events {
         tx.execute(
-            "INSERT INTO events (title, date, time, duration_minutes, note, repeat_rule, reminder_offsets, category, calendar_id, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-            params![event.title, event.date, event.time, event.duration_minutes, event.note, event.repeat_rule, event.reminder_offsets, event.category, calendar_ids.get(&event.calendar_id).copied().unwrap_or(1), event.created_at, event.updated_at],
+            "INSERT INTO events (title, date, time, duration_minutes, note, repeat_rule, reminder_offsets, category, calendar_id, created_at, updated_at, source_kind) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            params![event.title, event.date, event.time, event.duration_minutes, event.note, event.repeat_rule, event.reminder_offsets, event.category, calendar_ids.get(&event.calendar_id).copied().unwrap_or(1), event.created_at, event.updated_at, event.source_kind],
         )?;
         event_count += 1;
     }
@@ -1855,7 +1974,8 @@ mod tests {
                 category TEXT NOT NULL DEFAULT 'event',
                 calendar_id INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                source_kind TEXT NOT NULL DEFAULT 'local'
              );",
         )
         .unwrap();
@@ -1923,6 +2043,89 @@ mod tests {
         assert_eq!(default_event_reminder(&conn).unwrap(), "60");
         assert_eq!(get_event(&conn, 1).unwrap().unwrap().reminder_offsets, "60");
         assert!(apply_default_event_reminder(&conn, "25").is_err());
+    }
+
+    #[test]
+    fn local_cleanup_preserves_shared_and_external_events() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+             CREATE TABLE events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                date TEXT NOT NULL,
+                time TEXT,
+                duration_minutes INTEGER NOT NULL DEFAULT 60,
+                note TEXT NOT NULL DEFAULT '',
+                repeat_rule TEXT NOT NULL DEFAULT 'none',
+                reminder_offsets TEXT NOT NULL DEFAULT '',
+                category TEXT NOT NULL DEFAULT 'event',
+                calendar_id INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                source_kind TEXT NOT NULL DEFAULT 'local'
+             );
+             CREATE TABLE reminder_log (
+                event_id INTEGER NOT NULL,
+                occurrence_date TEXT NOT NULL,
+                offset_minutes INTEGER NOT NULL,
+                notified_at TEXT NOT NULL,
+                PRIMARY KEY (event_id, occurrence_date, offset_minutes)
+             );
+             CREATE TABLE event_sources (
+                event_id INTEGER PRIMARY KEY,
+                subscription_id INTEGER NOT NULL,
+                external_uid TEXT NOT NULL
+             );
+             CREATE TABLE event_exceptions (
+                event_id INTEGER NOT NULL,
+                occurrence_date TEXT NOT NULL,
+                PRIMARY KEY (event_id, occurrence_date)
+             );",
+        )
+        .unwrap();
+
+        let target = NaiveDate::from_ymd_opt(2026, 9, 3).unwrap();
+        let make = |title: &str, date: NaiveDate, repeat_rule: &str| {
+            create_event(
+                &conn,
+                NewEvent {
+                    title,
+                    date,
+                    time: Some("09:00"),
+                    note: "",
+                    repeat_rule,
+                    reminder_offsets: "10",
+                    category: "event",
+                    calendar_id: 1,
+                },
+            )
+            .unwrap()
+        };
+        make("本地一次", target, "none");
+        let repeating = make("本地重复", target - chrono::Duration::days(7), "weekly");
+        let shared = make("共享", target, "none");
+        set_event_source_kind(&conn, shared.id, "shared").unwrap();
+        let imported = make("外部文件", target, "none");
+        set_event_source_kind(&conn, imported.id, "imported").unwrap();
+        let subscribed = make("订阅", target, "none");
+        set_event_source_kind(&conn, subscribed.id, "subscription").unwrap();
+
+        assert_eq!(delete_event(&conn, shared.id).unwrap(), 0);
+        assert!(get_event(&conn, shared.id).unwrap().is_some());
+
+        assert_eq!(delete_local_event_occurrences(&conn, target).unwrap(), 2);
+        let target_events = list_event_occurrences(&conn, target, target).unwrap();
+        assert_eq!(target_events.len(), 3);
+        assert!(target_events
+            .iter()
+            .all(|item| item.event.source_kind != "local"));
+        assert!(get_event(&conn, repeating.id).unwrap().is_some());
+
+        assert_eq!(delete_all_local_events(&conn).unwrap(), 1);
+        let remaining = list_all_events(&conn).unwrap();
+        assert_eq!(remaining.len(), 3);
+        assert!(remaining.iter().all(|event| event.source_kind != "local"));
     }
 
     fn course_test_db() -> Connection {

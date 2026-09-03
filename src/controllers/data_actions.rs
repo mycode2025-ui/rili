@@ -103,6 +103,42 @@ pub(crate) fn register_data_callbacks(
             }
         });
     }
+    {
+        let ui_weak = ui.as_weak();
+        let widget_weak = widget.as_weak();
+        let state = state.clone();
+        ui.on_delete_local_events(move |scope| {
+            let result = {
+                let s = state.borrow();
+                if scope.as_str() == "all" {
+                    db::delete_all_local_events(&s.conn)
+                } else if let Some(date) = NaiveDate::from_ymd_opt(s.year, s.month, s.selected_day)
+                {
+                    db::delete_local_event_occurrences(&s.conn, date)
+                } else {
+                    Err(anyhow::anyhow!("所选日期无效"))
+                }
+            };
+            if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
+                match result {
+                    Ok(count) => {
+                        refresh_all(&ui, &widget, &state);
+                        ui.set_action_message(
+                            if scope.as_str() == "all" {
+                                format!("已删除 {count} 条本地事项；共享与外部日历已保留")
+                            } else {
+                                format!("已清理当天 {count} 条本地事项；外部数据未改动")
+                            }
+                            .into(),
+                        );
+                    }
+                    Err(error) => {
+                        ui.set_action_message(format!("删除本地事项失败：{error}").into())
+                    }
+                }
+            }
+        });
+    }
 
     // -------- 待办 --------
     {
