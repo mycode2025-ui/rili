@@ -30,7 +30,10 @@ use std::sync::atomic::{AtomicBool, AtomicI32, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 use system_tray::*;
 use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
-use tray_icon::{Icon, TrayIcon, TrayIconBuilder, TrayIconEvent};
+use tray_icon::{
+    Icon, MouseButton as TrayMouseButton, MouseButtonState, TrayIcon, TrayIconBuilder,
+    TrayIconEvent,
+};
 use windowing::{set_main_view_mode, show_and_focus_main_window};
 
 use rili::window_policy::navigation_refresh_needed;
@@ -545,18 +548,35 @@ fn run_gui(startup: bool) -> Result<()> {
         let ui_weak = ui.as_weak();
         let widget_weak = widget.as_weak();
         let quick_weak = quick_panel.as_weak();
+        let quick_panel_had_focus = Rc::new(Cell::new(false));
         timer.start(
             slint::TimerMode::Repeated,
             Duration::from_millis(250),
             move || {
-                if TrayIconEvent::receiver().try_recv().is_ok() {
-                    if let (Some(ui), Some(widget), Some(quick)) = (
-                        ui_weak.upgrade(),
-                        widget_weak.upgrade(),
-                        quick_weak.upgrade(),
+                // tray-icon also emits Enter/Move/Leave while hovering. Drain the
+                // queue and react only to a completed left click.
+                while let Ok(event) = TrayIconEvent::receiver().try_recv() {
+                    if matches!(
+                        event,
+                        TrayIconEvent::Click {
+                            button: TrayMouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        }
                     ) {
-                        sync_quick_panel(&quick, &ui, &widget);
-                        show_and_focus_quick_panel(&quick);
+                        if let (Some(ui), Some(widget), Some(quick)) = (
+                            ui_weak.upgrade(),
+                            widget_weak.upgrade(),
+                            quick_weak.upgrade(),
+                        ) {
+                            if quick.window().is_visible() {
+                                let _ = quick.hide();
+                            } else {
+                                sync_quick_panel(&quick, &ui, &widget);
+                                show_and_focus_quick_panel(&quick);
+                            }
+                            quick_panel_had_focus.set(false);
+                        }
                     }
                 }
                 if TASKBAR_CLOCK_CLICKED.swap(false, Ordering::AcqRel) {
@@ -567,6 +587,7 @@ fn run_gui(startup: bool) -> Result<()> {
                     ) {
                         sync_quick_panel(&quick, &ui, &widget);
                         show_and_focus_quick_panel_at(&quick, last_clicked_taskbar_anchor());
+                        quick_panel_had_focus.set(false);
                     }
                 }
                 if let Ok(event) = MenuEvent::receiver().try_recv() {
@@ -580,6 +601,24 @@ fn run_gui(startup: bool) -> Result<()> {
                         }
                     } else if event.id == tray.quit_id {
                         slint::quit_event_loop().ok();
+                    }
+                }
+
+                // A normal flyout should disappear after the user clicks
+                // elsewhere. Pinned mode deliberately keeps the panel open.
+                if let Some(quick) = quick_weak.upgrade() {
+                    if quick.window().is_visible() && !quick.get_pinned() {
+                        let focused = quick
+                            .window()
+                            .with_winit_window(|native| native.has_focus())
+                            .unwrap_or(false);
+                        if focused {
+                            quick_panel_had_focus.set(true);
+                        } else if quick_panel_had_focus.replace(false) {
+                            let _ = quick.hide();
+                        }
+                    } else if !quick.window().is_visible() {
+                        quick_panel_had_focus.set(false);
                     }
                 }
             },
