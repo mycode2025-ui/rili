@@ -16,6 +16,9 @@ pub(crate) fn register_desktop_card_callbacks(
             let state_for_drag = state.clone();
             $window.on_begin_window_drag(move || {
                 if let Some(window) = window_weak.upgrade() {
+                    if window.get_locked() {
+                        return;
+                    }
                     let _ = window
                         .window()
                         .with_winit_window(|native| native.drag_window());
@@ -88,6 +91,9 @@ pub(crate) fn register_desktop_card_callbacks(
             let window_weak = $window.as_weak();
             $window.on_begin_window_resize(move || {
                 if let Some(window) = window_weak.upgrade() {
+                    if window.get_locked() {
+                        return;
+                    }
                     let _ = window.window().with_winit_window(|native| {
                         let _ = native.drag_resize_window(ResizeDirection::SouthEast);
                     });

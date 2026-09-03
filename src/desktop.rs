@@ -75,6 +75,115 @@ impl DesktopWidgetWindows {
         })
     }
 
+    pub(crate) fn set_card_locked(&self, instance_key: &str, locked: bool) -> bool {
+        match instance_key.split(':').next().unwrap_or(instance_key) {
+            "calendar" => self.calendar.set_locked(locked),
+            "events" => self.events.set_locked(locked),
+            "countdown" => self.countdown.set_locked(locked),
+            "clock" => self.clock.set_locked(locked),
+            "weather" => self.weather.set_locked(locked),
+            "focus" => self.focus.set_locked(locked),
+            "todo" => self.todo.set_locked(locked),
+            key if key.starts_with("note_") => {
+                let Some(id) = key.trim_start_matches("note_").parse::<i32>().ok() else {
+                    return false;
+                };
+                let notes = self.notes.borrow();
+                let Some(note) = notes.iter().find(|note| note.get_note_id() == id) else {
+                    return false;
+                };
+                note.set_locked(locked);
+            }
+            _ => return false,
+        }
+        true
+    }
+
+    pub(crate) fn card_pinned(&self, instance_key: &str) -> bool {
+        match instance_key.split(':').next().unwrap_or(instance_key) {
+            "calendar" => self.calendar.get_pinned(),
+            "events" => self.events.get_pinned(),
+            "countdown" => self.countdown.get_pinned(),
+            "clock" => self.clock.get_pinned(),
+            "weather" => self.weather.get_pinned(),
+            "focus" => self.focus.get_pinned(),
+            "todo" => self.todo.get_pinned(),
+            key if key.starts_with("note_") => key
+                .trim_start_matches("note_")
+                .parse::<i32>()
+                .ok()
+                .and_then(|id| {
+                    self.notes
+                        .borrow()
+                        .iter()
+                        .find(|note| note.get_note_id() == id)
+                        .map(|note| note.get_pinned())
+                })
+                .unwrap_or(false),
+            _ => false,
+        }
+    }
+
+    pub(crate) fn set_card_pinned(&self, instance_key: &str, pinned: bool) -> bool {
+        match instance_key.split(':').next().unwrap_or(instance_key) {
+            "calendar" => self.calendar.set_pinned(pinned),
+            "events" => self.events.set_pinned(pinned),
+            "countdown" => self.countdown.set_pinned(pinned),
+            "clock" => self.clock.set_pinned(pinned),
+            "weather" => self.weather.set_pinned(pinned),
+            "focus" => self.focus.set_pinned(pinned),
+            "todo" => self.todo.set_pinned(pinned),
+            key if key.starts_with("note_") => {
+                let Some(id) = key.trim_start_matches("note_").parse::<i32>().ok() else {
+                    return false;
+                };
+                let notes = self.notes.borrow();
+                let Some(note) = notes.iter().find(|note| note.get_note_id() == id) else {
+                    return false;
+                };
+                note.set_pinned(pinned);
+            }
+            _ => return false,
+        }
+        true
+    }
+
+    pub(crate) fn reset_card_size(&self, instance_key: &str) -> bool {
+        let (width, height) = match instance_key.split(':').next().unwrap_or(instance_key) {
+            "calendar" => (304.0, 280.0),
+            "events" => (304.0, 280.0),
+            "countdown" => (304.0, 280.0),
+            "clock" => (304.0, 190.0),
+            "weather" => (304.0, 244.0),
+            "focus" => (304.0, 218.0),
+            "todo" => (304.0, 226.0),
+            key if key.starts_with("note_") => (304.0, 280.0),
+            _ => return false,
+        };
+        let size = slint::LogicalSize::new(width, height);
+        match instance_key.split(':').next().unwrap_or(instance_key) {
+            "calendar" => self.calendar.window().set_size(size),
+            "events" => self.events.window().set_size(size),
+            "countdown" => self.countdown.window().set_size(size),
+            "clock" => self.clock.window().set_size(size),
+            "weather" => self.weather.window().set_size(size),
+            "focus" => self.focus.window().set_size(size),
+            "todo" => self.todo.window().set_size(size),
+            key if key.starts_with("note_") => {
+                let Some(id) = key.trim_start_matches("note_").parse::<i32>().ok() else {
+                    return false;
+                };
+                let notes = self.notes.borrow();
+                let Some(note) = notes.iter().find(|note| note.get_note_id() == id) else {
+                    return false;
+                };
+                note.window().set_size(size);
+            }
+            _ => return false,
+        }
+        true
+    }
+
     pub(crate) fn sync_from(&self, source: &WidgetWindow) {
         self.calendar.set_month_title(source.get_month_title());
         self.calendar.set_days(source.get_days());
@@ -195,6 +304,11 @@ impl DesktopWidgetWindows {
                 let pinned_key = format!("widget_{key}_pinned");
                 let pinned = db::get_setting(&conn, &pinned_key, "0").unwrap_or_default() == "1";
                 window.set_pinned(pinned);
+                window.set_locked(
+                    db::get_setting(&conn, &format!("widget_instance_{key}_locked"), "0")
+                        .unwrap_or_default()
+                        == "1",
+                );
                 let (opacity, card_theme, card_accent) = desktop_widget_style(&conn, &key);
                 let app_theme = db::get_setting(&conn, "visual_theme", "1")
                     .ok()
@@ -227,6 +341,9 @@ impl DesktopWidgetWindows {
                 let window_weak = window.as_weak();
                 window.on_begin_window_resize(move || {
                     if let Some(window) = window_weak.upgrade() {
+                        if window.get_locked() {
+                            return;
+                        }
                         let _ = window.window().with_winit_window(|native| {
                             let _ = native.drag_resize_window(ResizeDirection::SouthEast);
                         });
@@ -263,6 +380,9 @@ impl DesktopWidgetWindows {
                 let window_weak = window.as_weak();
                 window.on_begin_window_drag(move || {
                     if let Some(window) = window_weak.upgrade() {
+                        if window.get_locked() {
+                            return;
+                        }
                         let _ = window
                             .window()
                             .with_winit_window(|native| native.drag_window());

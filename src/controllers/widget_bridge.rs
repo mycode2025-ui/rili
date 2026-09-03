@@ -135,6 +135,16 @@ pub(crate) fn register_widget_bridge_callbacks(
                 editor.set_opacity_override(opacity_override);
                 editor.set_theme_override(theme_override);
                 editor.set_accent_override(accent_override);
+                editor.set_card_locked(
+                    db::get_setting(
+                        &state.borrow().conn,
+                        &format!("widget_instance_{instance_key}_locked"),
+                        "0",
+                    )
+                    .unwrap_or_default()
+                        == "1",
+                );
+                editor.set_card_pinned(desktop_widgets.card_pinned(&instance_key));
                 let preview_committed = Rc::new(Cell::new(false));
                 {
                     let source = ui.global::<Theme>();
@@ -168,6 +178,123 @@ pub(crate) fn register_widget_bridge_callbacks(
                         }
                         if let Some(editor) = editor_weak.upgrade() {
                             let _ = editor.hide();
+                        }
+                    });
+                }
+                {
+                    let ui_weak = ui.as_weak();
+                    let state = state.clone();
+                    let desktop_widgets = desktop_widgets.clone();
+                    let instance_key = instance_key.clone();
+                    editor.on_set_locked(move |locked| {
+                        let result = db::set_setting(
+                            &state.borrow().conn,
+                            &format!("widget_instance_{instance_key}_locked"),
+                            if locked { "1" } else { "0" },
+                        );
+                        if result.is_ok() {
+                            desktop_widgets.set_card_locked(&instance_key, locked);
+                        }
+                        if let Some(ui) = ui_weak.upgrade() {
+                            match result {
+                                Ok(()) => ui.set_action_message(
+                                    if locked {
+                                        "卡片位置与大小已锁定"
+                                    } else {
+                                        "卡片位置与大小已解锁"
+                                    }
+                                    .into(),
+                                ),
+                                Err(error) => ui.set_action_message(
+                                    format!("保存卡片锁定状态失败：{error}").into(),
+                                ),
+                            }
+                        }
+                    });
+                }
+                {
+                    let ui_weak = ui.as_weak();
+                    let state = state.clone();
+                    let desktop_widgets = desktop_widgets.clone();
+                    let instance_key = instance_key.clone();
+                    editor.on_set_pinned(move |pinned| {
+                        let base_kind = instance_key.split(':').next().unwrap_or(&instance_key);
+                        let result = db::set_setting(
+                            &state.borrow().conn,
+                            &format!("widget_{base_kind}_pinned"),
+                            if pinned { "1" } else { "0" },
+                        );
+                        if result.is_ok() {
+                            desktop_widgets.set_card_pinned(&instance_key, pinned);
+                        }
+                        if let Some(ui) = ui_weak.upgrade() {
+                            match result {
+                                Ok(()) => ui.set_action_message(
+                                    if pinned {
+                                        "卡片已置顶"
+                                    } else {
+                                        "卡片已取消置顶"
+                                    }
+                                    .into(),
+                                ),
+                                Err(error) => ui.set_action_message(
+                                    format!("保存卡片置顶状态失败：{error}").into(),
+                                ),
+                            }
+                        }
+                    });
+                }
+                {
+                    let ui_weak = ui.as_weak();
+                    let state = state.clone();
+                    let desktop_widgets = desktop_widgets.clone();
+                    let instance_key = instance_key.clone();
+                    editor.on_reset_size(move || {
+                        if !desktop_widgets.reset_card_size(&instance_key) {
+                            return;
+                        }
+                        let ui_weak = ui_weak.clone();
+                        let state = state.clone();
+                        let instance_key = instance_key.clone();
+                        slint::Timer::single_shot(Duration::from_millis(120), move || {
+                            let Some((_, _, width, height)) = desktop_widget_rect(&instance_key)
+                            else {
+                                return;
+                            };
+                            let size_key = instance_key
+                                .split(':')
+                                .next()
+                                .unwrap_or(&instance_key)
+                                .to_string();
+                            let result = db::set_settings(
+                                &mut state.borrow_mut().conn,
+                                &[
+                                    (&format!("widget_{size_key}_width"), &width.to_string()),
+                                    (&format!("widget_{size_key}_height"), &height.to_string()),
+                                ],
+                            );
+                            if let Some(ui) = ui_weak.upgrade() {
+                                match result {
+                                    Ok(()) => ui.set_action_message("卡片已恢复默认大小".into()),
+                                    Err(error) => ui.set_action_message(
+                                        format!("保存默认卡片大小失败：{error}").into(),
+                                    ),
+                                }
+                            }
+                        });
+                    });
+                }
+                {
+                    let editor_weak = editor.as_weak();
+                    let ui_weak = ui.as_weak();
+                    editor.on_open_app_settings(move || {
+                        if let Some(editor) = editor_weak.upgrade() {
+                            editor.invoke_close_requested();
+                        }
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_settings_section(0);
+                            ui.set_settings_open(true);
+                            show_and_focus_main_window(&ui);
                         }
                     });
                 }
@@ -246,7 +373,7 @@ pub(crate) fn register_widget_bridge_callbacks(
                     });
                 editor.window().set_position(slint::PhysicalPosition::new(
                     (anchor_x + (anchor_width - 304) / 2).max(8),
-                    (anchor_y + (anchor_height - 220) / 2).max(8),
+                    (anchor_y + (anchor_height - 300) / 2).max(8),
                 ));
                 let _ = editor.show();
                 *desktop_widgets.appearance_editor.borrow_mut() = Some(editor);

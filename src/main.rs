@@ -404,6 +404,24 @@ fn run_gui(startup: bool) -> Result<()> {
                 if widget_pinned { "1" } else { "0" },
             )? == "1",
         );
+        macro_rules! restore_card_lock {
+            ($window:expr, $instance:literal) => {
+                $window.set_locked(
+                    db::get_setting(
+                        &state.conn,
+                        concat!("widget_instance_", $instance, "_locked"),
+                        "0",
+                    )? == "1",
+                );
+            };
+        }
+        restore_card_lock!(desktop_widgets.calendar, "calendar:1");
+        restore_card_lock!(desktop_widgets.events, "events:1");
+        restore_card_lock!(desktop_widgets.countdown, "countdown:1");
+        restore_card_lock!(desktop_widgets.clock, "clock:1");
+        restore_card_lock!(desktop_widgets.weather, "weather:1");
+        restore_card_lock!(desktop_widgets.focus, "focus:1");
+        restore_card_lock!(desktop_widgets.todo, "todo:1");
     }
     DESKTOP_WIDGET_WINDOWS.with(|slot| {
         *slot.borrow_mut() = Some(desktop_widgets.clone());
