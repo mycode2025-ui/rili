@@ -169,67 +169,88 @@ pub(crate) fn register_tool_callbacks(
         let widget_weak = widget.as_weak();
         let quick_weak = quick_panel.as_weak();
         ui.on_refresh_weather(move || {
+            if let Some(widget) = widget_weak.upgrade() {
+                widget.set_weather_refreshing(true);
+                widget.set_weather_refresh_error(false);
+                if let Some(quick) = quick_weak.upgrade() {
+                    sync_quick_weather(&quick, &widget);
+                }
+                sync_desktop_widgets(&widget);
+            }
             let ui_weak = ui_weak.clone();
             let widget_weak = widget_weak.clone();
             let quick_weak = quick_weak.clone();
             std::thread::spawn(move || {
                 let result = db::open().and_then(|conn| weather::refresh_once(&conn));
-                let (weather_text, status_text, weather_data, action_text) = match result {
-                    Ok(w) => {
-                        let (desc, _) = weather::describe_current(w.code, w.is_day);
-                        let text = format!("{} {:.0}°C {desc}", w.city, w.temp_c);
-                        let source = if w.provider.is_empty() {
-                            "天气服务"
-                        } else {
-                            w.provider.as_str()
-                        };
-                        (
-                            Some(text.clone()),
-                            format!("{text} · 已更新 {} · {source}", w.updated_at),
-                            Some(w),
-                            format!("天气更新成功：{text}"),
-                        )
-                    }
-                    Err(e) => {
-                        error_reporter::record("天气刷新失败，继续使用缓存", &e);
-                        let cached = db::open().ok().and_then(|conn| weather::cached(&conn));
-                        match cached {
-                            Some(w) => {
-                                let (desc, _) = weather::describe_current(w.code, w.is_day);
-                                let text = format!("{} {:.0}°C {desc}", w.city, w.temp_c);
-                                (
-                                    Some(text.clone()),
-                                    format!("{text} · 使用 {} 缓存；刷新失败: {e:#}", w.updated_at),
-                                    Some(w),
-                                    "天气更新失败，已继续使用缓存".to_string(),
-                                )
-                            }
-                            None => (
-                                None,
-                                format!("天气刷新失败: {e:#}"),
-                                None,
-                                "天气更新失败，请检查城市名称或网络".to_string(),
-                            ),
+                let (weather_text, status_text, weather_data, action_text, refresh_failed) =
+                    match result {
+                        Ok(w) => {
+                            let (desc, _) = weather::describe_current(w.code, w.is_day);
+                            let text = format!("{} {:.0}°C {desc}", w.city, w.temp_c);
+                            let source = if w.provider.is_empty() {
+                                "天气服务"
+                            } else {
+                                w.provider.as_str()
+                            };
+                            (
+                                Some(text.clone()),
+                                format!("{text} · 已更新 {} · {source}", w.updated_at),
+                                Some(w),
+                                format!("天气更新成功：{text}"),
+                                false,
+                            )
                         }
-                    }
-                };
+                        Err(e) => {
+                            error_reporter::record("天气刷新失败，继续使用缓存", &e);
+                            let cached = db::open().ok().and_then(|conn| weather::cached(&conn));
+                            match cached {
+                                Some(w) => {
+                                    let (desc, _) = weather::describe_current(w.code, w.is_day);
+                                    let text = format!("{} {:.0}°C {desc}", w.city, w.temp_c);
+                                    (
+                                        Some(text.clone()),
+                                        format!(
+                                            "{text} · 使用 {} 缓存；刷新失败: {e:#}",
+                                            w.updated_at
+                                        ),
+                                        Some(w),
+                                        "天气更新失败，已继续使用缓存".to_string(),
+                                        true,
+                                    )
+                                }
+                                None => (
+                                    None,
+                                    format!("天气刷新失败: {e:#}"),
+                                    None,
+                                    "天气更新失败，请检查城市名称或网络".to_string(),
+                                    true,
+                                ),
+                            }
+                        }
+                    };
                 let _ = slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_weak.upgrade() {
                         ui.set_weather_status(status_text.into());
                         ui.set_action_message(action_text.into());
                     }
-                    if let Some(weather_text) = weather_text {
+                    if let Some(weather_text) = weather_text.as_ref() {
                         if let Some(ui) = ui_weak.upgrade() {
                             ui.set_weather_summary(weather_text.clone().into());
                         }
-                        if let Some(widget) = widget_weak.upgrade() {
+                    }
+                    if let Some(widget) = widget_weak.upgrade() {
+                        widget.set_weather_refreshing(false);
+                        widget.set_weather_refresh_error(refresh_failed);
+                        if let Some(weather_text) = weather_text {
                             widget.set_weather_text(weather_text.into());
-                            apply_weather_to_widget(&widget, weather_data.as_ref());
-                            if let Some(quick) = quick_weak.upgrade() {
-                                sync_quick_weather(&quick, &widget);
-                            }
-                            sync_desktop_widgets(&widget);
                         }
+                        if weather_data.is_some() {
+                            apply_weather_to_widget(&widget, weather_data.as_ref());
+                        }
+                        if let Some(quick) = quick_weak.upgrade() {
+                            sync_quick_weather(&quick, &widget);
+                        }
+                        sync_desktop_widgets(&widget);
                     }
                 });
             });

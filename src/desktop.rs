@@ -216,6 +216,11 @@ impl DesktopWidgetWindows {
             .set_description(source.get_weather_description());
         self.weather.set_icon_kind(source.get_weather_icon_kind());
         self.weather.set_updated_text(source.get_weather_updated());
+        self.weather
+            .set_provider_text(source.get_weather_provider());
+        self.weather.set_refreshing(source.get_weather_refreshing());
+        self.weather
+            .set_refresh_error(source.get_weather_refresh_error());
         self.weather.set_forecast(source.get_weather_days());
 
         self.focus.set_focus_time_text(source.get_focus_time_text());
@@ -355,21 +360,11 @@ impl DesktopWidgetWindows {
                 let key = key.clone();
                 window.on_end_window_resize(move || {
                     if let Some(window) = window_weak.upgrade() {
-                        let size = window.window().size();
                         if let Ok(conn) = db::open() {
-                            if let Err(error) = db::set_setting(
-                                &conn,
-                                &format!("widget_{key}_width"),
-                                &size.width.to_string(),
-                            ) {
-                                error_reporter::report("保存便签卡片宽度失败", &error);
-                            }
-                            if let Err(error) = db::set_setting(
-                                &conn,
-                                &format!("widget_{key}_height"),
-                                &size.height.to_string(),
-                            ) {
-                                error_reporter::report("保存便签卡片高度失败", &error);
+                            if let Err(error) =
+                                save_widget_window_size_to_conn(&window, &conn, &key)
+                            {
+                                error_reporter::report("保存便签卡片逻辑尺寸失败", &error);
                             }
                         }
                     }
@@ -409,6 +404,11 @@ impl DesktopWidgetWindows {
                                 &position.y.to_string(),
                             ) {
                                 error_reporter::report("保存便签卡片纵向位置失败", &error);
+                            }
+                            if let Err(error) =
+                                save_widget_window_size_to_conn(&window, &conn, &key)
+                            {
+                                error_reporter::report("保存便签卡片跨屏尺寸失败", &error);
                             }
                         }
                     }
@@ -975,6 +975,20 @@ pub(crate) fn restore_widget_window_size<C: ComponentHandle>(
     conn: &Connection,
     kind: &str,
 ) {
+    let logical_width = db::get_setting(conn, &format!("widget_{kind}_logical_width"), "")
+        .ok()
+        .and_then(|value| value.parse::<f32>().ok());
+    let logical_height = db::get_setting(conn, &format!("widget_{kind}_logical_height"), "")
+        .ok()
+        .and_then(|value| value.parse::<f32>().ok());
+    if let (Some(width), Some(height)) = (logical_width, logical_height) {
+        component
+            .window()
+            .set_size(slint::LogicalSize::new(width, height));
+        return;
+    }
+
+    // 兼容旧版本保存的物理像素；首次拖动或缩放后会迁移到逻辑尺寸键。
     let width = db::get_setting(conn, &format!("widget_{kind}_width"), "")
         .ok()
         .and_then(|value| value.parse::<u32>().ok());
@@ -986,6 +1000,30 @@ pub(crate) fn restore_widget_window_size<C: ComponentHandle>(
             .window()
             .set_size(slint::PhysicalSize::new(width, height));
     }
+}
+
+fn save_widget_window_size_to_conn<C: ComponentHandle>(
+    component: &C,
+    conn: &Connection,
+    kind: &str,
+) -> Result<()> {
+    let size = component.window().size();
+    let (logical_width, logical_height) = rili::window_policy::physical_to_logical_size(
+        size.width,
+        size.height,
+        component.window().scale_factor(),
+    );
+    db::set_setting(
+        conn,
+        &format!("widget_{kind}_logical_width"),
+        &format!("{logical_width:.2}"),
+    )?;
+    db::set_setting(
+        conn,
+        &format!("widget_{kind}_logical_height"),
+        &format!("{logical_height:.2}"),
+    )?;
+    Ok(())
 }
 
 pub(crate) fn save_widget_window_position<C: ComponentHandle>(
@@ -1016,20 +1054,8 @@ pub(crate) fn save_widget_window_size<C: ComponentHandle>(
     state: &Rc<RefCell<AppState>>,
     kind: &str,
 ) {
-    let size = component.window().size();
     let state = state.borrow();
-    if let Err(error) = db::set_setting(
-        &state.conn,
-        &format!("widget_{kind}_width"),
-        &size.width.to_string(),
-    ) {
-        error_reporter::report(&format!("保存 {kind} 挂件宽度失败"), &error);
-    }
-    if let Err(error) = db::set_setting(
-        &state.conn,
-        &format!("widget_{kind}_height"),
-        &size.height.to_string(),
-    ) {
-        error_reporter::report(&format!("保存 {kind} 挂件高度失败"), &error);
+    if let Err(error) = save_widget_window_size_to_conn(component, &state.conn, kind) {
+        error_reporter::report(&format!("保存 {kind} 挂件逻辑尺寸失败"), &error);
     }
 }

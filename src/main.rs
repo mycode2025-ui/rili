@@ -232,21 +232,6 @@ fn run_gui(startup: bool) -> Result<()> {
             });
         });
     }
-    let error_notification_timer = slint::Timer::default();
-    {
-        let ui_weak = ui.as_weak();
-        error_notification_timer.start(
-            slint::TimerMode::Repeated,
-            Duration::from_millis(600),
-            move || {
-                if let (Some(ui), Some(message)) =
-                    (ui_weak.upgrade(), error_reporter::take_pending())
-                {
-                    ui.set_action_message(message.into());
-                }
-            },
-        );
-    }
     let widget = WidgetWindow::new()?;
     let desktop_widgets = Rc::new(DesktopWidgetWindows::new()?);
     desktop_widgets
@@ -594,13 +579,16 @@ fn run_gui(startup: bool) -> Result<()> {
     controllers::assistant::register_assistant_callbacks(&ui, &widget, &state);
     controllers::integration::register_integration_callbacks(&ui, &widget, &state);
     controllers::desktop_cards::register_desktop_card_callbacks(
-        &ui,
-        &widget,
-        &quick_panel,
-        &desktop_widgets,
-        &state,
-        &desktop_widget_visibility,
-        &widget_shown,
+        controllers::WidgetControllerContext {
+            ui: &ui,
+            widget: &widget,
+            quick_panel: &quick_panel,
+            desktop_widgets: &desktop_widgets,
+            state: &state,
+            visibility: &desktop_widget_visibility,
+            click_through: &desktop_click_through,
+            shown: &widget_shown,
+        },
     );
     controllers::widget_bridge::register_widget_bridge_callbacks(
         &ui,
@@ -636,8 +624,13 @@ fn run_gui(startup: bool) -> Result<()> {
         let quick_panel_had_focus = Rc::new(Cell::new(false));
         timer.start(
             slint::TimerMode::Repeated,
-            Duration::from_millis(250),
+            Duration::from_millis(500),
             move || {
+                if let (Some(ui), Some(message)) =
+                    (ui_weak.upgrade(), error_reporter::take_pending())
+                {
+                    ui.set_action_message(message.into());
+                }
                 // tray-icon also emits Enter/Move/Leave while hovering. Drain the
                 // queue and react only to a completed left click.
                 while let Ok(event) = TrayIconEvent::receiver().try_recv() {
@@ -716,6 +709,9 @@ fn run_gui(startup: bool) -> Result<()> {
         let widget_weak = widget.as_weak();
         let quick_weak = quick_panel.as_weak();
         let ui_weak = ui.as_weak();
+        let state = state.clone();
+        let weather_revision = Rc::new(Cell::new(weather::cache_revision()));
+        update_tool_status(&ui, &widget, &state);
         let now = Local::now();
         let now_text: SharedString = now.format("%H:%M:%S").to_string().into();
         widget.set_current_time_text(now_text.clone());
@@ -749,21 +745,6 @@ fn run_gui(startup: bool) -> Result<()> {
                         update_taskbar_clock_hit_rect();
                     }
                 }
-            },
-        );
-    }
-    let tools_timer = slint::Timer::default();
-    {
-        let ui_weak = ui.as_weak();
-        let widget_weak = widget.as_weak();
-        let quick_weak = quick_panel.as_weak();
-        let state = state.clone();
-        let weather_revision = Rc::new(Cell::new(weather::cache_revision()));
-        update_tool_status(&ui, &widget, &state);
-        tools_timer.start(
-            slint::TimerMode::Repeated,
-            Duration::from_millis(1000),
-            move || {
                 if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
                     update_tool_status(&ui, &widget, &state);
                     let latest_revision = weather::cache_revision();

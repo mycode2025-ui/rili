@@ -1,0 +1,15 @@
+{
+  "city": "北京市朝阳区",
+  "temperature": "27°",
+  "description": "夜晚晴",
+  "icon-kind": "moon",
+  "updated-text": "更新于 21:22",
+  "provider-text": "Open-Meteo",
+  "forecast": [
+    { "weekday": "今天", "description": "晴", "temperature": "31°/20°", "icon-kind": "sun" },
+    { "weekday": "周五", "description": "多云", "temperature": "29°/19°", "icon-kind": "cloud" },
+    { "weekday": "周六", "description": "小雨", "temperature": "25°/18°", "icon-kind": "rain" },
+    { "weekday": "周日", "description": "晴", "temperature": "28°/17°", "icon-kind": "sun" },
+    { "weekday": "周一", "description": "晴", "temperature": "30°/18°", "icon-kind": "sun" }
+  ]
+}

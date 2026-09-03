@@ -454,6 +454,9 @@ export component WidgetWindow inherits Window {
     in property <string> weather-description;
     in property <string> weather-icon-kind: "unknown";
     in property <string> weather-updated;
+    in property <string> weather-provider;
+    in property <bool> weather-refreshing: false;
+    in property <bool> weather-refresh-error: false;
     in property <[WeatherDayItem]> weather-days;
     in property <string> current-time-text;
     in property <string> current-time-main: "22:53";

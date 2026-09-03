@@ -12,17 +12,21 @@ pub(crate) fn apply_weather_to_widget(
         widget.set_weather_description("".into());
         widget.set_weather_icon_kind("unknown".into());
         widget.set_weather_updated("等待后台刷新".into());
+        widget.set_weather_provider("".into());
         widget.set_weather_days(ModelRc::new(VecModel::default()));
         return;
     };
 
     let (description, current_icon) = weather::describe_current(current.code, current.is_day);
-    let updated = chrono::DateTime::parse_from_rfc3339(&current.updated_at)
-        .map(|value| {
-            value
-                .with_timezone(&Local)
-                .format("更新于 %H:%M")
-                .to_string()
+    let updated = chrono::NaiveDateTime::parse_from_str(&current.updated_at, "%Y-%m-%d %H:%M")
+        .map(|value| value.format("更新于 %H:%M").to_string())
+        .or_else(|_| {
+            chrono::DateTime::parse_from_rfc3339(&current.updated_at).map(|value| {
+                value
+                    .with_timezone(&Local)
+                    .format("更新于 %H:%M")
+                    .to_string()
+            })
         })
         .unwrap_or_else(|_| "天气缓存".to_string());
     let forecast = current
@@ -51,6 +55,7 @@ pub(crate) fn apply_weather_to_widget(
     widget.set_weather_description(description.into());
     widget.set_weather_icon_kind(current_icon.into());
     widget.set_weather_updated(updated.into());
+    widget.set_weather_provider(current.provider.clone().into());
     widget.set_weather_days(ModelRc::new(VecModel::from(forecast)));
 }
 
@@ -60,6 +65,10 @@ pub(crate) fn sync_quick_weather(quick: &QuickPanelWindow, widget: &WidgetWindow
     quick.set_weather_temperature(widget.get_weather_temperature());
     quick.set_weather_description(widget.get_weather_description());
     quick.set_weather_icon_kind(widget.get_weather_icon_kind());
+    quick.set_weather_updated(widget.get_weather_updated());
+    quick.set_weather_provider(widget.get_weather_provider());
+    quick.set_weather_refreshing(widget.get_weather_refreshing());
+    quick.set_weather_refresh_error(widget.get_weather_refresh_error());
 }
 
 pub(crate) fn refresh_quick_panel_calendar(

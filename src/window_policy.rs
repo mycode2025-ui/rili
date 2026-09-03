@@ -53,6 +53,16 @@ pub fn taskbar_panel_position(
     }
 }
 
+/// 将窗口系统返回的物理像素尺寸转换成可跨显示器保存的逻辑尺寸。
+pub fn physical_to_logical_size(width: u32, height: u32, scale_factor: f32) -> (f32, f32) {
+    let scale = if scale_factor.is_finite() && scale_factor > 0.0 {
+        scale_factor
+    } else {
+        1.0
+    };
+    (width as f32 / scale, height as f32 / scale)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -108,5 +118,13 @@ mod tests {
         };
         assert_eq!(taskbar_panel_position(taskbar, 0, 460, 640, 8), (56, 432));
         assert_eq!(taskbar_panel_position(taskbar, 2, 460, 640, 8), (-468, 432));
+    }
+
+    #[test]
+    fn widget_logical_size_stays_constant_across_monitor_dpi() {
+        assert_eq!(physical_to_logical_size(304, 244, 1.0), (304.0, 244.0));
+        assert_eq!(physical_to_logical_size(456, 366, 1.5), (304.0, 244.0));
+        assert_eq!(physical_to_logical_size(608, 488, 2.0), (304.0, 244.0));
+        assert_eq!(physical_to_logical_size(304, 244, 0.0), (304.0, 244.0));
     }
 }

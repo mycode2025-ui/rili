@@ -1,14 +1,17 @@
+use super::WidgetControllerContext;
 use crate::*;
 
-pub(crate) fn register_desktop_card_callbacks(
-    ui: &AppWindow,
-    widget: &WidgetWindow,
-    quick_panel: &QuickPanelWindow,
-    desktop_widgets: &Rc<DesktopWidgetWindows>,
-    state: &Rc<RefCell<AppState>>,
-    desktop_widget_visibility: &Rc<RefCell<DesktopWidgetVisibility>>,
-    widget_shown: &Rc<Cell<bool>>,
-) {
+pub(crate) fn register_desktop_card_callbacks(context: WidgetControllerContext<'_>) {
+    let WidgetControllerContext {
+        ui,
+        widget,
+        quick_panel,
+        desktop_widgets,
+        state,
+        visibility: desktop_widget_visibility,
+        click_through: desktop_click_through,
+        shown: widget_shown,
+    } = context;
     // -------- 独立桌面挂件：系统拖动、独立置顶、移除与位置持久化 --------
     macro_rules! wire_widget_chrome {
         ($window:expr, $kind:literal) => {{
@@ -29,6 +32,8 @@ pub(crate) fn register_desktop_card_callbacks(
             $window.on_end_window_drag(move || {
                 if let Some(window) = window_weak.upgrade() {
                     save_widget_window_position(&window, &state_for_drag, $kind);
+                    // 跨显示器拖动可能触发 DPI 改变，必须同时持久化新的逻辑尺寸。
+                    save_widget_window_size(&window, &state_for_drag, $kind);
                 }
             });
 
@@ -144,6 +149,48 @@ pub(crate) fn register_desktop_card_callbacks(
     {
         let quick_weak = quick_panel.as_weak();
         quick_panel.on_close_requested(move || {
+            if let Some(quick) = quick_weak.upgrade() {
+                let _ = quick.hide();
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        quick_panel.on_refresh_weather(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_refresh_weather();
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        desktop_widgets.weather.on_refresh_weather(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_refresh_weather();
+            }
+        });
+    }
+    {
+        let quick_weak = quick_panel.as_weak();
+        let ui_weak = ui.as_weak();
+        let windows = desktop_widgets.clone();
+        let visibility = desktop_widget_visibility.clone();
+        let shown = widget_shown.clone();
+        let click_through = desktop_click_through.clone();
+        let state = state.clone();
+        quick_panel.on_open_weather(move || {
+            visibility.borrow_mut().weather = true;
+            let configuration = *visibility.borrow();
+            shown.set(true);
+            if let Some(ui) = ui_weak.upgrade() {
+                sync_desktop_visibility_to_ui(&ui, configuration);
+                ui.set_widget_visible(true);
+            }
+            if let Err(error) = db::set_setting(&state.borrow().conn, "widget_weather_visible", "1")
+            {
+                error_reporter::report("保存天气卡片显示状态失败", &error);
+            }
+            windows.show_configured(configuration, click_through.get());
             if let Some(quick) = quick_weak.upgrade() {
                 let _ = quick.hide();
             }

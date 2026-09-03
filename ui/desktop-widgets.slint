@@ -558,6 +558,9 @@ export component WeatherWidgetWindow inherits Window {
     in property <string> description;
     in property <string> icon-kind: "unknown";
     in property <string> updated-text;
+    in property <string> provider-text;
+    in property <bool> refreshing: false;
+    in property <bool> refresh-error: false;
     in property <[WeatherDayItem]> forecast;
     in-out property <bool> pinned: false;
     in-out property <bool> locked: false;
@@ -576,6 +579,7 @@ export component WeatherWidgetWindow inherits Window {
     callback remove-widget();
     callback begin-window-resize();
     callback end-window-resize();
+    callback refresh-weather();
 
     DesktopCard {
         width: parent.width;
@@ -609,19 +613,33 @@ export component WeatherWidgetWindow inherits Window {
                 horizontal-alignment: right; vertical-alignment: center; overflow: elide;
             }
             Text {
-                x: 184px; y: 37px; width: parent.width - 198px; height: 20px;
+                x: 184px; y: 37px; width: parent.width - 224px; height: 20px;
                 text: "更换城市";
                 color: city-touch.has-hover ? Theme.widget-accent : Theme.widget-text-3; font-size: Theme.font-10;
                 horizontal-alignment: right; vertical-alignment: center; overflow: elide;
             }
             city-touch := TouchArea {
-                x: 174px; y: 32px; width: parent.width - 184px; height: 30px;
+                x: 174px; y: 32px; width: parent.width - 214px; height: 30px;
                 mouse-cursor: pointer;
                 clicked => { root.city-draft = root.city; root.city-editor-open = true; }
             }
+            Rectangle {
+                x: parent.width - 28px; y: 36px; width: 22px; height: 22px; border-radius: 11px;
+                background: refresh-touch.has-hover ? Theme.widget-glass-hover : transparent;
+                SvgIcon { x: 4px; y: 4px; size: 14px; source: Icons.reload; tint: root.refresh-error ? Theme.widget-danger : Theme.widget-accent; }
+                refresh-touch := TouchArea { enabled: !root.refreshing; mouse-cursor: root.refreshing ? default : pointer; clicked => { root.refresh-weather(); } }
+            }
+        }
+        Text {
+            x: 18px; y: 122px; width: parent.width - 36px; height: 17px;
+            text: root.refreshing ? "正在更新天气…"
+                : root.refresh-error ? "更新失败 · 点击刷新重试"
+                : root.updated-text + (root.provider-text == "" ? "" : " · " + root.provider-text);
+            color: root.refresh-error ? Theme.widget-danger : Theme.widget-text-3; font-size: Theme.font-8-5;
+            horizontal-alignment: right; vertical-alignment: center; overflow: elide;
         }
         HorizontalLayout {
-            x: 14px; y: 132px; width: parent.width - 28px; height: parent.height - 162px; spacing: 3px;
+            x: 14px; y: 141px; width: parent.width - 28px; height: parent.height - 171px; spacing: 3px;
             for day[index] in root.forecast: Rectangle {
                 horizontal-stretch: 1; min-width: 46px;
                 border-radius: Theme.r-md;

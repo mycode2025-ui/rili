@@ -189,6 +189,10 @@ export component QuickPanelWindow inherits Window {
     in property <string> weather-temperature;
     in property <string> weather-description;
     in property <string> weather-icon-kind: "unknown";
+    in property <string> weather-updated;
+    in property <string> weather-provider;
+    in property <bool> weather-refreshing: false;
+    in property <bool> weather-refresh-error: false;
     in property <string> date-title;
     in property <string> weekday-text;
     in property <string> lunar-text;
@@ -208,6 +212,8 @@ export component QuickPanelWindow inherits Window {
     callback new-event();
     callback open-settings();
     callback close-requested();
+    callback open-weather();
+    callback refresh-weather();
 
     Rectangle {
         x: 5px;
@@ -237,32 +243,47 @@ export component QuickPanelWindow inherits Window {
                 Text { x: 20px; y: 63px; width: 270px; height: 20px; text: root.date-title + "  " + root.weekday-text; color: Theme.text-2; font-size: Theme.font-12; vertical-alignment: center; }
                 Text { x: 20px; y: 83px; width: 270px; height: 17px; text: root.lunar-text; color: Theme.text-3; font-size: Theme.font-10; vertical-alignment: center; overflow: elide; }
                 Rectangle {
-                    x: parent.width - 171px;
-                    y: 38px;
-                    width: 158px;
-                    height: 58px;
+                    x: parent.width - 179px;
+                    y: 35px;
+                    width: 166px;
+                    height: 65px;
                     border-radius: Theme.r-lg;
-                    background: Theme.bg-surface.with-alpha(72%);
-                    WeatherArtwork { x: 7px; y: 4px; width: 50px; height: 50px; kind: root.weather-icon-kind; }
+                    background: weather-card-touch.has-hover ? Theme.bg-surface.with-alpha(88%) : Theme.bg-surface.with-alpha(72%);
+                    WeatherArtwork { x: 7px; y: 7px; width: 48px; height: 48px; kind: root.weather-icon-kind; }
                     if root.weather-city == "": Text {
-                        x: 63px; y: 8px; width: 88px; height: 42px;
+                        x: 61px; y: 8px; width: 78px; height: 42px;
                         text: "天气加载中"; color: Theme.text-3; font-size: Theme.font-10;
                         vertical-alignment: center; overflow: elide;
                     }
                     if root.weather-city != "": Text {
-                        x: 63px; y: 7px; width: 88px; height: 18px;
+                        x: 61px; y: 5px; width: 78px; height: 18px;
                         text: root.weather-city; color: Theme.text-2; font-size: Theme.font-10; font-weight: 600;
                         vertical-alignment: center; overflow: elide;
                     }
                     if root.weather-city != "": Text {
-                        x: 63px; y: 27px; width: 46px; height: 20px;
+                        x: 61px; y: 22px; width: 46px; height: 20px;
                         text: root.weather-temperature; color: Theme.text-1; font-size: Theme.font-12; font-weight: 700;
                         vertical-alignment: center; overflow: elide;
                     }
                     if root.weather-city != "": Text {
-                        x: 109px; y: 28px; width: 42px; height: 18px;
+                        x: 107px; y: 23px; width: 48px; height: 18px;
                         text: root.weather-description; color: Theme.text-3; font-size: Theme.font-9;
                         horizontal-alignment: right; vertical-alignment: center; overflow: elide;
+                    }
+                    Text {
+                        x: 61px; y: 43px; width: 94px; height: 16px;
+                        text: root.weather-refreshing ? "正在更新…"
+                            : root.weather-refresh-error ? "更新失败 · 点击重试"
+                            : root.weather-updated + (root.weather-provider == "" ? "" : " · " + root.weather-provider);
+                        color: root.weather-refresh-error ? Theme.danger : Theme.text-3; font-size: Theme.font-8-5;
+                        vertical-alignment: center; overflow: elide;
+                    }
+                    weather-card-touch := TouchArea { mouse-cursor: pointer; clicked => { root.open-weather(); } }
+                    Rectangle {
+                        x: parent.width - 23px; y: 3px; width: 20px; height: 20px; border-radius: 10px;
+                        background: refresh-touch.has-hover ? Theme.accent-subtle : transparent;
+                        SvgIcon { x: 4px; y: 4px; size: 12px; source: Icons.reload; tint: root.weather-refreshing ? Theme.text-3 : Theme.accent; }
+                        refresh-touch := TouchArea { enabled: !root.weather-refreshing; mouse-cursor: root.weather-refreshing ? default : pointer; clicked => { root.refresh-weather(); } }
                     }
                 }
                 HeaderButton { x: parent.width - 75px; y: 7px; icon: Icons.gear; label: "打开设置"; clicked => { root.open-settings(); } }

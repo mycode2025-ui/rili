@@ -21,3 +21,23 @@ jobs:
         run: cargo clippy --all-targets -j 1 -- -D warnings
       - name: Core tests
         run: cargo test --lib -j 1
+
+  visual-regression:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Cache Slint viewer
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/slint-viewer.exe
+          key: slint-viewer-1.17.1-windows
+      - name: Install matching Slint viewer
+        shell: pwsh
+        run: |
+          if (-not (Get-Command slint-viewer -ErrorAction SilentlyContinue)) {
+            cargo install slint-viewer --version 1.17.1 --locked
+          }
+      - name: Compare 100–200% DPI screenshots
+        shell: pwsh
+        run: ./scripts/visual-regression.ps1
