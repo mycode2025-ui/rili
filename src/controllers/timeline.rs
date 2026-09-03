@@ -65,7 +65,7 @@ pub(crate) fn register_timeline_callbacks(
                         calendar_id: 1,
                     },
                 ) {
-                    eprintln!("新建日程失败: {e}");
+                    error_reporter::report("新建日程失败", &e);
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
@@ -92,7 +92,7 @@ pub(crate) fn register_timeline_callbacks(
                             ..db::EventUpdate::default()
                         },
                     ) {
-                        eprintln!("拖拽移动日程失败: {e}");
+                        error_reporter::report("拖拽移动日程失败", &e);
                     }
                 }
             }
@@ -116,7 +116,7 @@ pub(crate) fn register_timeline_callbacks(
                         ..db::EventUpdate::default()
                     },
                 ) {
-                    eprintln!("拖拽调整时长失败: {e}");
+                    error_reporter::report("拖拽调整时长失败", &e);
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {

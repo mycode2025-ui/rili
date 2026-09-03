@@ -23,7 +23,7 @@ pub(crate) fn register_assistant_callbacks(
             {
                 let s = state.borrow();
                 if let Err(e) = db::set_todo_status(&s.conn, id as i64, status.as_str()) {
-                    eprintln!("移动看板卡片失败: {e}");
+                    error_reporter::report("移动看板卡片失败", &e);
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {

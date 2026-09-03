@@ -63,7 +63,7 @@ pub(crate) fn remove_widget_from_taskbar<C: ComponentHandle>(component: &C) {
         }
     });
     if applied.is_none() {
-        eprintln!("桌面挂件 HWND 尚未就绪，等待下一次样式重试");
+        error_reporter::report("桌面挂件窗口尚未就绪", &"等待下一次样式重试");
     }
 }
 
@@ -96,7 +96,7 @@ pub(crate) fn show_and_focus_quick_panel_at(quick: &QuickPanelWindow, anchor: Op
 pub(crate) fn set_widget_click_through<C: ComponentHandle>(component: &C, enabled: bool) {
     let _ = component.window().with_winit_window(|native| {
         if let Err(error) = native.set_cursor_hittest(!enabled) {
-            eprintln!("设置桌面挂件鼠标穿透失败: {error}");
+            error_reporter::report("设置桌面挂件鼠标穿透失败", &error);
         }
     });
 }
@@ -525,7 +525,7 @@ pub(crate) fn spawn_taskbar_clock_click_hook() {
         let module = GetModuleHandleW(std::ptr::null());
         let hook = SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_proc), module, 0);
         if hook.is_null() {
-            eprintln!("Windows 系统时钟点击接管启动失败");
+            error_reporter::report("Windows 系统时钟点击接管启动失败", &"系统挂钩初始化失败");
             return;
         }
         let mut message: Message = std::mem::zeroed();

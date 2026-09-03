@@ -149,15 +149,18 @@ pub(crate) fn register_tool_callbacks(
         let widget_weak = widget.as_weak();
         let state = state.clone();
         ui.on_set_weather_city(move |city| {
+            let city = city.trim().to_string();
             {
                 let s = state.borrow();
-                if let Err(e) = db::set_setting(&s.conn, "weather_city", city.trim()) {
-                    eprintln!("保存天气城市失败: {e}");
+                if let Err(e) = db::set_setting(&s.conn, "weather_city", &city) {
+                    error_reporter::report("保存天气城市失败", &e);
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                ui.invoke_refresh_weather();
                 refresh_all(&ui, &widget, &state);
+                ui.set_weather_status(format!("正在查询“{city}”…").into());
+                ui.set_action_message(format!("正在查询天气：{city}").into());
+                ui.invoke_refresh_weather();
             }
         });
     }
@@ -169,7 +172,7 @@ pub(crate) fn register_tool_callbacks(
             let widget_weak = widget_weak.clone();
             std::thread::spawn(move || {
                 let result = db::open().and_then(|conn| weather::refresh_once(&conn));
-                let (weather_text, status_text, weather_data) = match result {
+                let (weather_text, status_text, weather_data, action_text) = match result {
                     Ok(w) => {
                         let (desc, _) = weather::describe_code(w.code);
                         let text = format!("{} {:.0}°C {desc}", w.city, w.temp_c);
@@ -182,10 +185,11 @@ pub(crate) fn register_tool_callbacks(
                             Some(text.clone()),
                             format!("{text} · 已更新 {} · {source}", w.updated_at),
                             Some(w),
+                            format!("天气更新成功：{text}"),
                         )
                     }
                     Err(e) => {
-                        eprintln!("天气刷新失败（继续使用缓存）: {e:#}");
+                        error_reporter::record("天气刷新失败，继续使用缓存", &e);
                         let cached = db::open().ok().and_then(|conn| weather::cached(&conn));
                         match cached {
                             Some(w) => {
@@ -195,15 +199,22 @@ pub(crate) fn register_tool_callbacks(
                                     Some(text.clone()),
                                     format!("{text} · 使用 {} 缓存；刷新失败: {e:#}", w.updated_at),
                                     Some(w),
+                                    "天气更新失败，已继续使用缓存".to_string(),
                                 )
                             }
-                            None => (None, format!("天气刷新失败: {e:#}"), None),
+                            None => (
+                                None,
+                                format!("天气刷新失败: {e:#}"),
+                                None,
+                                "天气更新失败，请检查城市名称或网络".to_string(),
+                            ),
                         }
                     }
                 };
                 let _ = slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_weak.upgrade() {
                         ui.set_weather_status(status_text.into());
+                        ui.set_action_message(action_text.into());
                     }
                     if let Some(weather_text) = weather_text {
                         if let Some(ui) = ui_weak.upgrade() {
@@ -289,7 +300,7 @@ pub(crate) fn register_tool_callbacks(
                 s.pomodoro_remaining_secs = 25 * 60;
                 s.pomodoro_end_at = None;
                 if let Err(error) = db::set_setting(&s.conn, "focus_minutes", "25") {
-                    eprintln!("保存番茄钟默认时长失败: {error}");
+                    error_reporter::report("保存番茄钟默认时长失败", &error);
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {

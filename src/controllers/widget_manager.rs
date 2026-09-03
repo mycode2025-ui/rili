@@ -44,7 +44,7 @@ pub(crate) fn register_widget_manager_callbacks(context: WidgetControllerContext
                 "desktop_widgets_visible",
                 if show { "1" } else { "0" },
             ) {
-                eprintln!("保存桌面挂件显示状态失败: {error}");
+                error_reporter::report("保存桌面挂件显示状态失败", &error);
             }
         });
     }
@@ -63,7 +63,7 @@ pub(crate) fn register_widget_manager_callbacks(context: WidgetControllerContext
                 let s = state.borrow();
                 if db::list_notes(&s.conn).unwrap_or_default().is_empty() {
                     if let Err(error) = db::create_note(&s.conn, "新便签", "") {
-                        eprintln!("创建首个便签卡片失败: {error}");
+                        error_reporter::report("创建首个便签卡片失败", &error);
                     }
                 }
             }
@@ -88,7 +88,7 @@ pub(crate) fn register_widget_manager_callbacks(context: WidgetControllerContext
             let key = format!("widget_{kind}_visible");
             if let Err(error) = db::set_setting(&state.conn, &key, if visible { "1" } else { "0" })
             {
-                eprintln!("保存桌面卡片状态失败: {error}");
+                error_reporter::report("保存桌面卡片状态失败", &error);
             }
             if let Err(error) = db::set_setting(
                 &state.conn,
@@ -115,7 +115,7 @@ pub(crate) fn register_widget_manager_callbacks(context: WidgetControllerContext
                 "desktop_widgets_click_through",
                 if enabled { "1" } else { "0" },
             ) {
-                eprintln!("保存桌面挂件鼠标穿透状态失败: {error}");
+                error_reporter::report("保存桌面挂件鼠标穿透状态失败", &error);
             }
         });
     }
@@ -123,13 +123,14 @@ pub(crate) fn register_widget_manager_callbacks(context: WidgetControllerContext
         let ui_weak = ui.as_weak();
         let widget_weak = widget.as_weak();
         let quick_weak = quick_panel.as_weak();
+        let state = state.clone();
         ui.on_open_quick_panel(move || {
             if let (Some(ui), Some(widget), Some(quick)) = (
                 ui_weak.upgrade(),
                 widget_weak.upgrade(),
                 quick_weak.upgrade(),
             ) {
-                sync_quick_panel(&quick, &ui, &widget);
+                sync_quick_panel(&quick, &ui, &widget, &state);
                 show_and_focus_quick_panel(&quick);
             }
         });

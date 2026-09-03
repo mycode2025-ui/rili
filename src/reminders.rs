@@ -15,7 +15,7 @@ const STALE_AFTER_HOURS: i64 = 24;
 pub fn spawn() {
     thread::spawn(|| loop {
         if let Err(e) = tick() {
-            eprintln!("提醒检查失败: {e}");
+            crate::error_reporter::report("提醒检查失败", &e);
         }
         thread::sleep(StdDuration::from_secs(CHECK_INTERVAL_SECS));
     });
@@ -90,7 +90,7 @@ fn fire_notification(title: &str, offset_minutes: i64, event_datetime: chrono::N
     if let Err(e) = try_toast(title, &body) {
         // 未打包的 Win32 应用发系统 Toast 通知有已知限制（需要 AUMID/开始菜单快捷方式），
         // 这里只记录日志、不让提醒线程因此崩溃；后续可以补充“应用内提醒列表”兜底展示。
-        eprintln!("系统通知发送失败，已跳过（不影响后续提醒）: {e}");
+        crate::error_reporter::report("系统通知发送失败", &e);
     }
 }
 

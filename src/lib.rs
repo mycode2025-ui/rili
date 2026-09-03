@@ -9,6 +9,7 @@ pub mod autostart;
 pub mod cli;
 pub mod date_calc;
 pub mod db;
+pub mod error_reporter;
 pub mod holidays;
 pub mod ics;
 pub mod integrations;

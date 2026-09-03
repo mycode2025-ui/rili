@@ -154,7 +154,7 @@ impl DesktopWidgetWindows {
             }
 
             let Ok(window) = NotesWidgetWindow::new() else {
-                eprintln!("创建便签桌面卡片失败");
+                error_reporter::report("创建便签桌面卡片失败", &"窗口初始化失败");
                 continue;
             };
             window.set_note_id(note.id);
@@ -243,14 +243,14 @@ impl DesktopWidgetWindows {
                                 &format!("widget_{key}_x"),
                                 &position.x.to_string(),
                             ) {
-                                eprintln!("保存便签卡片横向位置失败: {error}");
+                                error_reporter::report("保存便签卡片横向位置失败", &error);
                             }
                             if let Err(error) = db::set_setting(
                                 &conn,
                                 &format!("widget_{key}_y"),
                                 &position.y.to_string(),
                             ) {
-                                eprintln!("保存便签卡片纵向位置失败: {error}");
+                                error_reporter::report("保存便签卡片纵向位置失败", &error);
                             }
                         }
                     }
@@ -265,7 +265,7 @@ impl DesktopWidgetWindows {
                             &format!("widget_{key}_pinned"),
                             if pinned { "1" } else { "0" },
                         ) {
-                            eprintln!("保存便签卡片置顶状态失败: {error}");
+                            error_reporter::report("保存便签卡片置顶状态失败", &error);
                         }
                     }
                 });
@@ -601,7 +601,7 @@ pub(crate) fn show_desktop_event_editor(
     }
 
     let Ok(editor) = NewEventWindow::new() else {
-        eprintln!("创建独立日程编辑窗口失败");
+        error_reporter::report("创建独立日程编辑窗口失败", &"窗口初始化失败");
         return;
     };
     editor.set_draft_title("".into());
@@ -782,7 +782,7 @@ pub(crate) fn show_desktop_event_editor(
         (anchor_y - 108).max(0),
     ));
     if let Err(error) = editor.show() {
-        eprintln!("显示独立日程编辑窗口失败：{error}");
+        error_reporter::report("显示独立日程编辑窗口失败", &error);
         return;
     }
     let _ = editor
@@ -842,14 +842,14 @@ pub(crate) fn save_widget_window_position<C: ComponentHandle>(
         &format!("widget_{kind}_x"),
         &position.x.to_string(),
     ) {
-        eprintln!("保存 {kind} 挂件横坐标失败: {error}");
+        error_reporter::report(&format!("保存 {kind} 挂件横坐标失败"), &error);
     }
     if let Err(error) = db::set_setting(
         &state.conn,
         &format!("widget_{kind}_y"),
         &position.y.to_string(),
     ) {
-        eprintln!("保存 {kind} 挂件纵坐标失败: {error}");
+        error_reporter::report(&format!("保存 {kind} 挂件纵坐标失败"), &error);
     }
 }
 
@@ -865,13 +865,13 @@ pub(crate) fn save_widget_window_size<C: ComponentHandle>(
         &format!("widget_{kind}_width"),
         &size.width.to_string(),
     ) {
-        eprintln!("保存 {kind} 挂件宽度失败: {error}");
+        error_reporter::report(&format!("保存 {kind} 挂件宽度失败"), &error);
     }
     if let Err(error) = db::set_setting(
         &state.conn,
         &format!("widget_{kind}_height"),
         &size.height.to_string(),
     ) {
-        eprintln!("保存 {kind} 挂件高度失败: {error}");
+        error_reporter::report(&format!("保存 {kind} 挂件高度失败"), &error);
     }
 }

@@ -38,8 +38,8 @@ use windowing::{set_main_view_mode, show_and_focus_main_window};
 
 use rili::window_policy::navigation_refresh_needed;
 use rili::{
-    almanac, app_paths, autostart, cli, date_calc, db, holidays, integrations, lunar, natural,
-    recurrence, reminders, single_instance, weather,
+    almanac, app_paths, autostart, cli, date_calc, db, error_reporter, holidays, integrations,
+    lunar, natural, recurrence, reminders, single_instance, weather,
 };
 
 /// 新建分类日历时依次挑选的设计规范强调色循环。
@@ -97,7 +97,7 @@ fn run_gui(startup: bool) -> Result<()> {
     // 兼容旧版本留下的启动命令，并在 exe 被移动后修复注册表中的路径。
     if autostart::is_enabled() {
         if let Err(error) = autostart::set_enabled(true) {
-            eprintln!("修复开机启动项失败: {error}");
+            error_reporter::report("修复开机启动项失败", &error);
         }
     }
     // 后台提醒扫描线程：独立打开自己的数据库连接，随进程退出而结束。
@@ -231,6 +231,21 @@ fn run_gui(startup: bool) -> Result<()> {
                 }
             });
         });
+    }
+    let error_notification_timer = slint::Timer::default();
+    {
+        let ui_weak = ui.as_weak();
+        error_notification_timer.start(
+            slint::TimerMode::Repeated,
+            Duration::from_millis(600),
+            move || {
+                if let (Some(ui), Some(message)) =
+                    (ui_weak.upgrade(), error_reporter::take_pending())
+                {
+                    ui.set_action_message(message.into());
+                }
+            },
+        );
     }
     let widget = WidgetWindow::new()?;
     let desktop_widgets = Rc::new(DesktopWidgetWindows::new()?);
@@ -473,7 +488,7 @@ fn run_gui(startup: bool) -> Result<()> {
             }
         });
     }
-    sync_quick_panel(&quick_panel, &ui, &widget);
+    sync_quick_panel(&quick_panel, &ui, &widget, &state);
     TASKBAR_CLOCK_HOOK_ENABLED.store(taskbar_clock_enabled, Ordering::Release);
     update_taskbar_clock_hit_rect();
     spawn_taskbar_clock_click_hook();
@@ -593,6 +608,7 @@ fn run_gui(startup: bool) -> Result<()> {
         let ui_weak = ui.as_weak();
         let widget_weak = widget.as_weak();
         let quick_weak = quick_panel.as_weak();
+        let state = state.clone();
         let quick_panel_had_focus = Rc::new(Cell::new(false));
         timer.start(
             slint::TimerMode::Repeated,
@@ -617,7 +633,7 @@ fn run_gui(startup: bool) -> Result<()> {
                             if quick.window().is_visible() {
                                 let _ = quick.hide();
                             } else {
-                                sync_quick_panel(&quick, &ui, &widget);
+                                sync_quick_panel(&quick, &ui, &widget, &state);
                                 show_and_focus_quick_panel(&quick);
                             }
                             quick_panel_had_focus.set(false);
@@ -630,7 +646,7 @@ fn run_gui(startup: bool) -> Result<()> {
                         widget_weak.upgrade(),
                         quick_weak.upgrade(),
                     ) {
-                        sync_quick_panel(&quick, &ui, &widget);
+                        sync_quick_panel(&quick, &ui, &widget, &state);
                         show_and_focus_quick_panel_at(&quick, last_clicked_taskbar_anchor());
                         quick_panel_had_focus.set(false);
                     }

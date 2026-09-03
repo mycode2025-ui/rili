@@ -51,7 +51,48 @@ pub(crate) fn apply_weather_to_widget(
     widget.set_weather_days(ModelRc::new(VecModel::from(forecast)));
 }
 
-pub(crate) fn sync_quick_panel(quick: &QuickPanelWindow, ui: &AppWindow, widget: &WidgetWindow) {
+pub(crate) fn refresh_quick_panel_calendar(
+    quick: &QuickPanelWindow,
+    state: &Rc<RefCell<AppState>>,
+) {
+    let today = Local::now().date_naive();
+    let (year, month) = {
+        let year = quick.get_browse_year();
+        let month = quick.get_browse_month();
+        if year == 0 || !(1..=12).contains(&month) {
+            quick.set_browse_year(today.year());
+            quick.set_browse_month(today.month() as i32);
+            (today.year(), today.month())
+        } else {
+            (year, month as u32)
+        }
+    };
+    let s = state.borrow();
+    let calendars = db::list_calendars(&s.conn).unwrap_or_default();
+    let colors: HashMap<i64, slint::Color> = calendars
+        .iter()
+        .map(|calendar| (calendar.id, parse_hex_color(&calendar.color)))
+        .collect();
+    let visible_ids: HashSet<i64> = db::visible_calendar_ids(&s.conn).unwrap_or_default();
+    let days = build_month_days(
+        &s.conn,
+        year,
+        month,
+        s.week_starts_sunday,
+        &visible_ids,
+        &colors,
+        today,
+    );
+    quick.set_days(ModelRc::new(VecModel::from(days)));
+    quick.set_month_title(format!("{year}年 {month}月").into());
+}
+
+pub(crate) fn sync_quick_panel(
+    quick: &QuickPanelWindow,
+    ui: &AppWindow,
+    widget: &WidgetWindow,
+    state: &Rc<RefCell<AppState>>,
+) {
     let today = Local::now().date_naive();
     let weekday = match today.weekday() {
         chrono::Weekday::Mon => "星期一",
@@ -62,7 +103,7 @@ pub(crate) fn sync_quick_panel(quick: &QuickPanelWindow, ui: &AppWindow, widget:
         chrono::Weekday::Sat => "星期六",
         chrono::Weekday::Sun => "星期日",
     };
-    quick.set_days(ui.get_days());
+    refresh_quick_panel_calendar(quick, state);
     quick.set_events(ui.get_events_for_day());
     quick.set_todos(ui.get_todos_for_day());
     quick.set_weather_text(ui.get_weather_summary());
@@ -70,7 +111,6 @@ pub(crate) fn sync_quick_panel(quick: &QuickPanelWindow, ui: &AppWindow, widget:
     quick.set_date_title(format!("{}月{}日", today.month(), today.day()).into());
     quick.set_weekday_text(weekday.into());
     quick.set_lunar_text(widget.get_today_lunar_text());
-    quick.set_month_title(ui.get_month_title());
     quick.set_countdown_count(widget.get_countdowns().row_count() as i32);
     quick.set_active_view(ui.get_view_mode());
 }

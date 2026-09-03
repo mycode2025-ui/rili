@@ -5,10 +5,18 @@ use anyhow::{Context, Result};
 use directories::ProjectDirs;
 use std::path::PathBuf;
 
-pub fn db_path() -> Result<PathBuf> {
+pub fn data_dir() -> Result<PathBuf> {
     let dirs = ProjectDirs::from("dev", "rili", "rili").context("无法确定用户数据目录")?;
     let data_dir = dirs.data_dir();
     std::fs::create_dir_all(data_dir)
         .with_context(|| format!("创建应用数据目录失败: {}", data_dir.display()))?;
-    Ok(data_dir.join("rili.db"))
+    Ok(data_dir.to_path_buf())
+}
+
+pub fn db_path() -> Result<PathBuf> {
+    Ok(data_dir()?.join("rili.db"))
+}
+
+pub fn log_path() -> Result<PathBuf> {
+    Ok(data_dir()?.join("timehub.log"))
 }

@@ -156,11 +156,11 @@ pub fn spawn() {
                     == "1";
                 if !local_only {
                     if let Err(error) = sync_all_ics(&conn) {
-                        eprintln!("ICS 订阅刷新失败（不影响其他功能）：{error}");
+                        crate::error_reporter::report("ICS 订阅刷新失败", &error);
                     }
                 }
             }
-            Err(error) => eprintln!("ICS 订阅线程打开数据库失败：{error}"),
+            Err(error) => crate::error_reporter::report("ICS 订阅无法打开数据库", &error),
         }
         thread::sleep(Duration::from_secs(SUBSCRIPTION_REFRESH_SECS));
     });

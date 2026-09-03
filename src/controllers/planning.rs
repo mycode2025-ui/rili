@@ -72,7 +72,7 @@ pub(crate) fn register_planning_callbacks(
                             calendar_id: 1,
                         },
                     ) {
-                        eprintln!("新增长期节点失败: {e}");
+                        error_reporter::report("新增长期节点失败", &e);
                         format!("添加失败：{e}")
                     } else {
                         "已添加".to_string()
@@ -95,7 +95,7 @@ pub(crate) fn register_planning_callbacks(
             {
                 let s = state.borrow();
                 if let Err(e) = db::delete_event(&s.conn, id as i64) {
-                    eprintln!("删除长期节点失败: {e}");
+                    error_reporter::report("删除长期节点失败", &e);
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
@@ -155,7 +155,7 @@ pub(crate) fn register_planning_callbacks(
             {
                 let s = state.borrow();
                 if let Err(e) = db::delete_shift_assignment(&s.conn, id as i64) {
-                    eprintln!("清空班次失败: {e}");
+                    error_reporter::report("清空班次失败", &e);
                 }
             }
             if let Some(ui) = ui_weak.upgrade() {

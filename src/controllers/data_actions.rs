@@ -13,7 +13,7 @@ pub(crate) fn register_data_callbacks(
             {
                 let s = state.borrow();
                 if let Err(e) = db::set_calendar_visible(&s.conn, id as i64, visible) {
-                    eprintln!("切换日历可见性失败: {e}");
+                    error_reporter::report("切换日历可见性失败", &e);
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
@@ -32,7 +32,7 @@ pub(crate) fn register_data_callbacks(
                 let existing_count = db::list_calendars(&s.conn).map(|v| v.len()).unwrap_or(0);
                 let color = CALENDAR_COLOR_CYCLE[existing_count % CALENDAR_COLOR_CYCLE.len()];
                 if let Err(e) = db::create_calendar(&s.conn, &name, color) {
-                    eprintln!("新建分类日历失败: {e}");
+                    error_reporter::report("新建分类日历失败", &e);
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
@@ -77,7 +77,7 @@ pub(crate) fn register_data_callbacks(
                                 calendar_id: calendar_id as i64,
                             },
                         ) {
-                            eprintln!("新建日程失败: {e}");
+                            error_reporter::report("新建日程失败", &e);
                         }
                     }
                 }
@@ -144,16 +144,16 @@ pub(crate) fn register_data_callbacks(
                     Ok(todo) => {
                         if important {
                             if let Err(e) = db::set_todo_important(&s.conn, todo.id, true) {
-                                eprintln!("设置待办重要状态失败: {e}");
+                                error_reporter::report("设置待办重要状态失败", &e);
                             }
                         }
                         if status != "todo" {
                             if let Err(e) = db::set_todo_status(&s.conn, todo.id, status) {
-                                eprintln!("设置待办看板状态失败: {e}");
+                                error_reporter::report("设置待办看板状态失败", &e);
                             }
                         }
                     }
-                    Err(e) => eprintln!("新建待办失败: {e}"),
+                    Err(e) => error_reporter::report("新建待办失败", &e),
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
@@ -172,7 +172,7 @@ pub(crate) fn register_data_callbacks(
                 let s = state.borrow();
                 let due = NaiveDate::from_ymd_opt(s.year, s.month, s.selected_day);
                 if let Err(e) = db::create_todo(&s.conn, &title, due, 0) {
-                    eprintln!("新建待办失败: {e}");
+                    error_reporter::report("新建待办失败", &e);
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
@@ -188,7 +188,7 @@ pub(crate) fn register_data_callbacks(
             {
                 let s = state.borrow();
                 if let Err(e) = db::toggle_todo(&s.conn, id as i64) {
-                    eprintln!("更新待办失败: {e}");
+                    error_reporter::report("更新待办失败", &e);
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
@@ -204,7 +204,7 @@ pub(crate) fn register_data_callbacks(
             {
                 let s = state.borrow();
                 if let Err(e) = db::delete_todo(&s.conn, id as i64) {
-                    eprintln!("删除待办失败: {e}");
+                    error_reporter::report("删除待办失败", &e);
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
@@ -223,7 +223,7 @@ pub(crate) fn register_data_callbacks(
             if !title.is_empty() {
                 let s = state.borrow();
                 if let Err(e) = db::create_note(&s.conn, &title, content.as_str()) {
-                    eprintln!("新建便签失败: {e}");
+                    error_reporter::report("新建便签失败", &e);
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
@@ -238,7 +238,7 @@ pub(crate) fn register_data_callbacks(
         ui.on_update_note(move |id, title, content| {
             let s = state.borrow();
             if let Err(e) = db::update_note(&s.conn, id as i64, title.trim(), content.as_str()) {
-                eprintln!("更新便签失败: {e}");
+                error_reporter::report("更新便签失败", &e);
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
                 refresh_notes(&ui, &widget, &state);
@@ -253,7 +253,7 @@ pub(crate) fn register_data_callbacks(
             {
                 let s = state.borrow();
                 if let Err(e) = db::delete_note(&s.conn, id as i64) {
-                    eprintln!("删除便签失败: {e}");
+                    error_reporter::report("删除便签失败", &e);
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
@@ -272,7 +272,7 @@ pub(crate) fn register_data_callbacks(
             if !title.is_empty() {
                 let s = state.borrow();
                 if let Err(e) = db::create_habit(&s.conn, &title) {
-                    eprintln!("新建习惯失败: {e}");
+                    error_reporter::report("新建习惯失败", &e);
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
@@ -289,7 +289,7 @@ pub(crate) fn register_data_callbacks(
                 let s = state.borrow();
                 let today = Local::now().date_naive();
                 if let Err(e) = db::toggle_habit_log(&s.conn, id as i64, today) {
-                    eprintln!("打卡失败: {e}");
+                    error_reporter::report("打卡失败", &e);
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
@@ -305,7 +305,7 @@ pub(crate) fn register_data_callbacks(
             {
                 let s = state.borrow();
                 if let Err(e) = db::delete_habit(&s.conn, id as i64) {
-                    eprintln!("删除习惯失败: {e}");
+                    error_reporter::report("删除习惯失败", &e);
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {

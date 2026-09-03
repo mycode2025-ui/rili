@@ -93,7 +93,7 @@ pub(crate) fn register_widget_bridge_callbacks(
             if let Err(error) =
                 db::set_setting(&s.conn, "widget_pinned", if pinned { "1" } else { "0" })
             {
-                eprintln!("保存挂件置顶状态失败: {error}");
+                error_reporter::report("保存挂件置顶状态失败", &error);
             }
         });
     }
@@ -253,17 +253,136 @@ pub(crate) fn register_widget_bridge_callbacks(
             }
         });
     }
+    let weather_candidates = std::sync::Arc::new(std::sync::Mutex::new(Vec::<
+        weather::LocationCandidate,
+    >::new()));
     {
         let ui_weak = ui.as_weak();
-        let desktop_widgets = desktop_widgets.clone();
-        desktop_widgets.weather.on_set_city(move |city| {
-            let city = city.trim();
-            if city.is_empty() {
+        let weather_weak = desktop_widgets.weather.as_weak();
+        let weather_candidates = weather_candidates.clone();
+        desktop_widgets.weather.on_search_city(move |query| {
+            let query = query.trim().to_string();
+            if query.is_empty() {
                 return;
             }
-            if let Some(ui) = ui_weak.upgrade() {
-                ui.invoke_set_weather_city(city.into());
+            if let Some(window) = weather_weak.upgrade() {
+                window.set_city_searching(true);
+                window.set_city_search_error(false);
+                window.set_city_search_status("正在查找城市或区县…".into());
+                window.set_city_candidates(ModelRc::new(VecModel::default()));
             }
+            let ui_weak = ui_weak.clone();
+            let weather_weak = weather_weak.clone();
+            let weather_candidates = weather_candidates.clone();
+            std::thread::spawn(move || {
+                let result = weather::search_locations(&query);
+                let _ = slint::invoke_from_event_loop(move || {
+                    let Some(window) = weather_weak.upgrade() else {
+                        return;
+                    };
+                    window.set_city_searching(false);
+                    match result {
+                        Ok(candidates) => {
+                            let choices = candidates
+                                .iter()
+                                .enumerate()
+                                .map(|(index, candidate)| WeatherLocationChoice {
+                                    id: index as i32,
+                                    label: candidate.label.clone().into(),
+                                })
+                                .collect::<Vec<_>>();
+                            window.set_city_search_error(false);
+                            window.set_city_search_status(
+                                format!("找到 {} 个地点，请确认", choices.len()).into(),
+                            );
+                            window.set_city_candidates(ModelRc::new(VecModel::from(choices)));
+                            if let Ok(mut stored) = weather_candidates.lock() {
+                                *stored = candidates;
+                            }
+                        }
+                        Err(error) => {
+                            if let Ok(mut stored) = weather_candidates.lock() {
+                                stored.clear();
+                            }
+                            window.set_city_search_error(true);
+                            window.set_city_search_status(format!("未找到：{error}").into());
+                            let message = error_reporter::record("天气地点查询失败", &error);
+                            if let Some(ui) = ui_weak.upgrade() {
+                                ui.set_action_message(message.into());
+                            }
+                        }
+                    }
+                });
+            });
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let widget_weak = widget.as_weak();
+        let weather_weak = desktop_widgets.weather.as_weak();
+        let weather_candidates = weather_candidates.clone();
+        desktop_widgets.weather.on_choose_city(move |index| {
+            let Some(candidate) = weather_candidates
+                .lock()
+                .ok()
+                .and_then(|stored| stored.get(index as usize).cloned())
+            else {
+                return;
+            };
+            let query = weather_weak
+                .upgrade()
+                .map(|window| {
+                    window.set_city_searching(true);
+                    window.set_city_search_error(false);
+                    window.set_city_search_status(format!("正在更新 {}…", candidate.label).into());
+                    window.set_city_candidates(ModelRc::new(VecModel::default()));
+                    window.get_city_draft().to_string()
+                })
+                .unwrap_or_else(|| candidate.name.clone());
+            let ui_weak = ui_weak.clone();
+            let widget_weak = widget_weak.clone();
+            let weather_weak = weather_weak.clone();
+            std::thread::spawn(move || {
+                let result = db::open()
+                    .and_then(|conn| weather::refresh_for_location(&conn, &query, &candidate));
+                let _ = slint::invoke_from_event_loop(move || {
+                    let Some(window) = weather_weak.upgrade() else {
+                        return;
+                    };
+                    window.set_city_searching(false);
+                    match result {
+                        Ok(current) => {
+                            let (description, _) = weather::describe_code(current.code);
+                            let summary =
+                                format!("{} {:.0}°C {description}", current.city, current.temp_c);
+                            window.set_city_search_error(false);
+                            window.set_city_search_status(
+                                format!("已切换至 {}", candidate.label).into(),
+                            );
+                            if let Some(ui) = ui_weak.upgrade() {
+                                ui.set_weather_city(query.into());
+                                ui.set_weather_summary(summary.clone().into());
+                                ui.set_weather_status(format!("{summary} · 更新成功").into());
+                                ui.set_action_message(
+                                    format!("天气已切换至 {}", candidate.label).into(),
+                                );
+                            }
+                            if let Some(widget) = widget_weak.upgrade() {
+                                apply_weather_to_widget(&widget, Some(&current));
+                                sync_desktop_widgets(&widget);
+                            }
+                        }
+                        Err(error) => {
+                            window.set_city_search_error(true);
+                            window.set_city_search_status(format!("更新失败：{error}").into());
+                            let message = error_reporter::record("天气更新失败", &error);
+                            if let Some(ui) = ui_weak.upgrade() {
+                                ui.set_action_message(message.into());
+                            }
+                        }
+                    }
+                });
+            });
         });
     }
     {

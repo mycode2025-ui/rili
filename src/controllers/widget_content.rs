@@ -15,7 +15,7 @@ pub(crate) fn register_widget_content_callbacks(
             {
                 let s = state.borrow();
                 if let Err(e) = db::toggle_todo(&s.conn, id as i64) {
-                    eprintln!("挂件更新待办失败: {e}");
+                    error_reporter::report("挂件更新待办失败", &e);
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
@@ -32,7 +32,7 @@ pub(crate) fn register_widget_content_callbacks(
             if !title.is_empty() {
                 let s = state.borrow();
                 if let Err(e) = db::create_note(&s.conn, &title, "") {
-                    eprintln!("挂件新建便签失败: {e}");
+                    error_reporter::report("挂件新建便签失败", &e);
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
@@ -48,7 +48,7 @@ pub(crate) fn register_widget_content_callbacks(
             {
                 let s = state.borrow();
                 if let Err(error) = db::create_note(&s.conn, "新便签", "") {
-                    eprintln!("新建便签卡片失败: {error}");
+                    error_reporter::report("新建便签卡片失败", &error);
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
@@ -69,7 +69,7 @@ pub(crate) fn register_widget_content_callbacks(
             {
                 let s = state.borrow();
                 if let Err(error) = db::update_note(&s.conn, id as i64, title, content.as_str()) {
-                    eprintln!("保存便签卡片失败: {error}");
+                    error_reporter::report("保存便签卡片失败", &error);
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
@@ -87,7 +87,7 @@ pub(crate) fn register_widget_content_callbacks(
             let no_notes_left = {
                 let s = state.borrow();
                 if let Err(error) = db::delete_note(&s.conn, id as i64) {
-                    eprintln!("删除便签卡片失败: {error}");
+                    error_reporter::report("删除便签卡片失败", &error);
                 }
                 db::list_notes(&s.conn).unwrap_or_default().is_empty()
             };

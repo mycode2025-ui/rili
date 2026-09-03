@@ -36,7 +36,7 @@ pub(crate) fn register_desktop_card_callbacks(
                 if let Err(error) =
                     db::set_setting(&state.conn, &key, if pinned { "1" } else { "0" })
                 {
-                    eprintln!("保存 {} 挂件置顶状态失败: {error}", $kind);
+                    error_reporter::report(concat!("保存 ", $kind, " 挂件置顶状态失败"), &error);
                 }
             });
 
@@ -60,14 +60,14 @@ pub(crate) fn register_desktop_card_callbacks(
                 let state = state_for_remove.borrow();
                 let key = format!("widget_{}_visible", $kind);
                 if let Err(error) = db::set_setting(&state.conn, &key, "0") {
-                    eprintln!("移除 {} 桌面卡片失败: {error}", $kind);
+                    error_reporter::report(concat!("移除 ", $kind, " 桌面卡片失败"), &error);
                 }
                 if let Err(error) = db::set_setting(
                     &state.conn,
                     "desktop_widgets_visible",
                     if any_visible { "1" } else { "0" },
                 ) {
-                    eprintln!("保存桌面卡片总开关失败: {error}");
+                    error_reporter::report("保存桌面卡片总开关失败", &error);
                 }
             });
         }};

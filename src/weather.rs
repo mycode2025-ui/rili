@@ -86,8 +86,20 @@ struct GeocodeResponse {
 
 #[derive(Deserialize)]
 struct GeocodeResult {
+    name: String,
     latitude: f64,
     longitude: f64,
+    country: Option<String>,
+    admin1: Option<String>,
+    admin2: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LocationCandidate {
+    pub name: String,
+    pub label: String,
+    pub latitude: f64,
+    pub longitude: f64,
 }
 
 fn geocode_search_terms(city: &str) -> Vec<String> {
@@ -116,13 +128,12 @@ fn geocode_search_terms(city: &str) -> Vec<String> {
     terms
 }
 
-/// 把城市或区县名换算成经纬度。先查询用户输入的完整行政区名，找不到时再尝试
-/// 去掉省市前缀和“县/区”等后缀，以兼容地理编码服务中不同粒度的中文地名。
-fn geocode(city: &str) -> Result<(f64, f64, String)> {
-    let display_name = city.trim();
-    for term in geocode_search_terms(display_name) {
+pub fn search_locations(city: &str) -> Result<Vec<LocationCandidate>> {
+    let city = city.trim();
+    anyhow::ensure!(!city.is_empty(), "请输入城市或区县名称");
+    for term in geocode_search_terms(city) {
         let url = format!(
-            "{GEOCODE_URL}?name={}&count=1&language=zh",
+            "{GEOCODE_URL}?name={}&count=8&language=zh",
             urlencoding_lite(&term)
         );
         let resp: GeocodeResponse = http_agent()
@@ -131,18 +142,49 @@ fn geocode(city: &str) -> Result<(f64, f64, String)> {
             .context("请求地理编码接口失败")?
             .into_json()
             .context("解析地理编码响应失败")?;
-        if let Some(first) = resp.results.and_then(|mut results| {
-            if results.is_empty() {
-                None
-            } else {
-                Some(results.remove(0))
+        let mut candidates = Vec::new();
+        for result in resp.results.unwrap_or_default() {
+            let mut regions = Vec::new();
+            for region in [result.admin2, result.admin1, result.country]
+                .into_iter()
+                .flatten()
+            {
+                if region != result.name && !regions.contains(&region) {
+                    regions.push(region);
+                }
             }
-        }) {
-            // 卡片保留用户输入的名称，例如“固安县”，不强制改成服务端返回的简称。
-            return Ok((first.latitude, first.longitude, display_name.to_string()));
+            let label = if regions.is_empty() {
+                result.name.clone()
+            } else {
+                format!("{} · {}", result.name, regions.join(" · "))
+            };
+            if !candidates.iter().any(|candidate: &LocationCandidate| {
+                (candidate.latitude - result.latitude).abs() < 0.0001
+                    && (candidate.longitude - result.longitude).abs() < 0.0001
+            }) {
+                candidates.push(LocationCandidate {
+                    name: result.name,
+                    label,
+                    latitude: result.latitude,
+                    longitude: result.longitude,
+                });
+            }
+        }
+        if !candidates.is_empty() {
+            return Ok(candidates);
         }
     }
-    anyhow::bail!("未找到城市或区县: {display_name}")
+    anyhow::bail!("未找到城市或区县: {city}")
+}
+
+/// 把城市或区县名换算成经纬度。后台自动刷新沿用第一个候选；交互式修改城市时
+/// 会把全部候选交给界面，让用户确认省市区县后再保存。
+fn geocode(city: &str) -> Result<(f64, f64, String)> {
+    let candidate = search_locations(city)?
+        .into_iter()
+        .next()
+        .with_context(|| format!("未找到城市或区县: {city}"))?;
+    Ok((candidate.latitude, candidate.longitude, candidate.name))
 }
 
 #[derive(Deserialize)]
@@ -428,6 +470,43 @@ pub fn refresh_once(conn: &Connection) -> Result<WeatherNow> {
     Ok(now)
 }
 
+pub fn refresh_for_location(
+    conn: &Connection,
+    query: &str,
+    candidate: &LocationCandidate,
+) -> Result<WeatherNow> {
+    let query = query.trim();
+    anyhow::ensure!(!query.is_empty(), "请输入城市或区县名称");
+    crate::db::set_setting(conn, "weather_city", query)?;
+    let location = LocationCache {
+        city: query.to_string(),
+        latitude: candidate.latitude,
+        longitude: candidate.longitude,
+        resolved_name: candidate.name.clone(),
+    };
+    crate::db::set_setting(
+        conn,
+        "weather_location_cache",
+        &serde_json::to_string(&location).context("序列化天气城市坐标失败")?,
+    )?;
+    let (current, daily, provider) = fetch_forecast(candidate.latitude, candidate.longitude)?;
+    let now = WeatherNow {
+        city: candidate.name.clone(),
+        temp_c: current.temperature,
+        code: current.weathercode,
+        is_day: current.is_day != 0,
+        updated_at: chrono::Local::now().format("%Y-%m-%d %H:%M").to_string(),
+        provider: provider.to_string(),
+        daily,
+    };
+    crate::db::set_setting(
+        conn,
+        "weather_cache",
+        &serde_json::to_string(&now).context("序列化天气缓存失败")?,
+    )?;
+    Ok(now)
+}
+
 /// 启动后台天气刷新线程：独立打开自己的数据库连接，随进程退出而结束。
 /// 启动后先立刻刷新一次，之后每 30 分钟刷新一次；任何网络错误只记录日志，不影响主程序运行。
 pub fn spawn() {
@@ -435,10 +514,10 @@ pub fn spawn() {
         match crate::db::open() {
             Ok(conn) => {
                 if let Err(e) = refresh_once(&conn) {
-                    eprintln!("天气刷新失败（继续使用缓存）: {e:#}");
+                    crate::error_reporter::report("后台天气刷新失败，继续使用缓存", &e);
                 }
             }
-            Err(e) => eprintln!("天气刷新线程打开数据库失败: {e}"),
+            Err(e) => crate::error_reporter::report("天气刷新无法打开数据库", &e),
         }
         thread::sleep(StdDuration::from_secs(REFRESH_INTERVAL_SECS));
     });

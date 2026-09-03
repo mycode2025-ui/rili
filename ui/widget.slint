@@ -7,6 +7,7 @@ export { Theme }
 
 export struct CountdownItem { id: int, title: string, days: int, date-text: string, color: color }
 export struct WeatherDayItem { weekday: string, description: string, temperature: string }
+export struct WeatherLocationChoice { id: int, label: string }
 
 export component DesktopCard inherits Rectangle {
     background: Theme.widget-glass;
