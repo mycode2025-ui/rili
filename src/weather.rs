@@ -86,34 +86,63 @@ struct GeocodeResponse {
 
 #[derive(Deserialize)]
 struct GeocodeResult {
-    name: String,
     latitude: f64,
     longitude: f64,
 }
 
-/// 把城市名换算成经纬度；同名城市取第一条结果（Open-Meteo 按人口排序，通常就是最常见的那个）。
+fn geocode_search_terms(city: &str) -> Vec<String> {
+    let city = city.trim();
+    let mut terms = vec![city.to_string()];
+    for separator in ["自治区", "省", "市"] {
+        if let Some((_, tail)) = city.rsplit_once(separator) {
+            if !tail.trim().is_empty() {
+                terms.push(tail.trim().to_string());
+            }
+        }
+    }
+    let seeds = terms.clone();
+    for seed in seeds {
+        for suffix in ["自治县", "自治旗", "县", "区", "旗", "市"] {
+            if let Some(value) = seed.strip_suffix(suffix) {
+                if !value.trim().is_empty() {
+                    terms.push(value.trim().to_string());
+                }
+                break;
+            }
+        }
+    }
+    terms.retain(|value| !value.is_empty());
+    terms.dedup();
+    terms
+}
+
+/// 把城市或区县名换算成经纬度。先查询用户输入的完整行政区名，找不到时再尝试
+/// 去掉省市前缀和“县/区”等后缀，以兼容地理编码服务中不同粒度的中文地名。
 fn geocode(city: &str) -> Result<(f64, f64, String)> {
-    let url = format!(
-        "{GEOCODE_URL}?name={}&count=1&language=zh",
-        urlencoding_lite(city)
-    );
-    let resp: GeocodeResponse = http_agent()
-        .get(&url)
-        .call()
-        .context("请求地理编码接口失败")?
-        .into_json()
-        .context("解析地理编码响应失败")?;
-    let first = resp
-        .results
-        .and_then(|mut r| {
-            if r.is_empty() {
+    let display_name = city.trim();
+    for term in geocode_search_terms(display_name) {
+        let url = format!(
+            "{GEOCODE_URL}?name={}&count=1&language=zh",
+            urlencoding_lite(&term)
+        );
+        let resp: GeocodeResponse = http_agent()
+            .get(&url)
+            .call()
+            .context("请求地理编码接口失败")?
+            .into_json()
+            .context("解析地理编码响应失败")?;
+        if let Some(first) = resp.results.and_then(|mut results| {
+            if results.is_empty() {
                 None
             } else {
-                Some(r.remove(0))
+                Some(results.remove(0))
             }
-        })
-        .with_context(|| format!("未找到城市: {city}"))?;
-    Ok((first.latitude, first.longitude, first.name))
+        }) {
+            // 卡片保留用户输入的名称，例如“固安县”，不强制改成服务端返回的简称。
+            return Ok((first.latitude, first.longitude, display_name.to_string()));
+        }
+    }
+    anyhow::bail!("未找到城市或区县: {display_name}")
 }
 
 #[derive(Deserialize)]
@@ -413,4 +442,22 @@ pub fn spawn() {
         }
         thread::sleep(StdDuration::from_secs(REFRESH_INTERVAL_SECS));
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::geocode_search_terms;
+
+    #[test]
+    fn county_names_have_compatible_fallbacks() {
+        assert_eq!(geocode_search_terms("固安县"), ["固安县", "固安"]);
+        assert_eq!(
+            geocode_search_terms("河北省固安县"),
+            ["河北省固安县", "固安县", "河北省固安", "固安"]
+        );
+        assert_eq!(
+            geocode_search_terms("北京市延庆区"),
+            ["北京市延庆区", "延庆区", "北京市延庆", "延庆"]
+        );
+    }
 }

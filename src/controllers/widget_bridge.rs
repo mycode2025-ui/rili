@@ -245,11 +245,24 @@ pub(crate) fn register_widget_bridge_callbacks(
                         )
                     });
                 editor.window().set_position(slint::PhysicalPosition::new(
-                    (anchor_x + (anchor_width - 430) / 2).max(8),
-                    (anchor_y + (anchor_height - 286) / 2).max(8),
+                    (anchor_x + (anchor_width - 320) / 2).max(8),
+                    (anchor_y + (anchor_height - 228) / 2).max(8),
                 ));
                 let _ = editor.show();
                 *desktop_widgets.appearance_editor.borrow_mut() = Some(editor);
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let desktop_widgets = desktop_widgets.clone();
+        desktop_widgets.weather.on_set_city(move |city| {
+            let city = city.trim();
+            if city.is_empty() {
+                return;
+            }
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_set_weather_city(city.into());
             }
         });
     }

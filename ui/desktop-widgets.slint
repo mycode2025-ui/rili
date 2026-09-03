@@ -11,7 +11,7 @@ component AppearanceChoice inherits Rectangle {
     in property <string> label;
     in property <bool> selected;
     callback clicked();
-    min-width: 62px; height: 32px; border-radius: Theme.r-md; border-width: 1px;
+    min-width: 48px; height: 28px; border-radius: Theme.r-md; border-width: 1px;
     border-color: selected ? Theme.accent : Theme.border-default;
     background: selected ? Theme.accent-subtle : (touch.has-hover ? Theme.bg-hover : Theme.bg-surface-2);
     Text { text: root.label; color: selected ? Theme.accent : Theme.text-1; font-size: Theme.font-11-5; horizontal-alignment: center; vertical-alignment: center; }
@@ -22,7 +22,7 @@ export component WidgetAppearanceWindow inherits Window {
     title: "TimeHub 卡片外观";
     default-font-family: Theme.font-family;
     icon: Icons.app-logo;
-    width: 430px; height: 286px;
+    width: 320px; height: 228px;
     no-frame: true; always-on-top: true; background: transparent;
     in property <string> instance-key;
     in property <string> card-name;
@@ -39,9 +39,9 @@ export component WidgetAppearanceWindow inherits Window {
         border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface;
         drop-shadow-color: Theme.shadow-2-color-a; drop-shadow-blur: Theme.shadow-2-blur-a; drop-shadow-offset-y: Theme.shadow-2-y-a;
         VerticalLayout {
-            padding: Theme.space-4; spacing: Theme.space-3;
+            padding: Theme.space-3; spacing: Theme.space-2;
             HorizontalLayout {
-                height: 34px; cross-axis-alignment: center;
+                height: 32px; cross-axis-alignment: center;
                 VerticalLayout { horizontal-stretch: 1; spacing: 1px;
                     Text { text: root.card-name + " · 单独外观"; color: Theme.text-1; font-size: Theme.font-15; font-weight: 700; }
                     Text { text: "仅影响这一个桌面卡片实例"; color: Theme.text-3; font-size: Theme.font-10-5; }
@@ -51,30 +51,30 @@ export component WidgetAppearanceWindow inherits Window {
                     close-touch := TouchArea { mouse-cursor: pointer; clicked => { root.close-requested(); } }
                 }
             }
-            HorizontalLayout { height: 34px; spacing: Theme.space-2; cross-axis-alignment: center;
-                Text { width: 78px; text: "背景透明度"; color: Theme.text-2; font-size: Theme.font-11-5; vertical-alignment: center; }
-                AppearanceChoice { label: "跟随全局"; selected: root.opacity-override < 0; clicked => { root.opacity-override = -1; root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
-                AppearanceChoice { min-width: 38px; label: "−"; clicked => { root.opacity-override = Math.max(35, (root.opacity-override < 0 ? root.global-opacity : root.opacity-override) - 5); root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
-                Text { width: 48px; text: (root.opacity-override < 0 ? root.global-opacity : root.opacity-override) + "%"; color: Theme.text-1; font-size: Theme.font-12; horizontal-alignment: center; vertical-alignment: center; }
-                AppearanceChoice { min-width: 38px; label: "+"; clicked => { root.opacity-override = Math.min(100, (root.opacity-override < 0 ? root.global-opacity : root.opacity-override) + 5); root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
+            HorizontalLayout { height: 28px; spacing: 6px; cross-axis-alignment: center;
+                Text { width: 64px; text: "透明度"; color: Theme.text-2; font-size: Theme.font-11; vertical-alignment: center; }
+                AppearanceChoice { min-width: 64px; label: "跟随"; selected: root.opacity-override < 0; clicked => { root.opacity-override = -1; root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
+                AppearanceChoice { min-width: 30px; label: "−"; clicked => { root.opacity-override = Math.max(35, (root.opacity-override < 0 ? root.global-opacity : root.opacity-override) - 5); root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
+                Text { width: 38px; text: (root.opacity-override < 0 ? root.global-opacity : root.opacity-override) + "%"; color: Theme.text-1; font-size: Theme.font-11; horizontal-alignment: center; vertical-alignment: center; }
+                AppearanceChoice { min-width: 30px; label: "+"; clicked => { root.opacity-override = Math.min(100, (root.opacity-override < 0 ? root.global-opacity : root.opacity-override) + 5); root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
             }
-            HorizontalLayout { height: 34px; spacing: Theme.space-2; cross-axis-alignment: center;
-                Text { width: 78px; text: "颜色主题"; color: Theme.text-2; font-size: Theme.font-11-5; vertical-alignment: center; }
-                AppearanceChoice { label: "跟随全局"; selected: root.theme-override < 0; clicked => { root.theme-override = -1; root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
+            HorizontalLayout { height: 28px; spacing: 6px; cross-axis-alignment: center;
+                Text { width: 64px; text: "颜色主题"; color: Theme.text-2; font-size: Theme.font-11; vertical-alignment: center; }
+                AppearanceChoice { min-width: 64px; label: "跟随"; selected: root.theme-override < 0; clicked => { root.theme-override = -1; root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
                 AppearanceChoice { label: "浅色"; selected: root.theme-override == 1; clicked => { root.theme-override = 1; root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
                 AppearanceChoice { label: "深色"; selected: root.theme-override == 2; clicked => { root.theme-override = 2; root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
             }
-            HorizontalLayout { height: 32px; spacing: 8px; cross-axis-alignment: center;
-                Text { width: 78px; text: "强调色"; color: Theme.text-2; font-size: Theme.font-11-5; vertical-alignment: center; }
-                AppearanceChoice { label: "跟随"; selected: root.accent-override < 0; clicked => { root.accent-override = -1; root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
+            HorizontalLayout { height: 24px; spacing: 4px; cross-axis-alignment: center;
+                Text { width: 64px; text: "强调色"; color: Theme.text-2; font-size: Theme.font-11; vertical-alignment: center; }
+                AppearanceChoice { min-width: 48px; height: 24px; label: "跟随"; selected: root.accent-override < 0; clicked => { root.accent-override = -1; root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
                 for swatch[i] in [Theme.c-blue, Theme.c-green, Theme.c-orange, Theme.c-red, Theme.c-purple, Theme.c-cyan, Theme.c-pink, Theme.c-lime]: Rectangle {
-                    width: 24px; height: 24px; border-radius: 12px; border-width: root.accent-override == i ? 2px : 0px; border-color: swatch; background: transparent;
-                    Rectangle { width: 18px; height: 18px; x: 3px; y: 3px; border-radius: 9px; background: swatch; }
+                    width: 18px; height: 18px; border-radius: 9px; border-width: root.accent-override == i ? 2px : 0px; border-color: swatch; background: transparent;
+                    Rectangle { width: 12px; height: 12px; x: 3px; y: 3px; border-radius: 6px; background: swatch; }
                     TouchArea { mouse-cursor: pointer; clicked => { root.accent-override = i; root.preview(root.opacity-override, root.theme-override, root.accent-override); } }
                 }
             }
             Rectangle { height: 1px; background: Theme.border-subtle; }
-            HorizontalLayout { height: 34px; spacing: Theme.space-2;
+            HorizontalLayout { height: 28px; spacing: 6px;
                 Text { horizontal-stretch: 1; text: root.opacity-override < 0 && root.theme-override < 0 && root.accent-override < 0 ? "当前全部跟随统一设置" : "已设置此卡片的独立外观"; color: Theme.text-3; font-size: Theme.font-10-5; vertical-alignment: center; }
                 AppearanceChoice { label: "取消"; clicked => { root.close-requested(); } }
                 AppearanceChoice { label: "保存"; selected: true; clicked => { root.save(root.opacity-override, root.theme-override, root.accent-override); } }
@@ -528,10 +528,13 @@ export component WeatherWidgetWindow inherits Window {
     in property <string> updated-text;
     in property <[WeatherDayItem]> forecast;
     in-out property <bool> pinned: false;
+    in-out property <bool> city-editor-open: false;
+    in-out property <string> city-draft: "";
     callback begin-window-drag();
     callback end-window-drag();
     callback pin-changed(bool);
     callback open-widget-settings(string);
+    callback set-city(string);
     callback remove-widget();
 
     DesktopCard {
@@ -567,9 +570,14 @@ export component WeatherWidgetWindow inherits Window {
             }
             Text {
                 x: 184px; y: 37px; width: parent.width - 198px; height: 20px;
-                text: root.updated-text;
-                color: Theme.widget-text-3; font-size: Theme.font-10;
+                text: "更换城市";
+                color: city-touch.has-hover ? Theme.widget-accent : Theme.widget-text-3; font-size: Theme.font-10;
                 horizontal-alignment: right; vertical-alignment: center; overflow: elide;
+            }
+            city-touch := TouchArea {
+                x: 174px; y: 32px; width: parent.width - 184px; height: 30px;
+                mouse-cursor: pointer;
+                clicked => { root.city-draft = root.city; root.city-editor-open = true; }
             }
         }
         for day[index] in root.forecast: Rectangle {
@@ -579,6 +587,27 @@ export component WeatherWidgetWindow inherits Window {
             Text { x: 2px; y: 8px; width: parent.width - 4px; text: day.weekday; color: index == 0 ? Theme.widget-accent : Theme.widget-text-2; font-size: Theme.font-10-5; font-weight: 600; horizontal-alignment: center; }
             Text { x: 2px; y: 31px; width: parent.width - 4px; text: day.description; color: Theme.widget-text-3; font-size: Theme.font-9; horizontal-alignment: center; overflow: elide; }
             Text { x: 2px; y: 55px; width: parent.width - 4px; text: day.temperature; color: Theme.widget-text-1; font-size: Theme.font-10; font-weight: 600; horizontal-alignment: center; overflow: elide; }
+        }
+        if root.city-editor-open: Rectangle {
+            x: 10px; y: 43px; width: parent.width - 20px; height: 82px;
+            border-radius: Theme.r-lg; border-width: 1px; border-color: Theme.widget-glass-border;
+            background: Theme.widget-glass;
+            drop-shadow-color: Theme.widget-shadow; drop-shadow-blur: 12px; drop-shadow-offset-y: 3px;
+            Text { x: 10px; y: 7px; text: "天气城市（支持区县）"; color: Theme.widget-text-2; font-size: Theme.font-10; font-weight: 600; }
+            Rectangle {
+                x: 10px; y: 30px; width: parent.width - 84px; height: 36px;
+                border-radius: Theme.r-md; border-width: 1px; border-color: city-input.has-focus ? Theme.widget-accent : Theme.widget-glass-border;
+                background: Theme.widget-row;
+                if root.city-draft == "" && !city-input.has-focus: Text { x: 9px; width: parent.width - 18px; height: 100%; text: "例如：固安县"; color: Theme.widget-text-3; font-size: Theme.font-11; vertical-alignment: center; }
+                city-input := TextInput { x: 9px; width: parent.width - 18px; height: 100%; text <=> root.city-draft; color: Theme.widget-text-1; font-size: Theme.font-11; vertical-alignment: center; accepted => { if (root.city-draft != "") { root.set-city(root.city-draft); root.city-editor-open = false; } } }
+            }
+            Rectangle {
+                x: parent.width - 66px; y: 30px; width: 56px; height: 36px;
+                border-radius: Theme.r-md; background: save-city-touch.pressed ? Theme.accent-pressed : (save-city-touch.has-hover ? Theme.accent-hover : Theme.widget-accent);
+                Text { text: "保存"; color: Theme.widget-on-accent; font-size: Theme.font-11; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                save-city-touch := TouchArea { mouse-cursor: pointer; clicked => { if (root.city-draft != "") { root.set-city(root.city-draft); root.city-editor-open = false; } } }
+            }
+            Rectangle { x: parent.width - 25px; y: 3px; width: 20px; height: 20px; border-radius: Theme.r-sm; background: close-city-touch.has-hover ? Theme.widget-glass-hover : transparent; SvgIcon { x: 4px; y: 4px; source: Icons.close; size: 12px; tint: Theme.widget-text-2; } close-city-touch := TouchArea { mouse-cursor: pointer; clicked => { root.city-editor-open = false; } } }
         }
     }
     WindowDragStrip { x: 14px; y: 12px; width: parent.width - 138px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
