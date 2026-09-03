@@ -37,6 +37,10 @@ try {
         $quickOutput = Join-Path $currentDir "QuickPanelWindow-$tag.png"
         & slint-viewer ui\quick-panel.slint --component QuickPanelWindow --load-data tests\visual\quick-panel.json --screenshot $quickOutput
         if ($LASTEXITCODE -ne 0) { throw "渲染失败：QuickPanelWindow @ $scale" }
+
+        $sidePanelOutput = Join-Path $currentDir "SidePanelPreview-$tag.png"
+        & slint-viewer tests\visual\side-panel-preview.slint --component SidePanelPreview --screenshot $sidePanelOutput
+        if ($LASTEXITCODE -ne 0) { throw "渲染失败：SidePanelPreview @ $scale" }
     }
 } finally {
     Remove-Item Env:SLINT_SCALE_FACTOR -ErrorAction SilentlyContinue
@@ -45,7 +49,7 @@ try {
 
 if ($UpdateBaselines) {
     Copy-Item (Join-Path $currentDir '*.png') $baselineDir -Force
-    Write-Host '已更新 36 张视觉基线。'
+    Write-Host '已更新 40 张视觉基线。'
     exit 0
 }
 
@@ -92,4 +96,4 @@ if ($failures.Count -gt 0) {
     $failures | ForEach-Object { Write-Error $_ }
     throw "视觉回归失败，共 $($failures.Count) 项。"
 }
-Write-Host '视觉回归通过：9 个窗口 × 4 档 DPI，共 36 张截图。'
+Write-Host '视觉回归通过：10 个窗口 × 4 档 DPI，共 40 张截图。'

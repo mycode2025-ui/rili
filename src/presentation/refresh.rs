@@ -13,6 +13,8 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
         calendars_ui,
         calendar_names,
         selected_date_text,
+        selected_date_lunar_text,
+        selected_date_progress_text,
         today_events,
         upcoming_events,
         today_full_text,
@@ -197,8 +199,13 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
             [selected_date.weekday().num_days_from_monday() as usize];
         let lunar_text = lunar::full_text(selected_date);
         let day_ganzhi = almanac::day_ganzhi(selected_date);
-        let selected_date_text =
-            format!("{selected_date_str} 星期{weekday_cn}  {lunar_text}  [{day_ganzhi}日]");
+        let selected_date_text = format!("{selected_date_str} 星期{weekday_cn}");
+        let selected_date_lunar_text = format!("{lunar_text} · {day_ganzhi}日");
+        let selected_date_progress_text = format!(
+            "第 {} 天 · 第 {} 周",
+            selected_date.ordinal(),
+            selected_date.iso_week().week()
+        );
 
         let today_weekday_cn = ["一", "二", "三", "四", "五", "六", "日"]
             [today.weekday().num_days_from_monday() as usize];
@@ -374,6 +381,8 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
             calendars_ui,
             calendar_names,
             selected_date_text,
+            selected_date_lunar_text,
+            selected_date_progress_text,
             today_events,
             upcoming_events,
             today_full_text,
@@ -394,6 +403,8 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
     ui.set_selected_day(selected_day as i32);
     ui.set_new_event_date_default(format!("{year:04}-{month:02}-{selected_day:02}").into());
     ui.set_selected_date_text(selected_date_text.clone().into());
+    ui.set_selected_date_lunar_text(selected_date_lunar_text.clone().into());
+    ui.set_selected_date_progress_text(selected_date_progress_text.into());
     ui.set_events_for_day(ModelRc::new(VecModel::from(events_for_day)));
     ui.set_calendars(ModelRc::new(VecModel::from(calendars_ui)));
     ui.set_calendar_names(ModelRc::new(VecModel::from(calendar_names)));

@@ -42,6 +42,8 @@ export component AppWindow inherits Window {
     in property <[CalendarDay]> days;
     in property <int> selected-day;
     in property <string> selected-date-text;
+    in property <string> selected-date-lunar-text;
+    in property <string> selected-date-progress-text;
     in property <[EventItem]> events-for-day;
     in property <[TodoItem]> todos-for-day;
     in property <[NoteItem]> notes;
@@ -708,6 +710,8 @@ export component AppWindow inherits Window {
                             width: Theme.inspector-width;
                             vertical-stretch: 1;
                             selected-date-text: selected-date-text;
+                            selected-date-lunar-text: selected-date-lunar-text;
+                            selected-date-progress-text: selected-date-progress-text;
                             events-for-day: events-for-day;
                             todos-for-day: todos-for-day;
                             notes: notes;

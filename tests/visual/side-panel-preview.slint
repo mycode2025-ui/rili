@@ -1,0 +1,20 @@
+import { SidePanel } from "../../ui/side-panel.slint";
+
+export component SidePanelPreview inherits Window {
+    width: 320px;
+    height: 278px;
+
+    SidePanel {
+        width: parent.width;
+        height: parent.height;
+        selected-date-text: "2026-09-20 星期日";
+        selected-date-lunar-text: "二〇二六 丙午年 七月 初十 · 丁酉日";
+        selected-date-progress-text: "第 263 天 · 第 38 周";
+        events-for-day: [];
+        todos-for-day: [];
+        notes: [];
+        habits: [];
+        calendars: [];
+        calendar-names: [];
+    }
+}

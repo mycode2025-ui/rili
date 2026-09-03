@@ -72,6 +72,8 @@ component TodoRow inherits Rectangle {
 
 export component SidePanel inherits Rectangle {
     in property <string> selected-date-text;
+    in property <string> selected-date-lunar-text;
+    in property <string> selected-date-progress-text;
     in property <[EventItem]> events-for-day;
     in property <[TodoItem]> todos-for-day;
     in property <[NoteItem]> notes;
@@ -103,13 +105,30 @@ export component SidePanel inherits Rectangle {
 
     VerticalLayout {
         padding-left: Theme.space-4; padding-right: Theme.space-4; padding-top: Theme.space-4; spacing: 0px;
-        Text { text: selected-date-text; color: Theme.text-1; font-size: Theme.font-16; font-weight: 700; overflow: elide; }
-        Text { text: "农历七月十九 · 第 243 天 · 第 36 周"; color: Theme.text-2; font-size: Theme.font-12; }
+        Text {
+            text: selected-date-text;
+            color: Theme.text-1;
+            font-size: Theme.font-16;
+            font-weight: 700;
+            overflow: elide;
+        }
+        Text {
+            text: selected-date-lunar-text;
+            color: Theme.text-2;
+            font-size: Theme.font-12;
+            overflow: elide;
+        }
+        Text {
+            text: selected-date-progress-text;
+            color: Theme.text-3;
+            font-size: Theme.font-11;
+            overflow: elide;
+        }
         Rectangle { height: Theme.space-2; }
         HorizontalLayout {
             height: 24px; spacing: 6px;
             for chip[i] in ["日程 " + events-for-day.length, "待办 " + todos-for-day.length, "便签 " + notes.length, "添加"]: Rectangle {
-                height: 22px; border-radius: Theme.pill-radius-22;
+                height: 22px; horizontal-stretch: 1; border-radius: Theme.pill-radius-22;
                 border-width: i == root.selected-section ? 0px : 1px; border-color: Theme.border-default;
                 background: i == root.selected-section ? Theme.accent-subtle : Theme.bg-surface-2;
                 TouchArea { mouse-cursor: pointer; clicked => {
@@ -117,10 +136,10 @@ export component SidePanel inherits Rectangle {
                     else { root.request-add(root.selected-section == 0 ? "event" : (root.selected-section == 1 ? "todo" : "note")); }
                 } }
                 HorizontalLayout {
-                    padding-left: Theme.space-2; padding-right: Theme.space-2; spacing: Theme.space-1;
+                    padding-left: 5px; padding-right: 5px; spacing: 3px;
                     cross-axis-alignment: center;
                     if i == 3: SvgIcon { source: Icons.plus; size: 12px; tint: Theme.text-2; }
-                    Text { text: chip; color: i == root.selected-section ? Theme.accent : Theme.text-2; font-size: Theme.font-11; font-weight: i == root.selected-section ? 600 : 400; vertical-alignment: center; }
+                    Text { text: chip; color: i == root.selected-section ? Theme.accent : Theme.text-2; font-size: Theme.font-11; font-weight: i == root.selected-section ? 600 : 400; horizontal-alignment: center; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
                 }
             }
         }
