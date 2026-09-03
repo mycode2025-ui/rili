@@ -525,6 +525,16 @@ export component WeatherWidgetWindow inherits Window {
     in property <string> city;
     in property <string> temperature;
     in property <string> description;
+    in property <string> icon-kind: "unknown";
+    private property <image> weather-icon: root.icon-kind == "sun" ? Icons.sun
+        : root.icon-kind == "moon" ? Icons.moon
+        : root.icon-kind == "sun-cloud" ? Icons.weather-partly
+        : root.icon-kind == "moon-cloud" ? Icons.weather-partly-night
+        : root.icon-kind == "fog" ? Icons.weather-fog
+        : root.icon-kind == "rain" ? Icons.weather-rain
+        : root.icon-kind == "snow" ? Icons.weather-snow
+        : root.icon-kind == "storm" ? Icons.weather-storm
+        : Icons.cloud;
     in property <string> updated-text;
     in property <[WeatherDayItem]> forecast;
     in-out property <bool> pinned: false;
@@ -548,7 +558,7 @@ export component WeatherWidgetWindow inherits Window {
         CardTitle {
             x: 14px; y: 12px; width: parent.width - 28px;
             title: root.city == "" ? "天气" : root.city + "天气";
-            icon: Icons.cloud;
+            icon: root.weather-icon;
             pinned: root.pinned;
             show-remove: true;
             drag-requested => { root.begin-window-drag(); }
@@ -560,7 +570,7 @@ export component WeatherWidgetWindow inherits Window {
             x: 14px; y: 48px; width: parent.width - 28px; height: 72px;
             border-radius: Theme.r-lg;
             background: Theme.widget-accent-bg;
-            SvgIcon { x: 14px; y: 17px; size: 38px; source: Icons.cloud; tint: Theme.widget-accent; }
+            SvgIcon { x: 14px; y: 17px; size: 38px; source: root.weather-icon; tint: Theme.widget-accent; }
             Text {
                 x: 66px; y: 4px; width: 116px; height: 48px;
                 text: root.temperature == "" ? "--°" : root.temperature;
@@ -590,7 +600,18 @@ export component WeatherWidgetWindow inherits Window {
             border-radius: Theme.r-md;
             background: index == 0 ? Theme.widget-accent-bg : Theme.widget-row;
             Text { x: 2px; y: 8px; width: parent.width - 4px; text: day.weekday; color: index == 0 ? Theme.widget-accent : Theme.widget-text-2; font-size: Theme.font-10-5; font-weight: 600; horizontal-alignment: center; }
-            Text { x: 2px; y: 31px; width: parent.width - 4px; text: day.description; color: Theme.widget-text-3; font-size: Theme.font-9; horizontal-alignment: center; overflow: elide; }
+            SvgIcon {
+                x: 4px; y: 31px; size: 12px;
+                source: day.icon-kind == "sun" ? Icons.sun
+                    : day.icon-kind == "sun-cloud" ? Icons.weather-partly
+                    : day.icon-kind == "fog" ? Icons.weather-fog
+                    : day.icon-kind == "rain" ? Icons.weather-rain
+                    : day.icon-kind == "snow" ? Icons.weather-snow
+                    : day.icon-kind == "storm" ? Icons.weather-storm
+                    : Icons.cloud;
+                tint: Theme.widget-text-3;
+            }
+            Text { x: 18px; y: 31px; width: parent.width - 20px; text: day.description; color: Theme.widget-text-3; font-size: Theme.font-9; horizontal-alignment: left; overflow: elide; }
             Text { x: 2px; y: 55px; width: parent.width - 4px; text: day.temperature; color: Theme.widget-text-1; font-size: Theme.font-10; font-weight: 600; horizontal-alignment: center; overflow: elide; }
         }
         if root.city-editor-open: Rectangle {

@@ -105,6 +105,7 @@ impl DesktopWidgetWindows {
             .set_temperature(source.get_weather_temperature());
         self.weather
             .set_description(source.get_weather_description());
+        self.weather.set_icon_kind(source.get_weather_icon_kind());
         self.weather.set_updated_text(source.get_weather_updated());
         self.weather.set_forecast(source.get_weather_days());
 

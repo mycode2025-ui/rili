@@ -6,7 +6,7 @@ import { Icons, SvgIcon } from "icons.slint";
 export { Theme }
 
 export struct CountdownItem { id: int, title: string, days: int, date-text: string, color: color }
-export struct WeatherDayItem { weekday: string, description: string, temperature: string }
+export struct WeatherDayItem { weekday: string, description: string, temperature: string, icon-kind: string }
 export struct WeatherLocationChoice { id: int, label: string }
 
 export component DesktopCard inherits Rectangle {
@@ -452,6 +452,7 @@ export component WidgetWindow inherits Window {
     in property <string> weather-city;
     in property <string> weather-temperature;
     in property <string> weather-description;
+    in property <string> weather-icon-kind: "unknown";
     in property <string> weather-updated;
     in property <[WeatherDayItem]> weather-days;
     in property <string> current-time-text;

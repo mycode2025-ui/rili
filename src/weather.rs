@@ -79,6 +79,17 @@ pub fn describe_code(code: i64) -> (&'static str, &'static str) {
     }
 }
 
+/// 返回桌面天气卡片使用的本地 SVG 类型。晴朗和少云会根据昼夜切换太阳/月亮，
+/// 其余类型直接与 WMO 天气代码对应，确保图标和中文描述来自同一份数据。
+pub fn icon_key(code: i64, is_day: bool) -> &'static str {
+    let (_, kind) = describe_code(code);
+    match (kind, is_day) {
+        ("sun", false) => "moon",
+        ("sun-cloud", false) => "moon-cloud",
+        _ => kind,
+    }
+}
+
 #[derive(Deserialize)]
 struct GeocodeResponse {
     results: Option<Vec<GeocodeResult>>,
@@ -525,7 +536,7 @@ pub fn spawn() {
 
 #[cfg(test)]
 mod tests {
-    use super::geocode_search_terms;
+    use super::{geocode_search_terms, icon_key};
 
     #[test]
     fn county_names_have_compatible_fallbacks() {
@@ -538,5 +549,16 @@ mod tests {
             geocode_search_terms("北京市延庆区"),
             ["北京市延庆区", "延庆区", "北京市延庆", "延庆"]
         );
+    }
+
+    #[test]
+    fn weather_icons_follow_code_and_daylight() {
+        assert_eq!(icon_key(0, true), "sun");
+        assert_eq!(icon_key(0, false), "moon");
+        assert_eq!(icon_key(1, true), "sun-cloud");
+        assert_eq!(icon_key(1, false), "moon-cloud");
+        assert_eq!(icon_key(63, true), "rain");
+        assert_eq!(icon_key(75, true), "snow");
+        assert_eq!(icon_key(95, true), "storm");
     }
 }
