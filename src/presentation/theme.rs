@@ -132,6 +132,52 @@ pub(crate) fn apply_visual_theme(
     });
 }
 
+/// Synchronize the native Windows application color preference to every
+/// independent Slint window. This value is used only while theme mode is
+/// "follow system"; explicit light and dark choices still take precedence.
+pub(crate) fn apply_system_theme(
+    ui: &AppWindow,
+    widget: &WidgetWindow,
+    quick_panel: &QuickPanelWindow,
+    system_dark: bool,
+) {
+    ui.global::<Theme>().set_system_dark(system_dark);
+    widget.global::<Theme>().set_system_dark(system_dark);
+    quick_panel.global::<Theme>().set_system_dark(system_dark);
+    DESKTOP_WIDGET_WINDOWS.with(|slot| {
+        if let Some(windows) = slot.borrow().as_ref() {
+            windows
+                .calendar
+                .global::<Theme>()
+                .set_system_dark(system_dark);
+            windows
+                .events
+                .global::<Theme>()
+                .set_system_dark(system_dark);
+            windows
+                .countdown
+                .global::<Theme>()
+                .set_system_dark(system_dark);
+            windows.clock.global::<Theme>().set_system_dark(system_dark);
+            windows
+                .weather
+                .global::<Theme>()
+                .set_system_dark(system_dark);
+            windows.focus.global::<Theme>().set_system_dark(system_dark);
+            windows.todo.global::<Theme>().set_system_dark(system_dark);
+            for window in windows.notes.borrow().iter() {
+                window.global::<Theme>().set_system_dark(system_dark);
+            }
+            if let Some(editor) = windows.event_editor.borrow().as_ref() {
+                editor.global::<Theme>().set_system_dark(system_dark);
+            }
+            if let Some(editor) = windows.appearance_editor.borrow().as_ref() {
+                editor.global::<Theme>().set_system_dark(system_dark);
+            }
+        }
+    });
+}
+
 pub(crate) fn apply_accessibility_preferences(
     ui: &AppWindow,
     widget: &WidgetWindow,

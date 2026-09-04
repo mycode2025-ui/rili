@@ -37,7 +37,7 @@ use windowing::{set_main_view_mode, show_and_focus_main_window};
 use rili::window_policy::navigation_refresh_needed;
 use rili::{
     almanac, app_paths, autostart, cli, date_calc, db, error_reporter, holidays, integrations,
-    lunar, natural, recurrence, reminders, single_instance, weather,
+    lunar, natural, recurrence, reminders, single_instance, system_theme, weather,
 };
 
 /// 新建分类日历时依次挑选的设计规范强调色循环。
@@ -395,6 +395,12 @@ fn run_gui(startup: bool) -> Result<()> {
     ui.set_desktop_click_through(desktop_click_through.get());
     widget.set_pinned(widget_pinned);
     apply_theme(&ui, &widget, &quick_panel, theme_index);
+    apply_system_theme(
+        &ui,
+        &widget,
+        &quick_panel,
+        system_theme::apps_use_dark_mode(),
+    );
     apply_visual_theme(&ui, &widget, &quick_panel, visual_theme);
     {
         let state = state.borrow();

@@ -4,6 +4,9 @@
 export global Theme {
     // 0 = follow system, 1 = light, 2 = dark. Rust updates this preference.
     in-out property <int> theme-mode: 1;
+    // Populated from the native Windows application-theme preference. Slint's
+    // public Palette value remains `unknown` while it follows the OS, so it
+    // cannot be compared directly with `ColorScheme.dark` here.
     in-out property <bool> system-dark: false;
     // User-controlled accessibility preferences; defaults preserve the V3 token values exactly.
     in-out property <int> font-delta: 0;

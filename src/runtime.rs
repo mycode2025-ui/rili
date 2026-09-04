@@ -8,7 +8,7 @@ use crate::system_tray::{build_tray_icon, TrayHandles};
 use crate::windowing::*;
 use crate::{AppWindow, NotificationWindow, QuickPanelWindow, WidgetWindow};
 use chrono::{Local, Timelike};
-use rili::{error_reporter, weather};
+use rili::{error_reporter, system_theme, weather};
 use slint::winit_030::WinitWindowAccessor;
 use slint::{ComponentHandle, SharedString};
 use std::cell::{Cell, RefCell};
@@ -292,6 +292,7 @@ pub(crate) fn start_realtime_runtime(
     let state = state.clone();
     let desktop_widgets = desktop_widgets.clone();
     let weather_revision = Rc::new(Cell::new(weather::cache_revision()));
+    let system_dark = Rc::new(Cell::new(system_theme::apps_use_dark_mode()));
 
     update_tool_status(ui, widget, &state);
     let now = Local::now();
@@ -362,6 +363,15 @@ pub(crate) fn start_realtime_runtime(
 
             if maintenance_tick && ui.get_taskbar_clock_enabled() {
                 update_taskbar_clock_hit_rect();
+            }
+            if maintenance_tick {
+                let current_system_dark = system_theme::apps_use_dark_mode();
+                if current_system_dark != system_dark.get() {
+                    system_dark.set(current_system_dark);
+                    if let Some(quick) = quick.as_ref() {
+                        apply_system_theme(&ui, &widget, quick, current_system_dark);
+                    }
+                }
             }
             if realtime_visible || maintenance_tick {
                 let latest_revision = weather::cache_revision();
