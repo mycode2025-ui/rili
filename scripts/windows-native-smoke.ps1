@@ -107,15 +107,16 @@ $ownedProcesses = Get-Process -ErrorAction SilentlyContinue | Where-Object {
     } catch { $false }
 }
 foreach ($owned in $ownedProcesses) {
-    Stop-Process -Id $owned.Id -Force
-    [void]$owned.WaitForExit(5000)
+    throw "请先退出现有 TimeHub（进程 $($owned.Id)），测试不会强制关闭用户窗口。"
 }
 
 $previousSmoke = $env:TIMEHUB_NATIVE_SMOKE
+$previousSmokeData = $env:TIMEHUB_SMOKE_DATA_DIR
 $env:TIMEHUB_NATIVE_SMOKE = '1'
+$env:TIMEHUB_SMOKE_DATA_DIR = Join-Path $projectRoot ('target\native-smoke-data-' + [Guid]::NewGuid().ToString('N'))
 $process = $null
 try {
-    $process = Start-Process -FilePath $resolvedExe -WorkingDirectory $projectRoot -PassThru
+    $process = Start-Process -FilePath $resolvedExe -WorkingDirectory $projectRoot -WindowStyle Hidden -PassThru
     $main = Wait-Window $process.Id '日历'
     $quick = Wait-Window $process.Id 'TimeHub 快速面板'
     $notification = Wait-Window $process.Id 'TimeHub 通知'
@@ -135,7 +136,7 @@ try {
     $quickAfterClock = Wait-Window $process.Id 'TimeHub 快速面板'
     [void](Assert-InWorkArea $quickAfterClock $monitors)
 
-    $second = Start-Process -FilePath $resolvedExe -WorkingDirectory $projectRoot -PassThru
+    $second = Start-Process -FilePath $resolvedExe -WorkingDirectory $projectRoot -WindowStyle Hidden -PassThru
     if (-not $second.WaitForExit(5000)) {
         Stop-Process -Id $second.Id -Force
         throw 'Second TimeHub instance did not exit.'
@@ -170,4 +171,6 @@ finally {
     }
     if ($null -eq $previousSmoke) { Remove-Item Env:TIMEHUB_NATIVE_SMOKE -ErrorAction SilentlyContinue }
     else { $env:TIMEHUB_NATIVE_SMOKE = $previousSmoke }
+    if ($null -eq $previousSmokeData) { Remove-Item Env:TIMEHUB_SMOKE_DATA_DIR -ErrorAction SilentlyContinue }
+    else { $env:TIMEHUB_SMOKE_DATA_DIR = $previousSmokeData }
 }

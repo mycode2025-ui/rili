@@ -1,4 +1,5 @@
 import { Theme } from "theme.slint";
+import { FocusTouchArea } from "widgets.slint";
 import { Icons, SvgIcon } from "icons.slint";
 
 export struct TodoBoardItem {
@@ -29,7 +30,12 @@ component BoardTask inherits Rectangle {
     background: Theme.bg-surface;
     drop-shadow-color: touch.has-hover ? Theme.shadow-2-color-a : transparent;
     drop-shadow-blur: touch.has-hover ? Theme.shadow-2-blur-a : 0px;
-    touch := TouchArea { mouse-cursor: pointer; clicked => { toggle(); } }
+    accessible-role: checkbox;
+    accessible-label: item.title;
+    accessible-checked: item.status == "done";
+    accessible-action-default => { root.toggle(); }
+    forward-focus: touch;
+    touch := FocusTouchArea { clicked => { toggle(); } }
     HorizontalLayout {
         padding-left: 10px; padding-right: 10px; spacing: Theme.space-2;
         cross-axis-alignment: center;

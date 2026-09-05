@@ -1,0 +1,68 @@
+import { LineEdit, TextEdit } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+import { GhostButton, DangerGhostButton } from "widgets.slint";
+
+export struct SubscriptionItem {
+    id: int, name: string, kind: string, status: string, detail: string,
+    has-error: bool, calendar-name: string, event-count: int,
+    last-sync: string, server-label: string,
+}
+
+export component SubscriptionCard inherits Rectangle {
+    in property <SubscriptionItem> item;
+    in property <bool> busy;
+    callback retry(int);
+    callback save(int, string, string) -> bool;
+    callback remove(int);
+    in-out property <bool> expanded: false;
+    in-out property <bool> editing: false;
+    in-out property <bool> confirming: false;
+    height: max(96px, content.preferred-height);
+    background: Theme.bg-surface-2;
+    border-radius: Theme.radius-sm;
+    border-width: 1px;
+    border-color: root.item.has-error ? Theme.danger : Theme.panel-border;
+    content := VerticalLayout {
+        padding: 12px; spacing: 8px;
+        HorizontalLayout {
+            height: 24px;
+            Text { text: root.item.name; color: Theme.text-1; font-weight: 600; font-size: Theme.font-md; overflow: elide; horizontal-stretch: 1; }
+            Text { text: root.item.status; color: root.item.has-error ? Theme.danger : Theme.text-2; font-size: Theme.font-sm; }
+        }
+        HorizontalLayout {
+            height: 32px; spacing: 8px;
+            Text { text: root.item.calendar-name + " · " + root.item.event-count + " 条"; color: Theme.text-2; font-size: Theme.font-sm; overflow: elide; horizontal-stretch: 1; }
+            GhostButton { text: root.expanded ? "收起" : "详情"; clicked => { root.expanded = !root.expanded; } }
+            GhostButton { text: "同步"; enabled: !root.busy; clicked => { root.retry(root.item.id); } }
+            GhostButton { text: "编辑"; enabled: !root.busy; clicked => { root.editing = !root.editing; root.confirming = false; } }
+            DangerGhostButton { text: "删除"; enabled: !root.busy; clicked => { root.confirming = !root.confirming; root.editing = false; } }
+        }
+        if root.expanded: VerticalLayout {
+            spacing: 4px;
+            Text { text: root.item.kind + " · " + root.item.server-label; color: Theme.text-2; font-size: Theme.font-sm; overflow: elide; }
+            Text { text: "最近成功同步：" + (root.item.last-sync == "" ? "尚无" : root.item.last-sync); color: Theme.text-2; font-size: Theme.font-sm; }
+            details := TextEdit { height: 64px; text: root.item.detail; read-only: true; wrap: word-wrap; }
+            GhostButton { text: "复制详情"; clicked => { details.select-all(); details.copy(); details.clear-selection(); } }
+        }
+        if root.editing: VerticalLayout {
+            spacing: 6px;
+            name-box := LineEdit { text: root.item.name; placeholder-text: "连接名称"; }
+            password-box := LineEdit { visible: root.item.kind == "caldav"; height: root.item.kind == "caldav" ? 34px : 0px; input-type: InputType.password; placeholder-text: "新专用密码（留空保留原密码）"; }
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "更换服务器或账号请新建连接"; color: Theme.text-2; font-size: Theme.font-sm; wrap: word-wrap; horizontal-stretch: 1; }
+                GhostButton { text: "保存"; enabled: !root.busy; clicked => { if root.save(root.item.id, name-box.text, password-box.text) { password-box.text = ""; root.editing = false; } } }
+                GhostButton { text: "取消"; clicked => { root.editing = false; } }
+            }
+        }
+        if root.confirming: VerticalLayout {
+            spacing: 6px;
+            Text { width: root.width - 24px; height: self.preferred-height; text: "删除“" + root.item.name + "”连接，并清空“" + root.item.calendar-name + "”中此来源的 " + root.item.event-count + " 条同步日程？本地事项和其他来源保留。"; color: Theme.danger; font-size: Theme.font-sm; wrap: word-wrap; }
+            HorizontalLayout {
+                spacing: 8px;
+                DangerGhostButton { text: "确认删除"; enabled: !root.busy; clicked => { root.remove(root.item.id); } }
+                GhostButton { text: "取消"; clicked => { root.confirming = false; } }
+            }
+        }
+    }
+}

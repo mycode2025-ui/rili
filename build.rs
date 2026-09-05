@@ -22,6 +22,7 @@ fn main() {
         "ui/day-view.slint",
         "ui/year-view.slint",
         "ui/tools-view.slint",
+        "ui/subscription-card.slint",
         "ui/search-view.slint",
         "ui/records-view.slint",
         "ui/shift-view.slint",

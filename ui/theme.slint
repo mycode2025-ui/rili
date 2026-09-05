@@ -8,14 +8,14 @@ export global Theme {
     // public Palette value remains `unknown` while it follows the OS, so it
     // cannot be compared directly with `ColorScheme.dark` here.
     in-out property <bool> system-dark: false;
-    // User-controlled accessibility preferences; defaults preserve the V3 token values exactly.
+    // User-controlled accessibility preferences.
     in-out property <int> font-delta: 0;
     in-out property <int> density-mode: 1;
     in-out property <bool> reduce-motion: false;
     // Desktop cards may override the application theme and opacity independently.
     in-out property <int> widget-theme-override: 0; // 0 跟随应用，1 浅色，2 深色
     in-out property <int> widget-accent-override: -1; // -1 跟随应用，0..7 独立强调色
-    in-out property <int> widget-opacity: 80;
+    in-out property <int> widget-opacity: 92;
     // Noto Sans SC has a lighter, more even Chinese texture than the previous
     // UI font and keeps Chinese, Latin text, and calendar digits visually aligned.
     in-out property <string> font-family: "Noto Sans SC";
@@ -30,14 +30,14 @@ export global Theme {
     out property <color> bg-selected: dark ? #1e2a45 : #e8f0fe;
     out property <color> bg-scrim: dark ? rgba(0, 0, 0, 0.55) : rgba(16, 20, 30, 0.32);
 
-    out property <color> border-subtle: dark ? #2a2f3c : #e6e9f0;
-    out property <color> border-default: dark ? #363c4a : #d8dde8;
-    out property <color> border-strong: dark ? #4a5163 : #b9c0d0;
+    out property <color> border-subtle: dark ? #343a47 : #dfe3eb;
+    out property <color> border-default: dark ? #444b5a : #cbd2de;
+    out property <color> border-strong: dark ? #596173 : #aab3c3;
 
     out property <color> text-1: dark ? #e8eaf0 : #000000;
-    out property <color> text-2: dark ? #a2a9ba : #000000;
-    out property <color> text-3: dark ? #6f7789 : #000000;
-    out property <color> text-disabled: dark ? #4e5666 : #000000;
+    out property <color> text-2: dark ? #c5cad4 : #2b313c;
+    out property <color> text-3: dark ? #b5bdca : #505968;
+    out property <color> text-disabled: dark ? #858e9f : #737b89;
 
     in-out property <color> accent: dark ? #6c9bff : #2e6be6;
     in-out property <color> accent-hover: dark ? #85acff : #1f5bd1;
@@ -59,7 +59,7 @@ export global Theme {
     out property <color> workday-adj: dark ? #e9a23b : #c77700;
     out property <color> workday-adj-bg: dark ? #3a2e18 : #fff4e5;
     out property <color> jieqi: dark ? #4ade9b : #0e9f6e;
-    out property <color> lunar: dark ? #6f7789 : #000000;
+    out property <color> lunar: dark ? #abb4c3 : #39414e;
 
     // Calendar category colors are intentionally theme-invariant in the source.
     out property <color> c-blue: #2e6be6;
@@ -108,15 +108,15 @@ export global Theme {
     out property <length> shadow-1-y: 1px;
     out property <color> shadow-2-color-a: dark ? rgba(0, 0, 0, 0.45) : rgba(16, 24, 40, 0.06);
     out property <color> shadow-2-color-b: dark ? rgba(0, 0, 0, 0.00) : rgba(16, 24, 40, 0.06);
-    out property <length> shadow-2-blur-a: dark ? 10px : 8px;
+    out property <length> shadow-2-blur-a: dark ? 8px : 6px;
     out property <length> shadow-2-blur-b: 4px;
     out property <length> shadow-2-y-a: 4px;
     out property <length> shadow-2-y-b: 2px;
     out property <color> shadow-3-color-a: dark ? rgba(0, 0, 0, 0.55) : rgba(16, 24, 40, 0.10);
     out property <color> shadow-3-color-b: dark ? rgba(0, 0, 0, 0.00) : rgba(16, 24, 40, 0.06);
-    out property <length> shadow-3-blur-a: dark ? 32px : 24px;
+    out property <length> shadow-3-blur-a: dark ? 24px : 18px;
     out property <length> shadow-3-blur-b: 8px;
-    out property <length> shadow-3-y-a: dark ? 16px : 12px;
+    out property <length> shadow-3-y-a: dark ? 12px : 9px;
     out property <length> shadow-3-y-b: 4px;
 
     // Exact product metrics from the source.
@@ -127,16 +127,18 @@ export global Theme {
     out property <length> h-status: 28px;
 
     // All 20 font sizes present in the V2 source.
-    out property <length> font-8-5: 8.5px + font-delta * 1px;
-    out property <length> font-9: 9px + font-delta * 1px;
-    out property <length> font-10: 10px + font-delta * 1px;
-    out property <length> font-10-5: 10.5px + font-delta * 1px;
-    out property <length> font-11: 11px + font-delta * 1px;
-    out property <length> font-11-5: 11.5px + font-delta * 1px;
+    out property <length> font-8-5: max(12px, 12px + font-delta * 1px);
+    out property <length> font-9: max(12px, 12px + font-delta * 1px);
+    out property <length> font-10: max(12px, 12px + font-delta * 1px);
+    out property <length> font-10-5: max(12px, 12px + font-delta * 1px);
+    out property <length> font-11: max(12px, 12px + font-delta * 1px);
+    // Integer logical font sizes produce more stable glyph rasterization on
+    // Windows at 125%/150% DPI than the former half-pixel sizes.
+    out property <length> font-11-5: 12px + font-delta * 1px;
     out property <length> font-12: 12px + font-delta * 1px;
-    out property <length> font-12-5: 12.5px + font-delta * 1px;
+    out property <length> font-12-5: 13px + font-delta * 1px;
     out property <length> font-13: 13px + font-delta * 1px;
-    out property <length> font-13-5: 13.5px + font-delta * 1px;
+    out property <length> font-13-5: 14px + font-delta * 1px;
     out property <length> font-14: 14px + font-delta * 1px;
     out property <length> font-15: 15px + font-delta * 1px;
     out property <length> font-16: 16px + font-delta * 1px;
@@ -145,6 +147,7 @@ export global Theme {
     out property <length> font-20: 20px + font-delta * 1px;
     out property <length> font-22: 22px + font-delta * 1px;
     out property <length> font-26: 26px + font-delta * 1px;
+    out property <length> font-40: 40px + font-delta * 1px;
     out property <length> font-32: 32px + font-delta * 1px;
     out property <length> font-34: 34px + font-delta * 1px;
     out property <length> font-42: 42px + font-delta * 1px;
@@ -156,14 +159,14 @@ export global Theme {
     out property <color> widget-desktop-b: dark ? #2c3a5e : #d3e0f4;
     out property <color> widget-desktop-c: dark ? #1a2338 : #efe3d2;
     out property <color> widget-glass: (dark ? #1c1f27 : #ffffff).with-alpha(widget-opacity * 1%);
-    out property <color> widget-glass-border: dark ? rgba(255, 255, 255, 0.12) : rgba(255, 255, 255, 0.85);
+    out property <color> widget-glass-border: dark ? rgba(255, 255, 255, 0.18) : #d4d9e3;
     out property <color> widget-glass-hover: dark ? rgba(255, 255, 255, 0.10) : rgba(16, 20, 30, 0.08);
     out property <color> widget-row: dark ? rgba(255, 255, 255, 0.06) : rgba(16, 20, 30, 0.05);
     out property <color> widget-accent-bg: dark ? rgba(108, 155, 255, 0.16) : rgba(46, 107, 230, 0.12);
     out property <color> widget-text-1: dark ? #e8eaf0 : #000000;
-    out property <color> widget-text-2: dark ? #a2a9ba : #000000;
-    out property <color> widget-text-3: dark ? #6f7789 : #000000;
-    out property <color> widget-text-disabled: dark ? #4e5666 : #000000;
+    out property <color> widget-text-2: dark ? #c5cad4 : #2b313c;
+    out property <color> widget-text-3: dark ? #a6aebe : #505968;
+    out property <color> widget-text-disabled: dark ? #858e9f : #737b89;
     out property <color> widget-accent: dark ? #6c9bff : #2e6be6;
     out property <color> widget-on-accent: dark ? #0b1020 : #ffffff;
     out property <color> widget-weekend: dark ? #e0837a : #b4544a;

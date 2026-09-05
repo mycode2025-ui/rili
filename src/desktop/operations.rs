@@ -9,6 +9,8 @@ pub(crate) fn sync_desktop_visibility_to_ui(ui: &AppWindow, visible: DesktopWidg
     ui.set_desktop_focus_visible(visible.focus);
     ui.set_desktop_todo_visible(visible.todo);
     ui.set_desktop_notes_visible(visible.notes);
+    ui.set_desktop_quote_visible(visible.quote);
+    ui.set_desktop_almanac_visible(visible.almanac);
 }
 
 thread_local! {
@@ -40,6 +42,8 @@ pub(crate) fn desktop_widget_rect(instance_key: &str) -> Option<(i32, i32, i32, 
             "weather" => Some(rect(windows.weather.window())),
             "focus" => Some(rect(windows.focus.window())),
             "todo" => Some(rect(windows.todo.window())),
+            "quote" => Some(rect(windows.quote.window())),
+            "almanac" => Some(rect(windows.almanac.window())),
             note_key if note_key.starts_with("note_") => {
                 let id = note_key.trim_start_matches("note_").parse::<i32>().ok()?;
                 windows

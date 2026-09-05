@@ -13,6 +13,8 @@ export component WidgetManagerDialog inherits Rectangle {
     in-out property <bool> focus-visible: true;
     in-out property <bool> todo-visible: true;
     in-out property <bool> notes-visible: true;
+    in-out property <bool> quote-visible: false;
+    in-out property <bool> almanac-visible: false;
     in-out property <bool> click-through: false;
     callback set-visible(string, bool);
     callback set-click-through(bool);
@@ -22,7 +24,7 @@ export component WidgetManagerDialog inherits Rectangle {
     TouchArea { clicked => { root.open = false; } }
     Rectangle {
         x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
-        width: 620px; height: 492px; border-radius: Theme.r-xl;
+        width: 620px; height: 564px; border-radius: Theme.r-xl;
         border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface;
         drop-shadow-color: Theme.shadow-3-color-a; drop-shadow-blur: Theme.shadow-3-blur-a; drop-shadow-offset-y: Theme.shadow-3-y-a;
         VerticalLayout {
@@ -35,7 +37,7 @@ export component WidgetManagerDialog inherits Rectangle {
                 }
                 IconButton { icon: Icons.close; size: 30px; borderless: true; clicked => { root.open = false; } }
             }
-            for row in 4: HorizontalLayout {
+            for row in 5: HorizontalLayout {
                 height: 72px; spacing: Theme.space-3;
                 if row == 0: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "月历"; description: "月份与节日概览"; icon: Icons.calendar; installed: root.calendar-visible; toggled(v) => { root.calendar-visible = v; root.set-visible("calendar", v); } }
                 if row == 0: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "今日日程"; description: "今天的日程列表"; icon: Icons.clock; installed: root.events-visible; toggled(v) => { root.events-visible = v; root.set-visible("events", v); } }
@@ -45,6 +47,8 @@ export component WidgetManagerDialog inherits Rectangle {
                 if row == 2: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "今日待办"; description: "快速查看和完成待办"; icon: Icons.check; installed: root.todo-visible; toggled(v) => { root.todo-visible = v; root.set-visible("todo", v); } }
                 if row == 3: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "便签"; description: "快速新建和管理便签"; icon: Icons.note; installed: root.notes-visible; toggled(v) => { root.notes-visible = v; root.set-visible("notes", v); } }
                 if row == 3: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "天气"; description: "当前天气与未来五日预报"; icon: Icons.cloud; installed: root.weather-visible; toggled(v) => { root.weather-visible = v; root.set-visible("weather", v); } }
+                if row == 4: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "每日一言"; description: "每天随机呈现一句话"; icon: Icons.spark; installed: root.quote-visible; toggled(v) => { root.quote-visible = v; root.set-visible("quote", v); } }
+                if row == 4: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "今日黄历"; description: "农历、干支与每日宜忌"; icon: Icons.calendar; installed: root.almanac-visible; toggled(v) => { root.almanac-visible = v; root.set-visible("almanac", v); } }
             }
             Rectangle { height: 1px; background: Theme.border-subtle; }
             HorizontalLayout {

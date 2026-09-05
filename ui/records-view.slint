@@ -54,6 +54,8 @@ export component RecordsView inherits Rectangle {
     callback toggle-habit(int);
     callback delete-habit(int);
     in-out property <string> form-message: "";
+    private property <int> delete-record-id: 0;
+    private property <int> delete-habit-id: 0;
     in-out property <string> record-date: "";
     in-out property <int> picker-year: 2026;
     in-out property <int> picker-month: 9;
@@ -67,7 +69,12 @@ export component RecordsView inherits Rectangle {
     border-width: 1px;
     border-color: Theme.panel-border;
 
+    ScrollView {
+    width: 100%; height: 100%;
     VerticalLayout {
+        x: 0px; y: 0px;
+        width: parent.visible-width;
+        height: max(self.preferred-height, root.height);
         padding: Theme.gap-lg;
         spacing: Theme.gap-md;
         HorizontalLayout {
@@ -75,11 +82,24 @@ export component RecordsView inherits Rectangle {
             Rectangle { horizontal-stretch: 1; }
             Text { text: "生日 · 纪念日 · 倒数日 · 习惯"; color: Theme.text-muted; font-size: Theme.font-sm; vertical-alignment: center; }
         }
-        HorizontalLayout {
+        if root.delete-record-id != 0 || root.delete-habit-id != 0: HorizontalLayout {
+            spacing: Theme.gap-sm;
+            Text { text: root.delete-habit-id != 0 ? "删除此习惯及全部历史打卡记录？此操作不可撤销。" : "删除此生日、纪念日或倒数日记录？此操作不可撤销。"; wrap: word-wrap; color: Theme.danger; horizontal-stretch: 1; }
+            DangerGhostButton { text: "确认删除"; clicked => {
+                if root.delete-habit-id != 0 { root.delete-habit(root.delete-habit-id); }
+                else { root.delete-record(root.delete-record-id); }
+                root.delete-record-id = 0; root.delete-habit-id = 0;
+            } }
+            GhostButton { text: "取消"; clicked => { root.delete-record-id = 0; root.delete-habit-id = 0; } }
+        }
+        GridLayout {
             spacing: Theme.gap-md;
             vertical-stretch: 1;
 
             Rectangle {
+                col: 0;
+                row: 0;
+                min-height: 300px;
                 horizontal-stretch: 3;
                 background: Theme.bg;
                 border-radius: Theme.radius-md;
@@ -138,7 +158,7 @@ export component RecordsView inherits Rectangle {
                                         Text { text: record.category + "  ·  " + record.date-text; color: Theme.text-secondary; font-size: Theme.font-sm; overflow: elide; }
                                         Text { text: record.meta-text; color: Theme.text-muted; font-size: Theme.font-sm; overflow: elide; }
                                     }
-                                    DangerGhostButton { text: "删除"; clicked => { delete-record(record.id); } }
+                                    DangerGhostButton { text: "删除"; clicked => { root.delete-habit-id = 0; root.delete-record-id = record.id; } }
                                 }
                             }
                             if records.length == 0: Text {
@@ -152,6 +172,9 @@ export component RecordsView inherits Rectangle {
             }
 
             Rectangle {
+                col: root.width < 900px ? 0 : 1;
+                row: root.width < 900px ? 1 : 0;
+                min-height: 300px;
                 horizontal-stretch: 2;
                 background: Theme.bg;
                 border-radius: Theme.radius-md;
@@ -182,7 +205,7 @@ export component RecordsView inherits Rectangle {
                                         Text { text: habit.title; color: Theme.text-primary; overflow: elide; }
                                         Text { text: "连续 " + habit.streak + " 天"; color: Theme.text-muted; font-size: Theme.font-sm; }
                                     }
-                                    DangerGhostButton { text: "删除"; clicked => { delete-habit(habit.id); } }
+                                    DangerGhostButton { text: "删除"; clicked => { root.delete-record-id = 0; root.delete-habit-id = habit.id; } }
                                 }
                             }
                             if habits.length == 0: Text {
@@ -195,6 +218,7 @@ export component RecordsView inherits Rectangle {
                 }
             }
         }
+    }
     }
     date-picker := TimeHubDatePickerPopup {
         x: record-date-input.absolute-position.x - root.absolute-position.x;

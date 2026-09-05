@@ -288,11 +288,19 @@ pub(crate) fn layout_week_event_lanes(events: &mut [EventItem]) {
 }
 
 pub(crate) fn to_ui_todo(t: db::Todo) -> TodoItem {
+    let today = Local::now().date_naive();
+    let is_overdue = t
+        .due_date
+        .as_deref()
+        .and_then(|value| NaiveDate::parse_from_str(value, "%Y-%m-%d").ok())
+        .is_some_and(|date| date < today && !t.done);
     TodoItem {
         id: t.id as i32,
         title: t.title.into(),
         done: t.done,
         priority: t.priority as i32,
+        meta_text: todo_due_text(&t.due_date, today).into(),
+        is_overdue,
     }
 }
 

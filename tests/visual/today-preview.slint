@@ -1,0 +1,48 @@
+import { TodayView } from "../../ui/today-view.slint";
+import { Theme } from "../../ui/theme.slint";
+import { Palette } from "std-widgets.slint";
+
+export component TodayPreview inherits Window {
+    width: 1100px;
+    height: 800px;
+    in property <bool> dark: false;
+    init => {
+        Theme.theme-mode = root.dark ? 2 : 1;
+        Palette.color-scheme = root.dark ? ColorScheme.dark : ColorScheme.light;
+    }
+    changed dark => {
+        Theme.theme-mode = root.dark ? 2 : 1;
+        Palette.color-scheme = root.dark ? ColorScheme.dark : ColorScheme.light;
+    }
+
+    TodayView {
+        width: 100%; height: 100%;
+        day-text: "4";
+        date-heading: "九月 · 星期五";
+        lunar-heading: "农历七月廿三 · 丙午年";
+        day-of-year-text: "247 天";
+        week-number-text: "36 周";
+        remaining-days-text: "118 天";
+        weather-fact-text: "26°C";
+        year-progress: 0.674;
+        year-progress-text: "67.4%";
+        year-progress-label: "2026 年进度";
+        next-event-text: "下一场：产品例会 · 14:00";
+        next-event-status: "还有 45 分钟";
+        current-minutes: 795;
+        next-event-id: 1;
+        todo-completed-count: 1;
+        events: [
+            { id: 1, occurrence-date: "2026-09-04", title: "产品例会", time-text: "14:00", meta-text: "15:00 · 会议室 A", color: #2e6be6, start-minutes: 840, duration-minutes: 60, all-day: false, lane: 0, lane-count: 1 },
+            { id: 2, occurrence-date: "2026-09-04", title: "钉钉客户沟通", time-text: "16:30", meta-text: "17:00 · 在线会议", color: #0e9f6e, start-minutes: 990, duration-minutes: 30, all-day: false, lane: 0, lane-count: 1 },
+        ];
+        todos: [
+            { id: 1, title: "整理会议纪要", done: true, priority: 1, meta-text: "今天到期", is-overdue: false },
+            { id: 2, title: "提交项目周报", done: false, priority: 2, meta-text: "今天到期", is-overdue: false },
+        ];
+        countdowns: [
+            { id: 1, title: "版本发布", days: 8, date-text: "2026-09-12", color: #2e6be6 },
+            { id: 2, title: "国庆假期", days: 27, date-text: "2026-10-01", color: #0e9f6e },
+        ];
+    }
+}

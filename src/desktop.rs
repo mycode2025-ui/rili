@@ -2,6 +2,7 @@
 
 use crate::presentation::*;
 use crate::*;
+use rili::{almanac, daily_quote};
 mod operations;
 mod taskbar;
 pub(crate) use operations::*;
@@ -19,6 +20,8 @@ pub(crate) struct DesktopWidgetVisibility {
     pub(crate) focus: bool,
     pub(crate) todo: bool,
     pub(crate) notes: bool,
+    pub(crate) quote: bool,
+    pub(crate) almanac: bool,
 }
 
 impl DesktopWidgetVisibility {
@@ -31,6 +34,8 @@ impl DesktopWidgetVisibility {
             || self.focus
             || self.todo
             || self.notes
+            || self.quote
+            || self.almanac
     }
 
     pub(crate) fn set(&mut self, kind: &str, visible: bool) {
@@ -43,6 +48,8 @@ impl DesktopWidgetVisibility {
             "focus" => self.focus = visible,
             "todo" => self.todo = visible,
             "notes" => self.notes = visible,
+            "quote" => self.quote = visible,
+            "almanac" => self.almanac = visible,
             _ => {}
         }
     }
@@ -58,12 +65,15 @@ pub(crate) struct DesktopWidgetWindows {
     pub(crate) weather: WeatherWidgetWindow,
     pub(crate) focus: FocusWidgetWindow,
     pub(crate) todo: TodoWidgetWindow,
+    pub(crate) quote: DailyQuoteWidgetWindow,
+    quote_date: Cell<Option<NaiveDate>>,
+    pub(crate) almanac: AlmanacWidgetWindow,
     pub(crate) notes: RefCell<Vec<NotesWidgetWindow>>,
 }
 
 impl DesktopWidgetWindows {
     pub(crate) fn new() -> Result<Self> {
-        Ok(Self {
+        let windows = Self {
             calendar: CalendarWidgetWindow::new()?,
             events: EventsWidgetWindow::new()?,
             event_editor: RefCell::new(None),
@@ -73,8 +83,50 @@ impl DesktopWidgetWindows {
             weather: WeatherWidgetWindow::new()?,
             focus: FocusWidgetWindow::new()?,
             todo: TodoWidgetWindow::new()?,
+            quote: DailyQuoteWidgetWindow::new()?,
+            quote_date: Cell::new(None),
+            almanac: AlmanacWidgetWindow::new()?,
             notes: RefCell::new(Vec::new()),
-        })
+        };
+        windows.refresh_day_cards(chrono::Local::now().date_naive());
+        Ok(windows)
+    }
+
+    pub(crate) fn refresh_day_cards(&self, date: NaiveDate) {
+        if self.quote_date.get() != Some(date) {
+            self.randomize_quote(date);
+        }
+
+        let info = almanac::describe(date);
+        let weekday = match date.weekday() {
+            chrono::Weekday::Mon => "一",
+            chrono::Weekday::Tue => "二",
+            chrono::Weekday::Wed => "三",
+            chrono::Weekday::Thu => "四",
+            chrono::Weekday::Fri => "五",
+            chrono::Weekday::Sat => "六",
+            chrono::Weekday::Sun => "日",
+        };
+        self.almanac.set_date_text(
+            format!(
+                "{}年{}月{}日 星期{weekday}",
+                date.year(),
+                date.month(),
+                date.day()
+            )
+            .into(),
+        );
+        self.almanac.set_lunar_text(info.lunar_full_text.into());
+        self.almanac.set_day_meta(info.day_meta.into());
+        self.almanac.set_suitable_text(info.suitable.into());
+        self.almanac.set_avoid_text(info.avoid.into());
+        self.almanac.set_clash_text(info.clash.into());
+    }
+
+    fn randomize_quote(&self, date: NaiveDate) {
+        self.quote
+            .set_quote_text(daily_quote::random_quote().into());
+        self.quote_date.set(Some(date));
     }
 
     pub(crate) fn set_card_locked(&self, instance_key: &str, locked: bool) -> bool {
@@ -86,6 +138,8 @@ impl DesktopWidgetWindows {
             "weather" => self.weather.set_locked(locked),
             "focus" => self.focus.set_locked(locked),
             "todo" => self.todo.set_locked(locked),
+            "quote" => self.quote.set_locked(locked),
+            "almanac" => self.almanac.set_locked(locked),
             key if key.starts_with("note_") => {
                 let Some(id) = key.trim_start_matches("note_").parse::<i32>().ok() else {
                     return false;
@@ -110,6 +164,8 @@ impl DesktopWidgetWindows {
             "weather" => self.weather.get_pinned(),
             "focus" => self.focus.get_pinned(),
             "todo" => self.todo.get_pinned(),
+            "quote" => self.quote.get_pinned(),
+            "almanac" => self.almanac.get_pinned(),
             key if key.starts_with("note_") => key
                 .trim_start_matches("note_")
                 .parse::<i32>()
@@ -135,6 +191,8 @@ impl DesktopWidgetWindows {
             "weather" => self.weather.set_pinned(pinned),
             "focus" => self.focus.set_pinned(pinned),
             "todo" => self.todo.set_pinned(pinned),
+            "quote" => self.quote.set_pinned(pinned),
+            "almanac" => self.almanac.set_pinned(pinned),
             key if key.starts_with("note_") => {
                 let Some(id) = key.trim_start_matches("note_").parse::<i32>().ok() else {
                     return false;
@@ -159,6 +217,8 @@ impl DesktopWidgetWindows {
             "weather" => (304.0, 244.0),
             "focus" => (304.0, 218.0),
             "todo" => (304.0, 226.0),
+            "quote" => (304.0, 190.0),
+            "almanac" => (320.0, 280.0),
             key if key.starts_with("note_") => (304.0, 280.0),
             _ => return false,
         };
@@ -171,6 +231,8 @@ impl DesktopWidgetWindows {
             "weather" => self.weather.window().set_size(size),
             "focus" => self.focus.window().set_size(size),
             "todo" => self.todo.window().set_size(size),
+            "quote" => self.quote.window().set_size(size),
+            "almanac" => self.almanac.window().set_size(size),
             key if key.starts_with("note_") => {
                 let Some(id) = key.trim_start_matches("note_").parse::<i32>().ok() else {
                     return false;
@@ -187,6 +249,7 @@ impl DesktopWidgetWindows {
     }
 
     pub(crate) fn sync_from(&self, source: &WidgetWindow) {
+        self.refresh_day_cards(chrono::Local::now().date_naive());
         self.calendar.set_month_title(source.get_month_title());
         self.calendar.set_days(source.get_days());
         self.calendar.set_selected_day(source.get_selected_day());
@@ -242,6 +305,9 @@ impl DesktopWidgetWindows {
     /// Update only time-sensitive fields, and only on cards that are actually
     /// visible. Static models continue to use `sync_from` after data changes.
     pub(crate) fn sync_realtime_from(&self, source: &WidgetWindow) {
+        if self.quote.window().is_visible() || self.almanac.window().is_visible() {
+            self.refresh_day_cards(chrono::Local::now().date_naive());
+        }
         if self.events.window().is_visible() {
             self.events
                 .set_current_minutes(source.get_current_minutes());
@@ -572,6 +638,11 @@ impl DesktopWidgetWindows {
         apply_visibility!(self.weather, visible.weather);
         apply_visibility!(self.focus, visible.focus);
         apply_visibility!(self.todo, visible.todo);
+        if visible.quote && !self.quote.window().is_visible() {
+            self.randomize_quote(chrono::Local::now().date_naive());
+        }
+        apply_visibility!(self.quote, visible.quote);
+        apply_visibility!(self.almanac, visible.almanac);
         if visible.notes {
             for window in self.notes.borrow().iter() {
                 if !window.window().is_visible() {
@@ -596,6 +667,8 @@ impl DesktopWidgetWindows {
                 let weather = self.weather.as_weak();
                 let focus = self.focus.as_weak();
                 let todo = self.todo.as_weak();
+                let quote = self.quote.as_weak();
+                let almanac = self.almanac.as_weak();
                 let notes: Vec<_> = self
                     .notes
                     .borrow()
@@ -645,6 +718,18 @@ impl DesktopWidgetWindows {
                             set_widget_click_through(&window, click_through);
                         }
                     }
+                    if visible.quote {
+                        if let Some(window) = quote.upgrade() {
+                            remove_widget_from_taskbar(&window);
+                            set_widget_click_through(&window, click_through);
+                        }
+                    }
+                    if visible.almanac {
+                        if let Some(window) = almanac.upgrade() {
+                            remove_widget_from_taskbar(&window);
+                            set_widget_click_through(&window, click_through);
+                        }
+                    }
                     if visible.notes {
                         for note in &notes {
                             if let Some(window) = note.upgrade() {
@@ -674,6 +759,8 @@ impl DesktopWidgetWindows {
         let _ = self.weather.hide();
         let _ = self.focus.hide();
         let _ = self.todo.hide();
+        let _ = self.quote.hide();
+        let _ = self.almanac.hide();
         for window in self.notes.borrow().iter() {
             let _ = window.hide();
         }
@@ -700,6 +787,12 @@ impl DesktopWidgetWindows {
         }
         if visible.todo {
             set_widget_click_through(&self.todo, enabled);
+        }
+        if visible.quote {
+            set_widget_click_through(&self.quote, enabled);
+        }
+        if visible.almanac {
+            set_widget_click_through(&self.almanac, enabled);
         }
         if visible.notes {
             for window in self.notes.borrow().iter() {

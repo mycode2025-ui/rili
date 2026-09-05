@@ -1,0 +1,31 @@
+import { NotesView } from "../../ui/notes-view.slint";
+import { Theme } from "../../ui/theme.slint";
+import { Palette } from "std-widgets.slint";
+
+export component NotesPreview inherits Window {
+    width: 1180px;
+    height: 720px;
+    in property <bool> dark: false;
+    init => {
+        Theme.theme-mode = root.dark ? 2 : 1;
+        Palette.color-scheme = root.dark ? ColorScheme.dark : ColorScheme.light;
+    }
+    changed dark => {
+        Theme.theme-mode = root.dark ? 2 : 1;
+        Palette.color-scheme = root.dark ? ColorScheme.dark : ColorScheme.light;
+    }
+
+    NotesView {
+        width: 100%;
+        height: 100%;
+        selected-id: 1;
+        draft-title: "CRA 网络安全问题清单";
+        draft-content: "充电桩中的以下问题都属于 CRA 所说的网络安全问题：\n\n伪造 OTA 包\n远程命令越权\n默认密码\n调试接口未关闭\n证书或私钥泄露\nOCPP 身份认证不足\n固件完整性校验缺失\n恶意修改充电电流或电压参数";
+        notes: [
+            { id: 1, title: "CRA 网络安全问题清单", content: "伪造 OTA 包、远程命令越权、默认密码……" },
+            { id: 2, title: "产品例会纪要", content: "确认十月版本范围和负责人" },
+            { id: 3, title: "现场问题", content: "高碑店站点网络偶发离线" },
+            { id: 4, title: "周末采购", content: "网线、标签纸、工具箱" },
+        ];
+    }
+}

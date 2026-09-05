@@ -532,7 +532,7 @@ pub enum CalendarAction {
         #[arg(long)]
         days: i64,
     },
-    /// 老黄历摘要（年柱干支+生肖、日柱干支、农历日期）；不含宜忌/吉凶（见 almanac.rs 说明）
+    /// 老黄历摘要（农历、日柱、值星、天神、宜忌与冲煞）
     Almanac {
         #[arg(long)]
         date: String,
@@ -1074,7 +1074,11 @@ pub fn run(cli: Cli) -> Result<()> {
                         "date": info.solar_date,
                         "lunar_full_text": info.lunar_full_text,
                         "day_ganzhi": info.day_ganzhi,
-                        "note": "不含宜忌/吉凶时辰：这类内容源自各家黄历的经验数据表，没有统一算法标准，本工具不采集也不编造这类数据"
+                        "day_meta": info.day_meta,
+                        "suitable": info.suitable,
+                        "avoid": info.avoid,
+                        "clash": info.clash,
+                        "note": "宜忌等内容属于传统民俗信息，仅供生活参考"
                     }))
                 })();
                 emit(cli.json, r);

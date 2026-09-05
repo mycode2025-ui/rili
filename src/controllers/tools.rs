@@ -33,6 +33,149 @@ pub(crate) fn register_tool_callbacks(
             }
         });
     }
+    let weather_candidates = std::sync::Arc::new(std::sync::Mutex::new((
+        String::new(),
+        Vec::<weather::LocationCandidate>::new(),
+    )));
+    {
+        let ui_weak = ui.as_weak();
+        let weather_candidates = weather_candidates.clone();
+        ui.on_search_weather_city(move |query| {
+            let query = query.trim().to_string();
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            if query.is_empty() {
+                ui.set_weather_city_search_error(true);
+                ui.set_weather_city_search_status("请输入城市或区县名称".into());
+                return;
+            }
+            ui.set_weather_city_searching(true);
+            ui.set_weather_city_search_error(false);
+            ui.set_weather_city_search_status("正在查找城市或区县…".into());
+            ui.set_weather_city_candidates(ModelRc::new(VecModel::default()));
+
+            let ui_weak = ui_weak.clone();
+            let weather_candidates = weather_candidates.clone();
+            std::thread::spawn(move || {
+                let result = weather::search_locations(&query);
+                let _ = slint::invoke_from_event_loop(move || {
+                    let Some(ui) = ui_weak.upgrade() else {
+                        return;
+                    };
+                    ui.set_weather_city_searching(false);
+                    match result {
+                        Ok(candidates) => {
+                            let choices = candidates
+                                .iter()
+                                .take(4)
+                                .enumerate()
+                                .map(|(index, candidate)| WeatherLocationChoice {
+                                    id: index as i32,
+                                    label: candidate.label.clone().into(),
+                                })
+                                .collect::<Vec<_>>();
+                            ui.set_weather_city_search_error(false);
+                            ui.set_weather_city_search_status(
+                                format!("找到 {} 个地点，请选择具体地区", choices.len()).into(),
+                            );
+                            ui.set_weather_city_candidates(ModelRc::new(VecModel::from(choices)));
+                            if let Ok(mut stored) = weather_candidates.lock() {
+                                *stored = (query, candidates);
+                            }
+                        }
+                        Err(error) => {
+                            if let Ok(mut stored) = weather_candidates.lock() {
+                                stored.0.clear();
+                                stored.1.clear();
+                            }
+                            ui.set_weather_city_search_error(true);
+                            ui.set_weather_city_search_status(format!("未找到：{error}").into());
+                            let message = error_reporter::record("天气地点查询失败", &error);
+                            ui.set_action_message(message.into());
+                        }
+                    }
+                });
+            });
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let widget_weak = widget.as_weak();
+        let quick_weak = quick_panel.as_weak();
+        let weather_candidates = weather_candidates.clone();
+        ui.on_choose_weather_city(move |index| {
+            let selection = weather_candidates.lock().ok().and_then(|stored| {
+                stored
+                    .1
+                    .get(index as usize)
+                    .cloned()
+                    .map(|candidate| (stored.0.clone(), candidate))
+            });
+            let Some((query, candidate)) = selection else {
+                return;
+            };
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_weather_city_searching(true);
+                ui.set_weather_city_search_error(false);
+                ui.set_weather_city_search_status(format!("正在更新 {}…", candidate.label).into());
+                ui.set_weather_city_candidates(ModelRc::new(VecModel::default()));
+            }
+
+            let ui_weak = ui_weak.clone();
+            let widget_weak = widget_weak.clone();
+            let quick_weak = quick_weak.clone();
+            std::thread::spawn(move || {
+                let result = db::open()
+                    .and_then(|conn| weather::refresh_for_location(&conn, &query, &candidate));
+                let _ = slint::invoke_from_event_loop(move || {
+                    let Some(ui) = ui_weak.upgrade() else {
+                        return;
+                    };
+                    ui.set_weather_city_searching(false);
+                    match result {
+                        Ok(current) => {
+                            let (description, _) =
+                                weather::describe_current(current.code, current.is_day);
+                            let summary =
+                                format!("{} {:.0}°C {description}", current.city, current.temp_c);
+                            let source = if current.provider.is_empty() {
+                                "天气服务"
+                            } else {
+                                current.provider.as_str()
+                            };
+                            ui.set_weather_city_search_error(false);
+                            ui.set_weather_city_search_status(
+                                format!("已切换至 {}", candidate.label).into(),
+                            );
+                            ui.set_weather_city(query.into());
+                            ui.set_weather_summary(summary.clone().into());
+                            ui.set_weather_status(
+                                format!("{summary} · 已更新 {} · {source}", current.updated_at)
+                                    .into(),
+                            );
+                            ui.set_action_message(
+                                format!("天气已切换至 {}", candidate.label).into(),
+                            );
+                            if let Some(widget) = widget_weak.upgrade() {
+                                apply_weather_to_widget(&widget, Some(&current));
+                                sync_desktop_widgets(&widget);
+                                if let Some(quick) = quick_weak.upgrade() {
+                                    sync_quick_weather(&quick, &widget);
+                                }
+                            }
+                        }
+                        Err(error) => {
+                            ui.set_weather_city_search_error(true);
+                            ui.set_weather_city_search_status(format!("更新失败：{error}").into());
+                            let message = error_reporter::record("天气更新失败", &error);
+                            ui.set_action_message(message.into());
+                        }
+                    }
+                });
+            });
+        });
+    }
     {
         let ui_weak = ui.as_weak();
         let widget_weak = widget.as_weak();
@@ -97,8 +240,12 @@ pub(crate) fn register_tool_callbacks(
                     (Ok(start), Ok(end)) => {
                         let diff = date_calc::diff(start, end);
                         format!(
-                            "{} 到 {}：自然日 {} 天，工作日 {} 天",
-                            diff.start, diff.end, diff.calendar_days, diff.workdays
+                            "{} 到 {}：自然日 {} 天，工作日 {} 天（含开始日，不含结束日）。{}",
+                            diff.start,
+                            diff.end,
+                            diff.calendar_days,
+                            diff.workdays,
+                            date_calc::coverage_note(start, end)
                         )
                     }
                     (Err(e), _) | (_, Err(e)) => e,
@@ -113,7 +260,7 @@ pub(crate) fn register_tool_callbacks(
                             };
                             match date {
                                 Ok(date) => format!(
-                                    "从 {} {} {} 天：{}",
+                                    "从 {} {} {} 天：{}（不含起始日）{}",
                                     start,
                                     if operation == "calendar" {
                                         "起算自然日"
@@ -121,7 +268,12 @@ pub(crate) fn register_tool_callbacks(
                                         "起算工作日"
                                     },
                                     n,
-                                    date
+                                    date,
+                                    if operation == "workday" {
+                                        format!("。{}", date_calc::coverage_note(start, date))
+                                    } else {
+                                        String::new()
+                                    }
                                 ),
                                 Err(error) => error.to_string(),
                             }

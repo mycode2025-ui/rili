@@ -467,6 +467,66 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
     ui.set_today_weather_fact_text(weather_fact.into());
     ui.set_today_year_progress(year_progress);
     ui.set_today_year_progress_text(format!("{:.1}%", year_progress * 100.0).into());
+    ui.set_today_year_progress_label(format!("{} 年进度", today.year()).into());
+    ui.set_today_event_count(today_events.len() as i32);
+    let now = Local::now();
+    let current_minutes = (now.hour() * 60 + now.minute()) as i32;
+    ui.set_today_current_minutes(current_minutes);
+    let next_event = today_events
+        .iter()
+        .filter(|event| {
+            matches!(
+                rili::event_timing::classify(
+                    event.start_minutes,
+                    event.duration_minutes,
+                    event.all_day,
+                    event.title.starts_with("已取消"),
+                    current_minutes
+                ),
+                rili::event_timing::Timing::Ongoing | rili::event_timing::Timing::Upcoming
+            )
+        })
+        .min_by_key(|event| {
+            if event.all_day {
+                -1
+            } else {
+                event.start_minutes
+            }
+        });
+    if let Some(event) = next_event {
+        ui.set_today_next_event_id(event.id);
+        let status = if event.all_day {
+            "全天".to_string()
+        } else if event.start_minutes <= current_minutes {
+            "正在进行".to_string()
+        } else {
+            let remaining = event.start_minutes - current_minutes;
+            if remaining >= 60 {
+                format!("还有 {} 小时 {} 分钟", remaining / 60, remaining % 60)
+            } else {
+                format!("还有 {remaining} 分钟")
+            }
+        };
+        ui.set_today_next_event_text(
+            format!(
+                "{}：{} · {}",
+                if event.start_minutes <= current_minutes {
+                    "进行中"
+                } else {
+                    "下一场"
+                },
+                event.title,
+                event.time_text
+            )
+            .into(),
+        );
+        ui.set_today_next_event_status(status.into());
+    } else {
+        ui.set_today_next_event_id(-1);
+        ui.set_today_next_event_text("".into());
+        ui.set_today_next_event_status("".into());
+    }
+    ui.set_today_countdowns(ModelRc::new(VecModel::from(countdowns.clone())));
     ui.set_calendar_year(year);
     ui.set_year_months(ModelRc::new(VecModel::from(year_months)));
     if state.borrow().view_mode == 12 {
@@ -492,18 +552,18 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
         ui.set_subscription_name(s.subscription_name.clone().into());
         ui.set_subscription_url(s.subscription_url.clone().into());
     }
+    let almanac_date = NaiveDate::from_ymd_opt(year, month, selected_day)
+        .unwrap_or_else(|| Local::now().date_naive());
+    let almanac_info = almanac::describe(almanac_date);
     ui.set_almanac_text(
         format!(
-            "{}\n农历：{}\n日柱：{}日",
+            "{}\n{}\n{}\n宜  {}\n忌  {}\n{}\n传统民俗仅供生活参考",
             selected_date_text,
-            lunar::full_text(
-                NaiveDate::from_ymd_opt(year, month, selected_day)
-                    .unwrap_or_else(|| Local::now().date_naive())
-            ),
-            almanac::day_ganzhi(
-                NaiveDate::from_ymd_opt(year, month, selected_day)
-                    .unwrap_or_else(|| Local::now().date_naive())
-            )
+            almanac_info.lunar_full_text,
+            almanac_info.day_meta,
+            almanac_info.suitable,
+            almanac_info.avoid,
+            almanac_info.clash,
         )
         .into(),
     );

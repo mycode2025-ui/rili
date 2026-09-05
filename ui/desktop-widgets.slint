@@ -869,6 +869,7 @@ export component NotesWidgetWindow inherits Window {
     in-out property <string> note-title: "";
     in-out property <string> note-content: "";
     in-out property <bool> editing-dirty: false;
+    private property <bool> editing-active: title-input.has-focus || content-input.has-focus;
     in-out property <string> save-status: "";
     in-out property <bool> pinned: false;
     in-out property <bool> locked: false;
@@ -881,13 +882,16 @@ export component NotesWidgetWindow inherits Window {
     callback delete-note(int);
     callback begin-window-resize();
     callback end-window-resize();
+    changed editing-active => {
+        if (!root.editing-active) { root.editing-dirty = false; }
+    }
 
     DesktopCard {
         width: parent.width;
         height: parent.height;
         CardTitle {
             x: 14px; y: 12px; width: parent.width - 28px;
-            title: root.note-title == "" ? "新便签" : root.note-title;
+            title: "便签";
             icon: Icons.note;
             pinned: root.pinned;
             show-add: true;
@@ -898,56 +902,153 @@ export component NotesWidgetWindow inherits Window {
             pin-clicked => { root.pinned = !root.pinned; root.pin-changed(root.pinned); }
             settings-clicked => { root.open-widget-settings("notes"); }
         }
-        Rectangle {
-            x: 14px; y: 48px; width: parent.width - 28px; height: 34px;
-            border-radius: Theme.r-md; border-width: 1px;
-            border-color: title-input.has-focus ? Theme.widget-accent : Theme.widget-glass-border;
-            background: Theme.bg-surface-2;
-            Text { x: 10px; width: parent.width - 20px; height: parent.height; visible: root.note-title == ""; text: "便签标题"; color: Theme.widget-text-3; font-size: Theme.font-11-5; vertical-alignment: center; }
-            title-input := TextInput {
-                x: 10px; width: parent.width - 20px; height: parent.height;
-                text <=> root.note-title; color: Theme.widget-text-1; font-size: Theme.font-12; font-weight: 600;
-                vertical-alignment: center; selection-foreground-color: Theme.widget-on-accent; selection-background-color: Theme.widget-accent;
-                edited => { root.editing-dirty = true; root.save-status = ""; }
+        Text { x: 18px; y: 50px; width: parent.width - 118px; height: 32px; visible: root.note-title == ""; text: "无标题便签"; color: Theme.widget-text-3; font-size: Theme.font-13; font-weight: 600; vertical-alignment: center; }
+        title-input := TextInput {
+            x: 18px; y: 50px; width: parent.width - 118px; height: 32px;
+            text <=> root.note-title; color: Theme.widget-text-1; font-size: Theme.font-13; font-weight: 650;
+            vertical-alignment: center; selection-foreground-color: Theme.widget-on-accent; selection-background-color: Theme.widget-accent;
+            edited => {
+                root.save-note(root.note-id, root.note-title, root.note-content);
+                root.editing-dirty = true;
+                root.save-status = "已自动保存";
             }
         }
         Rectangle {
-            x: 14px; y: 90px; width: parent.width - 28px; height: parent.height - 142px;
-            border-radius: Theme.r-md; border-width: 1px;
-            border-color: content-input.has-focus ? Theme.widget-accent : Theme.widget-glass-border;
-            background: Theme.bg-surface-2;
-            Text { x: 10px; y: 8px; width: parent.width - 20px; visible: root.note-content == ""; text: "在这里输入便签正文…"; color: Theme.widget-text-3; font-size: Theme.font-11; }
-            content-input := TextInput {
-                x: 10px; y: 8px; width: parent.width - 20px; height: parent.height - 16px;
-                text <=> root.note-content; color: Theme.widget-text-1; font-size: Theme.font-12; wrap: word-wrap;
-                selection-foreground-color: Theme.widget-on-accent; selection-background-color: Theme.widget-accent;
-                edited => { root.editing-dirty = true; root.save-status = ""; }
+            x: parent.width - 94px; y: 55px; width: 76px; height: 24px; border-radius: 12px; background: Theme.widget-accent-bg;
+            HorizontalLayout { alignment: center; spacing: 4px; cross-axis-alignment: center;
+                SvgIcon { source: Icons.tag; size: 12px; tint: Theme.widget-accent; }
+                Text { text: "无标签"; color: Theme.widget-accent; font-size: Theme.font-10; vertical-alignment: center; }
             }
         }
+        Rectangle { x: 18px; y: 84px; width: parent.width - 36px; height: 1px; background: title-input.has-focus ? Theme.widget-accent : Theme.widget-glass-border; }
+        Text { x: 18px; y: 98px; width: parent.width - 36px; visible: root.note-content == ""; text: "开始记录想法、清单或会议要点…"; color: Theme.widget-text-3; font-size: Theme.font-12; }
+        content-input := TextInput {
+            x: 18px; y: 94px; width: parent.width - 36px; height: parent.height - 142px;
+            text <=> root.note-content; color: Theme.widget-text-1; font-size: Theme.font-12; single-line: false; wrap: word-wrap;
+            selection-foreground-color: Theme.widget-on-accent; selection-background-color: Theme.widget-accent;
+            edited => {
+                root.save-note(root.note-id, root.note-title, root.note-content);
+                root.editing-dirty = true;
+                root.save-status = "已自动保存";
+            }
+        }
+        Rectangle { x: 14px; y: parent.height - 48px; width: parent.width - 28px; height: 1px; background: Theme.widget-glass-border; }
         Text {
-            x: 16px; y: parent.height - 39px; width: parent.width - 112px; height: 26px;
-            text: root.save-status != "" ? root.save-status : (root.editing-dirty ? "有未保存的修改" : "已保存");
-            color: root.editing-dirty ? Theme.widget-danger : Theme.widget-text-3;
+            x: 18px; y: parent.height - 40px; width: parent.width - 36px; height: 26px;
+            text: root.save-status != "" ? root.save-status : "内容实时保存";
+            color: Theme.widget-text-3;
             font-size: Theme.font-10-5; vertical-alignment: center;
-        }
-        Rectangle {
-            x: parent.width - 86px; y: parent.height - 41px; width: 72px; height: 30px;
-            border-radius: Theme.r-md;
-            background: root.editing-dirty ? Theme.widget-accent : Theme.widget-row;
-            Text { text: "保存内容"; color: root.editing-dirty ? Theme.widget-on-accent : Theme.widget-text-3; font-size: Theme.font-11; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
-            save-touch := TouchArea {
-                enabled: root.editing-dirty;
-                mouse-cursor: root.editing-dirty ? pointer : default;
-                clicked => {
-                    if root.editing-dirty {
-                        root.save-note(root.note-id, root.note-title, root.note-content);
-                        root.editing-dirty = false;
-                        root.save-status = "已保存";
-                    }
-                }
-            }
         }
     }
     WindowDragStrip { x: 14px; y: 12px; width: parent.width - 138px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+    WindowResizeGrip { visible: !root.locked; x: parent.width - self.width; y: parent.height - self.height; resize-requested => { root.begin-window-resize(); } resize-finished => { root.end-window-resize(); } }
+}
+
+export component DailyQuoteWidgetWindow inherits Window {
+    title: "TimeHub 每日一言";
+    default-font-family: Theme.font-family;
+    icon: Icons.app-logo;
+    preferred-width: 304px;
+    preferred-height: 190px;
+    min-width: 260px; min-height: 160px; max-width: 760px; max-height: 520px;
+    no-frame: true;
+    always-on-top: pinned;
+    background: transparent;
+
+    in property <string> quote-text: "认真完成眼前的一步，时间会让答案逐渐清晰。";
+    in-out property <bool> pinned: false;
+    in-out property <bool> locked: false;
+    callback begin-window-drag();
+    callback end-window-drag();
+    callback pin-changed(bool);
+    callback remove-widget();
+    callback open-widget-settings(string);
+    callback begin-window-resize();
+    callback end-window-resize();
+
+    DesktopCard {
+        width: parent.width; height: parent.height;
+        CardTitle {
+            x: 14px; y: 12px; width: parent.width - 28px;
+            title: "每日一言"; icon: Icons.spark; pinned: root.pinned; show-remove: true;
+            drag-requested => { root.begin-window-drag(); }
+            remove-clicked => { root.remove-widget(); }
+            pin-clicked => { root.pinned = !root.pinned; root.pin-changed(root.pinned); }
+            settings-clicked => { root.open-widget-settings("quote"); }
+        }
+        Text {
+            x: 22px; y: 50px; width: parent.width - 44px; height: parent.height - 68px;
+            text: "“" + root.quote-text + "”";
+            color: Theme.widget-text-1; font-size: Theme.font-15; font-weight: 500;
+            wrap: word-wrap; vertical-alignment: center; horizontal-alignment: left;
+        }
+    }
+    WindowDragStrip { x: 14px; y: 12px; width: parent.width - 110px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+    WindowResizeGrip { visible: !root.locked; x: parent.width - self.width; y: parent.height - self.height; resize-requested => { root.begin-window-resize(); } resize-finished => { root.end-window-resize(); } }
+}
+
+export component AlmanacWidgetWindow inherits Window {
+    title: "TimeHub 黄历";
+    default-font-family: Theme.font-family;
+    icon: Icons.app-logo;
+    preferred-width: 320px;
+    preferred-height: 280px;
+    min-width: 280px; min-height: 280px; max-width: 900px; max-height: 760px;
+    no-frame: true;
+    always-on-top: pinned;
+    background: transparent;
+
+    in property <string> date-text: "2026年9月4日 星期五";
+    in property <string> lunar-text: "农历七月廿三";
+    in property <string> day-meta: "丙申日 · 建日 · 天刑黑道";
+    in property <string> suitable-text: "出行 · 会友 · 纳财 · 立券";
+    in property <string> avoid-text: "动土 · 安葬";
+    in property <string> clash-text: "冲虎 · 煞南";
+    in-out property <bool> pinned: false;
+    in-out property <bool> locked: false;
+    callback begin-window-drag();
+    callback end-window-drag();
+    callback pin-changed(bool);
+    callback remove-widget();
+    callback open-widget-settings(string);
+    callback begin-window-resize();
+    callback end-window-resize();
+
+    DesktopCard {
+        width: parent.width; height: parent.height;
+        CardTitle {
+            x: 14px; y: 12px; width: parent.width - 28px;
+            title: "今日黄历"; icon: Icons.calendar; pinned: root.pinned; show-remove: true;
+            drag-requested => { root.begin-window-drag(); }
+            remove-clicked => { root.remove-widget(); }
+            pin-clicked => { root.pinned = !root.pinned; root.pin-changed(root.pinned); }
+            settings-clicked => { root.open-widget-settings("almanac"); }
+        }
+        VerticalLayout {
+            x: 18px; y: 48px; width: parent.width - 36px; height: parent.height - 62px;
+            spacing: 8px;
+            Text { text: root.date-text; color: Theme.widget-text-1; font-size: Theme.font-13; font-weight: 700; overflow: elide; }
+            Text { text: root.lunar-text; color: Theme.widget-text-2; font-size: Theme.font-11; overflow: elide; }
+            Text { text: root.day-meta; color: Theme.widget-accent; font-size: Theme.font-11; overflow: elide; }
+            Rectangle { height: 1px; background: Theme.widget-glass-border; }
+            HorizontalLayout {
+                min-height: 54px; spacing: 8px;
+                Rectangle { width: 30px; height: 30px; border-radius: 15px; background: Theme.success-bg;
+                    Text { text: "宜"; color: Theme.widget-success; font-size: Theme.font-12; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+                }
+                Text { text: root.suitable-text; color: Theme.widget-text-1; font-size: Theme.font-11; wrap: word-wrap; vertical-alignment: center; horizontal-stretch: 1; }
+            }
+            HorizontalLayout {
+                min-height: 54px; spacing: 8px;
+                Rectangle { width: 30px; height: 30px; border-radius: 15px; background: Theme.danger-bg;
+                    Text { text: "忌"; color: Theme.widget-danger; font-size: Theme.font-12; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+                }
+                Text { text: root.avoid-text; color: Theme.widget-text-1; font-size: Theme.font-11; wrap: word-wrap; vertical-alignment: center; horizontal-stretch: 1; }
+            }
+            Rectangle { vertical-stretch: 1; }
+            Text { text: root.clash-text + " · 传统民俗仅供生活参考"; color: Theme.widget-text-3; font-size: Theme.font-10-5; overflow: elide; }
+        }
+    }
+    WindowDragStrip { x: 14px; y: 12px; width: parent.width - 110px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
     WindowResizeGrip { visible: !root.locked; x: parent.width - self.width; y: parent.height - self.height; resize-requested => { root.begin-window-resize(); } resize-finished => { root.end-window-resize(); } }
 }

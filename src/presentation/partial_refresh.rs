@@ -56,6 +56,8 @@ pub(crate) fn refresh_todos(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<Re
     };
 
     ui.set_todos_for_day(ModelRc::new(VecModel::from(selected)));
+    ui.set_today_todo_completed_count(today_items.iter().filter(|item| item.done).count() as i32);
+    ui.set_today_todo_count(today_items.len() as i32);
     ui.set_board_todo_items(ModelRc::new(VecModel::from(todo)));
     ui.set_board_doing_items(ModelRc::new(VecModel::from(doing)));
     ui.set_board_done_items(ModelRc::new(VecModel::from(done)));
@@ -153,9 +155,16 @@ pub(crate) fn refresh_subscriptions(ui: &AppWindow, state: &Rc<RefCell<AppState>
         .unwrap_or_default()
         .into_iter()
         .map(|subscription| {
+            let (calendar_name, event_count) =
+                db::subscription_summary(&state.borrow().conn, subscription.id).unwrap_or_default();
+            let last_sync = subscription.last_sync.clone().unwrap_or_default();
+            let server_label = url::Url::parse(&subscription.url)
+                .ok()
+                .and_then(|u| u.host_str().map(str::to_owned))
+                .unwrap_or_else(|| "服务器".into());
             let has_error = subscription.last_error.is_some();
             let (status, detail) = if let Some(error) = subscription.last_error {
-                ("同步失败".to_string(), error)
+                ("同步失败".to_string(), integrations::safe_error(&error))
             } else if let Some(last_sync) = subscription.last_sync {
                 ("已同步".to_string(), format!("上次同步 {last_sync}"))
             } else {
@@ -164,12 +173,35 @@ pub(crate) fn refresh_subscriptions(ui: &AppWindow, state: &Rc<RefCell<AppState>
             SubscriptionItem {
                 id: subscription.id as i32,
                 name: subscription.name.into(),
+                kind: subscription.source_type.into(),
                 status: status.into(),
                 detail: detail.into(),
                 has_error,
+                calendar_name: calendar_name.into(),
+                event_count,
+                last_sync: last_sync.into(),
+                server_label: server_label.into(),
             }
         })
         .collect::<Vec<_>>();
+    let failures = items.iter().filter(|item| item.has_error).count();
+    let pending = items
+        .iter()
+        .filter(|item| item.last_sync.is_empty() && !item.has_error)
+        .count();
+    ui.set_status_has_error(failures > 0);
+    ui.set_status_left_text(
+        if items.is_empty() {
+            "本地模式".to_string()
+        } else if failures > 0 {
+            format!("{} 个连接同步失败 · 工具中可查看详情", failures)
+        } else if pending > 0 {
+            format!("{} 个连接待同步", pending)
+        } else {
+            format!("{} 个连接最近同步成功", items.len())
+        }
+        .into(),
+    );
     ui.set_subscriptions(ModelRc::new(VecModel::from(items)));
 }
 

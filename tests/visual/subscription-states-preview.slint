@@ -1,0 +1,23 @@
+import { SubscriptionCard, SubscriptionItem } from "../../ui/subscription-card.slint";
+import { Theme } from "../../ui/theme.slint";
+import { Palette } from "std-widgets.slint";
+
+export component SubscriptionStatesPreview inherits Window {
+    width: 480px; height: 940px;
+    background: Theme.bg-app;
+    init => { Theme.theme-mode = 2; Palette.color-scheme = ColorScheme.dark; }
+    private property <SubscriptionItem> sample: {
+        id: 1, name: "团队工作日历与跨部门会议", kind: "caldav",
+        status: "同步失败", has-error: true,
+        calendar-name: "跨部门项目工作日历", event-count: 128,
+        last-sync: "2026-09-05 09:00:00", server-label: "calendar.example.com",
+        detail: "无法连接日历服务器。请检查网络连接及专用账号是否有效，再点击同步重试。上次成功同步的数据仍保留在本地。"
+    };
+    VerticalLayout {
+        padding: 12px; spacing: 12px;
+        SubscriptionCard { item: root.sample; expanded: true; }
+        SubscriptionCard { item: root.sample; editing: true; }
+        SubscriptionCard { item: root.sample; confirming: true; }
+        Rectangle { vertical-stretch: 1; }
+    }
+}

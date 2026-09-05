@@ -1,0 +1,66 @@
+import { ToolsView, SubscriptionItem } from "../../ui/tools-view.slint";
+import { Theme } from "../../ui/design-system.slint";
+import { Palette } from "std-widgets.slint";
+
+export component ToolsDingTalkPreview inherits Window {
+    width: 1280px;
+    height: 2300px;
+    in property <bool> dark: false;
+    init => {
+        Theme.theme-mode = root.dark ? 2 : 1;
+        Palette.color-scheme = root.dark ? ColorScheme.dark : ColorScheme.light;
+    }
+    changed dark => {
+        Theme.theme-mode = root.dark ? 2 : 1;
+        Palette.color-scheme = root.dark ? ColorScheme.dark : ColorScheme.light;
+    }
+
+    ToolsView {
+        width: 100%;
+        height: 100%;
+        date-start: "2026-09-04";
+        date-end: "2026-10-01";
+        date-offset: "10";
+        calculator-result: "相隔 27 个自然日";
+        almanac-text: "2026-09-04 星期五\n农历七月廿三 · 丙午年 丙申月 辛巳日\n宜 嫁娶 · 订盟 · 纳采 · 作灶 · 冠笄 · 裁衣 · 会亲友\n忌 掘井 · 出行 · 破土 · 行丧 · 安葬\n冲猪 · 煞东";
+        stopwatch-text: "00:12:48";
+        pomodoro-text: "24:35";
+        time-progress-text: "2026 年第 247 天 · 第 36 周";
+        world-clock-text: "北京 16:16 · 伦敦 09:16 · 纽约 04:16";
+        weather-city: "高碑店";
+        weather-status: "高碑店 30°C 大致晴朗 · 已更新 2026-09-04 16:16 · MET Norway";
+        weather-city-search-status: "找到 2 个地点，请选择具体地区";
+        weather-city-candidates: [
+            { id: 0, label: "高碑店 · 保定市 · 河北省 · 中国" },
+            { id: 1, label: "高碑店 · 北京市 · 中国" },
+        ];
+        ai-input: "明天下午两点和供应商开会，提前一天提醒我";
+        ai-draft: "已识别日期、时间、标题与提醒设置";
+        ai-draft-title: "与供应商开会";
+        ai-draft-date: "2026-09-05";
+        ai-draft-time: "14:00";
+        ai-draft-reminder: "1440";
+        expanded-provider: "dingtalk";
+        integration-status: "钉钉日历连接成功：同步 12 条会议，清理 1 条已取消会议";
+        subscriptions: [
+            {
+                id: 2,
+                calendar-name: "钉钉会议", event-count: 12, last-sync: "2026-09-04 10:38:16", server-label: "calendar.dingtalk.com",
+                name: "钉钉日历",
+                kind: "caldav",
+                status: "已同步",
+                detail: "上次同步 2026-09-04 10:38:16",
+                has-error: false,
+            },
+            {
+                id: 1,
+                calendar-name: "工作", event-count: 28, last-sync: "2026-09-04 10:30:00", server-label: "outlook.office365.com",
+                name: "Outlook",
+                kind: "ics",
+                status: "已同步",
+                detail: "上次同步 2026-09-04 10:30:00",
+                has-error: false,
+            },
+        ];
+    }
+}

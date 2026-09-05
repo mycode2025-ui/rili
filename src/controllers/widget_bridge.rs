@@ -113,6 +113,8 @@ pub(crate) fn register_widget_bridge_callbacks(
                     "weather" => "天气".to_string(),
                     "focus" => "专注计时".to_string(),
                     "todo" => "今日待办".to_string(),
+                    "quote" => "每日一言".to_string(),
+                    "almanac" => "今日黄历".to_string(),
                     value if value.starts_with("note_") => {
                         format!("便签 #{}", value.trim_start_matches("note_"))
                     }

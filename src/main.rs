@@ -256,6 +256,8 @@ fn run_gui(startup: bool) -> Result<()> {
         focus: db::get_setting(&state.borrow().conn, "widget_focus_visible", "1")? == "1",
         todo: db::get_setting(&state.borrow().conn, "widget_todo_visible", "1")? == "1",
         notes: db::get_setting(&state.borrow().conn, "widget_notes_visible", "1")? == "1",
+        quote: db::get_setting(&state.borrow().conn, "widget_quote_visible", "0")? == "1",
+        almanac: db::get_setting(&state.borrow().conn, "widget_almanac_visible", "0")? == "1",
     }));
     let desktop_click_through = Rc::new(Cell::new(
         db::get_setting(&state.borrow().conn, "desktop_widgets_click_through", "0")? == "1",
@@ -287,6 +289,10 @@ fn run_gui(startup: bool) -> Result<()> {
         restore_widget_window_size(&desktop_widgets.focus, &state.conn, "focus");
         restore_widget_window(&desktop_widgets.todo, &state.conn, "todo", 1144, 502);
         restore_widget_window_size(&desktop_widgets.todo, &state.conn, "todo");
+        restore_widget_window(&desktop_widgets.quote, &state.conn, "quote", 616, 740);
+        restore_widget_window_size(&desktop_widgets.quote, &state.conn, "quote");
+        restore_widget_window(&desktop_widgets.almanac, &state.conn, "almanac", 1144, 740);
+        restore_widget_window_size(&desktop_widgets.almanac, &state.conn, "almanac");
         // The quick panel is a taskbar flyout, not a freely positioned desktop
         // widget. Always start at the taskbar corner and never restore a stale
         // user-dragged position from older builds.
@@ -344,6 +350,20 @@ fn run_gui(startup: bool) -> Result<()> {
                 if widget_pinned { "1" } else { "0" },
             )? == "1",
         );
+        desktop_widgets.quote.set_pinned(
+            db::get_setting(
+                &state.conn,
+                "widget_quote_pinned",
+                if widget_pinned { "1" } else { "0" },
+            )? == "1",
+        );
+        desktop_widgets.almanac.set_pinned(
+            db::get_setting(
+                &state.conn,
+                "widget_almanac_pinned",
+                if widget_pinned { "1" } else { "0" },
+            )? == "1",
+        );
         macro_rules! restore_card_lock {
             ($window:expr, $instance:literal) => {
                 $window.set_locked(
@@ -362,6 +382,8 @@ fn run_gui(startup: bool) -> Result<()> {
         restore_card_lock!(desktop_widgets.weather, "weather:1");
         restore_card_lock!(desktop_widgets.focus, "focus:1");
         restore_card_lock!(desktop_widgets.todo, "todo:1");
+        restore_card_lock!(desktop_widgets.quote, "quote:1");
+        restore_card_lock!(desktop_widgets.almanac, "almanac:1");
     }
     DESKTOP_WIDGET_WINDOWS.with(|slot| {
         *slot.borrow_mut() = Some(desktop_widgets.clone());

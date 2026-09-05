@@ -10,7 +10,7 @@
 
 use crate::recurrence::RepeatRule;
 use anyhow::{Context, Result};
-use chrono::{NaiveDate, NaiveTime};
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 
 /// 星期几从我们内部编码（0=周一..6=周日）转成 RFC 5545 的两字母代码。
 fn weekday_code(w: u8) -> &'static str {
@@ -50,21 +50,28 @@ fn repeat_rule_to_rrule(rule: &RepeatRule) -> Option<String> {
     }
 }
 
-/// 反过来把 RRULE 值解析回内部重复规则；只处理 FREQ + 可选单个 BYDAY，
-/// 遇到不认识的组合（INTERVAL!=1、COUNT、UNTIL、多重 BYRULE 等）一律退化为不重复，
-/// 这样至少"这一次"的日程能正确导入，不会整条丢失或程序崩溃。
-fn rrule_to_repeat_rule(rrule: &str) -> RepeatRule {
+/// 反过来把 RRULE 值解析回内部重复规则，并保留 UNTIL 截止日。
+/// COUNT 和非 1 的 INTERVAL 暂不展开，安全退化为单次事件，避免制造无限重复。
+fn parse_rrule(rrule: &str) -> (RepeatRule, Option<NaiveDate>) {
     let mut freq = None;
     let mut byday: Option<&str> = None;
+    let mut until = None;
+    let mut unsupported = false;
     for part in rrule.split(';') {
         let mut kv = part.splitn(2, '=');
         match (kv.next(), kv.next()) {
             (Some("FREQ"), Some(v)) => freq = Some(v),
             (Some("BYDAY"), Some(v)) => byday = Some(v),
+            (Some("UNTIL"), Some(v)) => until = parse_rrule_until(v),
+            (Some("COUNT"), Some(_)) => unsupported = true,
+            (Some("INTERVAL"), Some(v)) if v != "1" => unsupported = true,
             _ => {}
         }
     }
-    match (freq, byday) {
+    if unsupported {
+        return (RepeatRule::None, None);
+    }
+    let rule = match (freq, byday) {
         (Some("DAILY"), _) => RepeatRule::Daily,
         (Some("WEEKLY"), Some(days)) => {
             let parsed: Vec<u8> = days.split(',').filter_map(weekday_from_code).collect();
@@ -89,7 +96,19 @@ fn rrule_to_repeat_rule(rrule: &str) -> RepeatRule {
         (Some("MONTHLY"), None) => RepeatRule::Monthly,
         (Some("YEARLY"), _) => RepeatRule::Yearly,
         _ => RepeatRule::None,
+    };
+    (rule, until)
+}
+
+fn parse_rrule_until(value: &str) -> Option<NaiveDate> {
+    let digits: String = value.chars().filter(|c| c.is_ascii_digit()).collect();
+    if digits.len() >= 14 && value.ends_with('Z') {
+        let utc = NaiveDateTime::parse_from_str(&digits[..14], "%Y%m%d%H%M%S").ok()?;
+        return Some((utc + chrono::Duration::hours(8)).date());
     }
+    (digits.len() >= 8)
+        .then(|| NaiveDate::parse_from_str(&digits[..8], "%Y%m%d").ok())
+        .flatten()
 }
 
 /// 一条要导出的日程（已经是"基准记录"，不是展开后的每次发生；重复规则由 RRULE 表达）。
@@ -168,7 +187,15 @@ pub struct ImportedEvent {
     pub date: NaiveDate,
     pub time: Option<String>,
     pub note: String,
+    /// 会议地点（若来源提供 LOCATION）。
+    pub location: String,
+    /// 在线会议入口（若来源提供 URL）。
+    pub url: String,
+    /// 由 DTSTART/DTEND 或 DURATION 推导出的时长；缺失时保持 60 分钟。
+    pub duration_minutes: i64,
     pub repeat_rule: RepeatRule,
+    /// RRULE 的 UNTIL（含当天）；用于阻止已结束的外部周期事件无限延伸。
+    pub repeat_until: Option<NaiveDate>,
     /// RFC 5545 的 STATUS:CANCELLED，或 Outlook 导出时使用的“已取消:”标题。
     pub cancelled: bool,
 }
@@ -193,8 +220,14 @@ pub fn parse_ics(content: &str) -> Result<Vec<ImportedEvent>> {
     let mut date: Option<NaiveDate> = None;
     let mut time: Option<String> = None;
     let mut note = String::new();
+    let mut location = String::new();
+    let mut url = String::new();
     let mut repeat_rule = RepeatRule::None;
+    let mut repeat_until = None;
     let mut cancelled = false;
+    let mut start: Option<NaiveDateTime> = None;
+    let mut end: Option<NaiveDateTime> = None;
+    let mut explicit_duration: Option<i64> = None;
 
     for line in unfolded.lines() {
         let line = line.trim_end_matches('\r');
@@ -205,8 +238,14 @@ pub fn parse_ics(content: &str) -> Result<Vec<ImportedEvent>> {
             date = None;
             time = None;
             note.clear();
+            location.clear();
+            url.clear();
             repeat_rule = RepeatRule::None;
+            repeat_until = None;
             cancelled = false;
+            start = None;
+            end = None;
+            explicit_duration = None;
             continue;
         }
         if line == "END:VEVENT" {
@@ -218,7 +257,17 @@ pub fn parse_ics(content: &str) -> Result<Vec<ImportedEvent>> {
                         date: d,
                         time: time.clone(),
                         note: note.clone(),
+                        location: location.clone(),
+                        url: url.clone(),
+                        duration_minutes: explicit_duration
+                            .or_else(|| {
+                                end.zip(start)
+                                    .map(|(end, start)| (end - start).num_minutes())
+                            })
+                            .filter(|minutes| *minutes > 0)
+                            .unwrap_or(60),
                         repeat_rule: repeat_rule.clone(),
+                        repeat_until,
                         cancelled: cancelled || title_marks_cancelled(&summary),
                     });
                 }
@@ -238,31 +287,68 @@ pub fn parse_ics(content: &str) -> Result<Vec<ImportedEvent>> {
             "UID" => uid = unescape_text(value),
             "SUMMARY" => summary = unescape_text(value),
             "DESCRIPTION" => note = unescape_text(value),
-            "RRULE" => repeat_rule = rrule_to_repeat_rule(value),
+            "LOCATION" => location = unescape_text(value),
+            "URL" => url = unescape_text(value),
+            "DURATION" => explicit_duration = parse_duration_minutes(value),
+            "RRULE" => {
+                (repeat_rule, repeat_until) = parse_rrule(value);
+            }
             "STATUS" => cancelled = value.eq_ignore_ascii_case("CANCELLED"),
             "DTSTART" => {
-                let digits: String = value.chars().take_while(|c| c.is_ascii_digit()).collect();
-                if digits.len() >= 8 {
-                    date = NaiveDate::parse_from_str(&digits[0..8], "%Y%m%d").ok();
-                }
-                if let Some(t_idx) = value.find('T') {
-                    let digits: String = value[t_idx + 1..]
-                        .chars()
-                        .take_while(|c| c.is_ascii_digit())
-                        .take(4)
-                        .collect();
-                    if digits.len() == 4 {
-                        let candidate = format!("{}:{}", &digits[0..2], &digits[2..4]);
-                        if NaiveTime::parse_from_str(&candidate, "%H:%M").is_ok() {
-                            time = Some(candidate);
-                        }
-                    }
+                if let Some((parsed_date, parsed_time, parsed_start)) = parse_ics_datetime(value) {
+                    date = Some(parsed_date);
+                    time = parsed_time;
+                    start = parsed_start;
                 }
             }
+            "DTEND" => end = parse_ics_datetime(value).and_then(|(_, _, value)| value),
             _ => {}
         }
     }
     Ok(events)
+}
+
+fn parse_ics_datetime(value: &str) -> Option<(NaiveDate, Option<String>, Option<NaiveDateTime>)> {
+    let digits: String = value
+        .chars()
+        .filter(|c| c.is_ascii_digit())
+        .take(14)
+        .collect();
+    if digits.len() < 8 {
+        return None;
+    }
+    let date = NaiveDate::parse_from_str(&digits[0..8], "%Y%m%d").ok()?;
+    if !value.contains('T') || digits.len() < 12 {
+        return Some((date, None, None));
+    }
+    let candidate = format!("{}:{}", &digits[8..10], &digits[10..12]);
+    let Ok(parsed_time) = NaiveTime::parse_from_str(&candidate, "%H:%M") else {
+        return Some((date, None, None));
+    };
+    Some((date, Some(candidate), Some(date.and_time(parsed_time))))
+}
+
+/// 解析会议导出常见的 ISO 8601 时长，如 PT45M、PT1H30M。
+fn parse_duration_minutes(value: &str) -> Option<i64> {
+    let value = value.trim().strip_prefix('P')?;
+    let time = value.strip_prefix('T')?;
+    let mut number = String::new();
+    let mut minutes = 0i64;
+    for ch in time.chars() {
+        if ch.is_ascii_digit() {
+            number.push(ch);
+            continue;
+        }
+        let amount = number.parse::<i64>().ok()?;
+        number.clear();
+        match ch {
+            'H' => minutes += amount * 60,
+            'M' => minutes += amount,
+            'S' => minutes += (amount > 0) as i64,
+            _ => return None,
+        }
+    }
+    (minutes > 0).then_some(minutes)
 }
 
 /// RFC 5545 行折叠的反向操作：延续行以单个空格或 Tab 开头，要拼接到上一行末尾（去掉这个前导空白）。
@@ -292,6 +378,26 @@ pub fn parse_ics_file(path: &std::path::Path) -> Result<Vec<ImportedEvent>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn imports_recurrence_until_without_creating_an_infinite_series() {
+        let content = concat!(
+            "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:bounded-weekly\r\n",
+            "DTSTART;TZID=China Standard Time:20250904T100000\r\n",
+            "RRULE:FREQ=WEEKLY;UNTIL=20250904T020000Z;INTERVAL=1;BYDAY=TH;WKST=MO\r\n",
+            "SUMMARY:网络维护\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+        );
+        let event = parse_ics(content).unwrap().remove(0);
+        assert_eq!(event.repeat_rule, RepeatRule::WeeklyOn(vec![3]));
+        assert_eq!(event.repeat_until, NaiveDate::from_ymd_opt(2025, 9, 4));
+    }
+
+    #[test]
+    fn unsupported_recurrence_count_does_not_repeat_forever() {
+        let (rule, until) = parse_rrule("FREQ=WEEKLY;COUNT=4;BYDAY=MO");
+        assert_eq!(rule, RepeatRule::None);
+        assert_eq!(until, None);
+    }
 
     #[test]
     fn recognizes_standard_and_outlook_cancelled_events() {
@@ -339,5 +445,31 @@ mod tests {
         let events = parse_ics(content).unwrap();
         assert_eq!(events[0].title, "项目,周会");
         assert_eq!(events[0].note, "第一行\n第二行");
+    }
+
+    #[test]
+    fn imports_meeting_duration_location_and_join_url() {
+        let content = concat!(
+            "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:ding-meeting-1\r\n",
+            "DTSTART;TZID=Asia/Shanghai:20260905T093000\r\n",
+            "DTEND;TZID=Asia/Shanghai:20260905T110000\r\n",
+            "SUMMARY:钉钉项目会\r\nLOCATION:三楼会议室\r\n",
+            "URL:https://meeting.dingtalk.com/example\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+        );
+        let event = parse_ics(content).unwrap().remove(0);
+        assert_eq!(event.time.as_deref(), Some("09:30"));
+        assert_eq!(event.duration_minutes, 90);
+        assert_eq!(event.location, "三楼会议室");
+        assert_eq!(event.url, "https://meeting.dingtalk.com/example");
+    }
+
+    #[test]
+    fn imports_explicit_meeting_duration() {
+        let content = concat!(
+            "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:ding-meeting-2\r\n",
+            "DTSTART:20260905T093000\r\nDURATION:PT1H15M\r\n",
+            "SUMMARY:钉钉培训\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+        );
+        assert_eq!(parse_ics(content).unwrap()[0].duration_minutes, 75);
     }
 }

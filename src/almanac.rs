@@ -1,15 +1,16 @@
-//! 老黄历（简化版）：年柱干支/生肖复用 `chinese-lunisolar-calendar`，
-//! 日柱干支用公开的"日期差"算法自行计算，并用两个可查证的参考日期校验过：
+//! 老黄历：年柱干支/生肖复用 `chinese-lunisolar-calendar`，传统宜忌、值星、
+//! 天神与冲煞来自开源 `lunar_rust` 数据表，日柱干支则用公开的日期差算法计算。
+//! 日柱算法用两个可查证的参考日期校验过：
 //! - 2024-01-01 = 甲子日
 //! - 2000-01-01 = 戊午日
 //!
 //! （来源：多个黄历网站一致记载，交叉验证过算法正确性，而不是凭一个未经验证的基准日直接假设。）
 //!
-//! 刻意不包含"宜/忌""吉凶时辰"等内容：这类信息来自各家黄历的择日经验规则，
-//! 没有统一的算法标准，通常依赖某一版本黄历的既定数据表，我们不采集、也不编造这类数据，
-//! 只提供可通过公开算法验证、结果确定的干支/生肖信息。
+//! 宜忌等内容属于传统民俗信息，不作为现实决策建议；界面会明确标注这一点。
 
+use chrono::Datelike;
 use chrono::NaiveDate;
+use lunar_rust::{lunar::LunarRefHelper, solar, solar::SolarRefHelper};
 
 const HEAVENLY_STEMS: [&str; 10] = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"];
 const EARTHLY_BRANCHES: [&str; 12] = [
@@ -27,18 +28,46 @@ pub fn day_ganzhi(date: NaiveDate) -> String {
     format!("{stem}{branch}")
 }
 
-/// 老黄历摘要：年柱干支+生肖（复用 `lunar::full_text` 里已有的换算）、日柱干支、农历日期短文本。
+/// 黄历摘要：农历日期、日柱、值星、天神、传统宜忌与冲煞。
 pub struct AlmanacInfo {
     pub solar_date: String,
     pub lunar_full_text: String,
     pub day_ganzhi: String,
+    pub day_meta: String,
+    pub suitable: String,
+    pub avoid: String,
+    pub clash: String,
 }
 
 pub fn describe(date: NaiveDate) -> AlmanacInfo {
+    let solar = solar::from_ymd(date.year() as i64, date.month() as i64, date.day() as i64);
+    let lunar = solar.get_lunar();
+    let suitable = lunar
+        .get_day_yi(None)
+        .into_iter()
+        .take(8)
+        .collect::<Vec<_>>()
+        .join(" · ");
+    let avoid = lunar
+        .get_day_ji(None)
+        .into_iter()
+        .take(8)
+        .collect::<Vec<_>>()
+        .join(" · ");
     AlmanacInfo {
         solar_date: date.to_string(),
         lunar_full_text: crate::lunar::full_text(date),
         day_ganzhi: day_ganzhi(date),
+        day_meta: format!(
+            "{}日 · {} · {}{}",
+            lunar.get_day_in_gan_zhi(),
+            lunar.get_zhi_xing(),
+            lunar.get_day_tian_shen(),
+            lunar.get_day_tian_shen_luck()
+        ),
+        suitable,
+        avoid,
+        clash: format!("冲{} · 煞{}", lunar.get_chong_sheng_xiao(), lunar.get_sha()),
     }
 }
 
@@ -56,5 +85,15 @@ mod tests {
             day_ganzhi(NaiveDate::from_ymd_opt(2000, 1, 1).unwrap()),
             "戊午"
         );
+    }
+
+    #[test]
+    fn full_almanac_contains_daily_guidance() {
+        let info = describe(NaiveDate::from_ymd_opt(2026, 9, 4).unwrap());
+        assert!(!info.lunar_full_text.is_empty());
+        assert!(!info.day_meta.is_empty());
+        assert!(!info.suitable.is_empty());
+        assert!(!info.avoid.is_empty());
+        assert!(info.clash.starts_with('冲'));
     }
 }

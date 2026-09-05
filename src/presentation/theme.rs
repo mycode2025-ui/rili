@@ -87,6 +87,8 @@ pub(crate) fn apply_theme(
             apply_widget(windows.weather.global::<Theme>());
             apply_widget(windows.focus.global::<Theme>());
             apply_widget(windows.todo.global::<Theme>());
+            apply_widget(windows.quote.global::<Theme>());
+            apply_widget(windows.almanac.global::<Theme>());
             for window in windows.notes.borrow().iter() {
                 apply_widget(window.global::<Theme>());
             }
@@ -125,6 +127,8 @@ pub(crate) fn apply_visual_theme(
             apply_widget(windows.weather.global::<Theme>());
             apply_widget(windows.focus.global::<Theme>());
             apply_widget(windows.todo.global::<Theme>());
+            apply_widget(windows.quote.global::<Theme>());
+            apply_widget(windows.almanac.global::<Theme>());
             for window in windows.notes.borrow().iter() {
                 apply_widget(window.global::<Theme>());
             }
@@ -165,6 +169,11 @@ pub(crate) fn apply_system_theme(
                 .set_system_dark(system_dark);
             windows.focus.global::<Theme>().set_system_dark(system_dark);
             windows.todo.global::<Theme>().set_system_dark(system_dark);
+            windows.quote.global::<Theme>().set_system_dark(system_dark);
+            windows
+                .almanac
+                .global::<Theme>()
+                .set_system_dark(system_dark);
             for window in windows.notes.borrow().iter() {
                 window.global::<Theme>().set_system_dark(system_dark);
             }
@@ -207,6 +216,8 @@ pub(crate) fn apply_accessibility_preferences(
                 windows.weather.global::<Theme>(),
                 windows.focus.global::<Theme>(),
                 windows.todo.global::<Theme>(),
+                windows.quote.global::<Theme>(),
+                windows.almanac.global::<Theme>(),
             ] {
                 theme.set_font_delta(font_delta);
                 theme.set_density_mode(density);
@@ -257,6 +268,8 @@ pub(crate) fn apply_font_family(
                 windows.weather.global::<Theme>(),
                 windows.focus.global::<Theme>(),
                 windows.todo.global::<Theme>(),
+                windows.quote.global::<Theme>(),
+                windows.almanac.global::<Theme>(),
             ] {
                 theme.set_font_family(family.into());
             }
@@ -304,6 +317,8 @@ fn with_desktop_widget_theme(kind: &str, mut action: impl FnMut(Theme<'_>)) -> b
             "weather" => action(windows.weather.global::<Theme>()),
             "focus" => action(windows.focus.global::<Theme>()),
             "todo" => action(windows.todo.global::<Theme>()),
+            "quote" => action(windows.quote.global::<Theme>()),
+            "almanac" => action(windows.almanac.global::<Theme>()),
             "notes" => {
                 for note in windows.notes.borrow().iter() {
                     action(note.global::<Theme>());
@@ -383,7 +398,7 @@ pub(crate) fn desktop_widget_global_style(conn: &Connection) -> (i32, i32, i32) 
     // Treat the former calendar-scoped values as a one-time-compatible default
     // so users do not see their chosen opacity jump after this model change.
     let legacy_opacity =
-        db::get_setting(conn, "widget_calendar_opacity", "80").unwrap_or_else(|_| "80".to_string());
+        db::get_setting(conn, "widget_calendar_opacity", "92").unwrap_or_else(|_| "92".to_string());
     let legacy_theme =
         db::get_setting(conn, "widget_calendar_theme", "0").unwrap_or_else(|_| "0".to_string());
     let legacy_accent =
@@ -391,7 +406,7 @@ pub(crate) fn desktop_widget_global_style(conn: &Connection) -> (i32, i32, i32) 
     let opacity = db::get_setting(conn, "desktop_widget_opacity", &legacy_opacity)
         .ok()
         .and_then(|value| value.parse().ok())
-        .unwrap_or(80)
+        .unwrap_or(92)
         .clamp(35, 100);
     let theme = db::get_setting(conn, "desktop_widget_theme", &legacy_theme)
         .ok()
@@ -440,6 +455,8 @@ pub(crate) fn apply_all_desktop_widget_styles(conn: &Connection, app_theme: i32,
         "weather:1".to_string(),
         "focus:1".to_string(),
         "todo:1".to_string(),
+        "quote:1".to_string(),
+        "almanac:1".to_string(),
     ];
     DESKTOP_WIDGET_WINDOWS.with(|slot| {
         if let Some(windows) = slot.borrow().as_ref() {

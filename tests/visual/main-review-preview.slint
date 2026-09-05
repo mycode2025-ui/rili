@@ -1,0 +1,29 @@
+import { AppWindow } from "../../ui/app.slint";
+import { Theme } from "../../ui/theme.slint";
+import { Palette } from "std-widgets.slint";
+
+export component MainReviewPreview inherits AppWindow {
+    in property <bool> dark: true;
+    in property <int> preview-mode: 6;
+    width: 960px; height: 640px;
+    view-mode: root.preview-mode;
+    calculator-start: "2026-09-05";
+    calculator-end: "2027-01-01";
+    calculator-offset: "10";
+    calculator-result: "自然日 118 天。仅内置 2026 年节假日；其他年份工作日按周一至周五估算。";
+    weather-city: "高碑店";
+    weather-status: "高碑店 · 保定市 · 河北省 · 中国 26°C 多云 · 2026-09-05 08:00 更新 · MET Norway";
+    stopwatch-text: "00:00:00";
+    pomodoro-text: "25:00";
+    time-progress-text: "今日 35.0% · 本年 67.9%";
+    world-clock-text: "北京 08:24 东京 09:24 伦敦 01:24 纽约 20:24";
+    init => { Theme.theme-mode = root.dark ? 2 : 1; Palette.color-scheme = root.dark ? ColorScheme.dark : ColorScheme.light; }
+    changed dark => { Theme.theme-mode = root.dark ? 2 : 1; Palette.color-scheme = root.dark ? ColorScheme.dark : ColorScheme.light; }
+    today-day-text: "5";
+    today-date-heading: "九月 · 星期六";
+    today-lunar-heading: "农历七月廿四";
+    today-day-of-year-text: "248 天";
+    today-week-number-text: "36 周";
+    today-remaining-days-text: "117 天";
+    today-weather-fact-text: "26°C";
+}

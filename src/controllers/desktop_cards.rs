@@ -88,6 +88,8 @@ pub(crate) fn register_desktop_card_callbacks(context: WidgetControllerContext<'
     wire_widget_chrome!(desktop_widgets.weather, "weather");
     wire_widget_chrome!(desktop_widgets.focus, "focus");
     wire_widget_chrome!(desktop_widgets.todo, "todo");
+    wire_widget_chrome!(desktop_widgets.quote, "quote");
+    wire_widget_chrome!(desktop_widgets.almanac, "almanac");
 
     // 所有固定桌面卡片统一使用右下角原生缩放，并分别持久化实际物理尺寸。
     macro_rules! wire_widget_resize {
@@ -122,6 +124,8 @@ pub(crate) fn register_desktop_card_callbacks(context: WidgetControllerContext<'
     wire_widget_resize!(desktop_widgets.weather, "weather");
     wire_widget_resize!(desktop_widgets.focus, "focus");
     wire_widget_resize!(desktop_widgets.todo, "todo");
+    wire_widget_resize!(desktop_widgets.quote, "quote");
+    wire_widget_resize!(desktop_widgets.almanac, "almanac");
 
     // 月历额外保留“小卡片 / 完整月历”一键切换。
     {
@@ -214,6 +218,8 @@ pub(crate) fn register_desktop_card_callbacks(context: WidgetControllerContext<'
     forward_widget_settings!(desktop_widgets.weather, "weather:1");
     forward_widget_settings!(desktop_widgets.focus, "focus:1");
     forward_widget_settings!(desktop_widgets.todo, "todo:1");
+    forward_widget_settings!(desktop_widgets.quote, "quote:1");
+    forward_widget_settings!(desktop_widgets.almanac, "almanac:1");
 
     macro_rules! forward_widget_main_view {
         ($window:expr) => {{

@@ -31,6 +31,10 @@ pub(crate) fn build_tray_icon() -> Result<TrayHandles> {
         .with_tooltip("日历")
         .with_icon(icon)
         .with_menu(Box::new(menu))
+        // Left click is reserved for TimeHub's quick panel. The tray-icon
+        // default is `true`, which also opens the native context menu and
+        // leaves two popups visible for a single click.
+        .with_menu_on_left_click(false)
         .build()
         .context("创建系统托盘图标失败")?;
 

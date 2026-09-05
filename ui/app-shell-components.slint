@@ -1,6 +1,7 @@
 import { Theme } from "design-system.slint";
 import { CalendarDay } from "calendar-view.slint";
 import { SvgIcon } from "icons.slint";
+import { FocusTouchArea } from "widgets.slint";
 
 export component MainWindowDragArea inherits TouchArea {
     callback drag-requested();
@@ -27,7 +28,13 @@ export component MiniDay inherits Rectangle {
     preferred-width: 0px;
     border-radius: Theme.radius-sm;
     background: data.is-today ? Theme.today-bg : (selected ? Theme.accent-soft : transparent);
-    TouchArea { mouse-cursor: data.in-current-month ? pointer : default; clicked => { if (data.in-current-month) { root.clicked(); } } }
+    border-width: touch.has-focus ? 2px : 0px;
+    border-color: Theme.accent;
+    accessible-role: button;
+    accessible-label: data.in-current-month ? "选择 " + data.day + " 日" : "非本月日期";
+    accessible-action-default => { if (data.in-current-month) { root.clicked(); } }
+    forward-focus: touch;
+    touch := FocusTouchArea { enabled: data.in-current-month; clicked => { root.clicked(); } }
 
     Text {
         text: data.day;
@@ -46,9 +53,15 @@ export component ToolbarButton inherits Rectangle {
     callback clicked <=> touch.clicked;
     width: button-width; height: 26px; border-radius: 6px;
     background: selected ? Theme.bg-surface : (touch.has-hover ? Theme.bg-hover : transparent);
+    border-width: touch.has-focus ? 2px : 0px;
+    border-color: Theme.accent;
     drop-shadow-color: selected ? Theme.shadow-1-color-a : transparent;
     drop-shadow-blur: selected ? Theme.shadow-1-blur-a : 0px;
-    touch := TouchArea { mouse-cursor: pointer; }
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-action-default => { root.clicked(); }
+    forward-focus: touch;
+    touch := FocusTouchArea { }
     Text { text: root.label; color: selected ? Theme.text-1 : Theme.text-2; font-size: Theme.font-12; font-weight: selected ? 600 : 400; horizontal-alignment: center; vertical-alignment: center; }
 }
 
@@ -63,7 +76,11 @@ export component SidebarQuickAction inherits Rectangle {
     background: selected ? Theme.accent-subtle : (touch.has-hover ? Theme.bg-hover : transparent);
     accessible-role: button;
     accessible-label: root.label;
-    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    accessible-action-default => { root.clicked(); }
+    forward-focus: touch;
+    border-width: touch.has-focus ? 2px : 0px;
+    border-color: Theme.accent;
+    touch := FocusTouchArea { clicked => { root.clicked(); } }
     VerticalLayout {
         padding-top: 6px;
         padding-bottom: 5px;
@@ -114,7 +131,11 @@ export component DesktopWidgetManagerItem inherits Rectangle {
     border-width: 1px;
     border-color: installed ? Theme.accent : Theme.border-default;
     background: item-touch.has-hover ? Theme.bg-hover : Theme.bg-surface-2;
-    item-touch := TouchArea { mouse-cursor: pointer; clicked => { root.toggled(!root.installed); } }
+    accessible-role: button;
+    accessible-label: (root.installed ? "删除" : "新建") + root.label + "桌面卡片";
+    accessible-action-default => { root.toggled(!root.installed); }
+    forward-focus: item-touch;
+    item-touch := FocusTouchArea { clicked => { root.toggled(!root.installed); } }
     HorizontalLayout {
         padding-left: Theme.space-3; padding-right: Theme.space-3; spacing: Theme.space-3; cross-axis-alignment: center;
         Rectangle {

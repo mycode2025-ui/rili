@@ -1,5 +1,55 @@
 use crate::*;
 
+pub(super) fn normalized_note_title(title: &str, content: &str) -> String {
+    let title = title.trim();
+    if !title.is_empty() {
+        return title.to_string();
+    }
+    let first_line = content.lines().find(|line| !line.trim().is_empty());
+    let Some(first_line) = first_line else {
+        return "新便签".to_string();
+    };
+    let mut chars = first_line.trim().chars();
+    let mut generated: String = chars.by_ref().take(24).collect();
+    if chars.next().is_some() {
+        generated.push('…');
+    }
+    generated
+}
+
+#[cfg(test)]
+mod note_title_tests {
+    use super::normalized_note_title;
+
+    #[test]
+    fn keeps_an_explicit_title() {
+        assert_eq!(normalized_note_title("  项目记录  ", "正文"), "项目记录");
+    }
+
+    #[test]
+    fn derives_a_unicode_safe_title_from_content() {
+        assert_eq!(
+            normalized_note_title("", "\n  充电桩网络安全检查\n第二行"),
+            "充电桩网络安全检查"
+        );
+    }
+
+    #[test]
+    fn truncates_long_derived_titles_by_character() {
+        let title = normalized_note_title(
+            "",
+            "这是一个超过二十四个字符并且包含中文字符的便签标题用于测试截断",
+        );
+        assert_eq!(title.chars().count(), 25);
+        assert!(title.ends_with('…'));
+    }
+
+    #[test]
+    fn supplies_a_default_for_empty_notes() {
+        assert_eq!(normalized_note_title("  ", "\n "), "新便签");
+    }
+}
+
 pub(crate) fn register_data_callbacks(
     ui: &AppWindow,
     widget: &WidgetWindow,
@@ -219,29 +269,39 @@ pub(crate) fn register_data_callbacks(
         let widget_weak = widget.as_weak();
         let state = state.clone();
         ui.on_add_note(move |title: SharedString, content: SharedString| {
-            let title = title.trim().to_string();
-            if !title.is_empty() {
+            let mut created_id = 0;
+            if !title.trim().is_empty() || !content.trim().is_empty() {
+                let title = normalized_note_title(&title, &content);
                 let s = state.borrow();
-                if let Err(e) = db::create_note(&s.conn, &title, content.as_str()) {
-                    error_reporter::report("新建便签失败", &e);
+                match db::create_note(&s.conn, &title, content.as_str()) {
+                    Ok(note) => created_id = note.id as i32,
+                    Err(e) => error_reporter::report("新建便签失败", &e),
                 }
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
                 refresh_notes(&ui, &widget, &state);
             }
+            created_id
         });
     }
     {
+        let state = state.clone();
         let ui_weak = ui.as_weak();
         let widget_weak = widget.as_weak();
-        let state = state.clone();
         ui.on_update_note(move |id, title, content| {
-            let s = state.borrow();
-            if let Err(e) = db::update_note(&s.conn, id as i64, title.trim(), content.as_str()) {
-                error_reporter::report("更新便签失败", &e);
-            }
-            if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_notes(&ui, &widget, &state);
+            let title = normalized_note_title(&title, &content);
+            let result = db::update_note(&state.borrow().conn, id as i64, &title, content.as_str());
+            match result {
+                Ok(_) => {
+                    if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
+                        refresh_notes(&ui, &widget, &state);
+                    }
+                    true
+                }
+                Err(e) => {
+                    error_reporter::report("更新便签失败", &e);
+                    false
+                }
             }
         });
     }

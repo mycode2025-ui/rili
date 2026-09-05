@@ -1,17 +1,94 @@
-import { LineEdit, ScrollView } from "std-widgets.slint";
+import { LineEdit, ScrollView, TextEdit } from "std-widgets.slint";
+import { SubscriptionItem, SubscriptionCard } from "subscription-card.slint";
+export { SubscriptionItem }
 import { Theme } from "design-system.slint";
-import { GhostButton, PrimaryButton } from "widgets.slint";
+import { DangerGhostButton, FocusTouchArea, GhostButton, PrimaryButton } from "widgets.slint";
 import { Icons, SvgIcon } from "icons.slint";
+import { WeatherLocationChoice } from "widget.slint";
 
-export struct SubscriptionItem {
-    id: int,
-    name: string,
-    status: string,
-    detail: string,
-    has-error: bool,
+
+component ToolSectionHeading inherits Rectangle {
+    in property <string> title;
+    height: 36px;
+    Text { x: 0px; width: parent.width; height: parent.height; text: root.title; color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; vertical-alignment: center; }
+}
+
+component IntegrationConnector inherits Rectangle {
+    in property <string> title;
+    in property <string> description;
+    in property <string> action-label;
+    in property <bool> action-enabled: true;
+    callback action();
+    height: 54px;
+    background: Theme.bg-surface-2;
+    border-radius: Theme.radius-sm;
+    border-width: 1px;
+    border-color: Theme.panel-border;
+    accessible-role: groupbox;
+    accessible-label: root.title + "，" + root.description;
+    HorizontalLayout {
+        padding-left: Theme.gap-sm;
+        padding-right: Theme.gap-sm;
+        spacing: Theme.gap-sm;
+        cross-axis-alignment: center;
+        Rectangle {
+            width: 30px; height: 30px; border-radius: Theme.radius-sm; background: Theme.accent-soft;
+            SvgIcon { source: Icons.calendar; size: 16px; tint: Theme.accent; x: 7px; y: 7px; }
+        }
+        VerticalLayout {
+            horizontal-stretch: 1; spacing: 1px;
+            Text { text: root.title; color: Theme.text-primary; font-size: Theme.font-sm; font-weight: 600; }
+            Text { text: root.description; color: Theme.text-secondary; font-size: Theme.font-xs; overflow: elide; }
+        }
+        GhostButton { width: 112px; text: root.action-label; enabled: root.action-enabled; clicked => { root.action(); } }
+    }
+}
+
+component CalDavConfig inherits Rectangle {
+    in property <bool> compact;
+    in property <string> instruction;
+    in property <string> server-placeholder;
+    callback save(string, string, string) -> bool;
+    height: 132px;
+    border-radius: Theme.radius-sm;
+    background: Theme.bg-surface-2;
+    border-width: 1px;
+    border-color: Theme.panel-border;
+    VerticalLayout {
+        padding: Theme.gap-sm;
+        spacing: Theme.gap-sm;
+        Text {
+            text: root.instruction;
+            color: Theme.text-secondary;
+            font-size: Theme.font-sm;
+            overflow: elide;
+        }
+        server-box := LineEdit { placeholder-text: root.server-placeholder; }
+        HorizontalLayout {
+            height: 34px;
+            spacing: Theme.gap-sm;
+            username-box := LineEdit { placeholder-text: "CalDAV 用户名"; horizontal-stretch: 1; }
+            password-box := LineEdit { placeholder-text: "CalDAV 专用密码"; input-type: InputType.password; horizontal-stretch: 1; }
+            PrimaryButton {
+                width: root.compact ? 104px : 116px;
+                text: "保存并同步";
+                clicked => {
+                    if root.save(server-box.text, username-box.text, password-box.text) { password-box.text = ""; }
+                }
+            }
+        }
+        Text {
+            text: "专用密码使用 Windows 当前用户加密保存，不保存平台登录密码";
+            color: Theme.text-muted;
+            font-size: Theme.font-xs;
+            overflow: elide;
+        }
+    }
 }
 
 export component ToolsView inherits Rectangle {
+    private property <bool> compact: root.width < 760px;
+    private property <bool> calculate-offset: false;
     in property <string> date-start;
     in property <string> date-end;
     in property <string> date-offset;
@@ -19,6 +96,10 @@ export component ToolsView inherits Rectangle {
     in property <string> almanac-text;
     in property <string> weather-city;
     in property <string> weather-status;
+    in property <[WeatherLocationChoice]> weather-city-candidates;
+    in property <string> weather-city-search-status: "输入城市或区县后查找";
+    in property <bool> weather-city-searching: false;
+    in property <bool> weather-city-search-error: false;
     in property <string> stopwatch-text;
     in property <bool> stopwatch-running;
     in property <string> pomodoro-text;
@@ -35,8 +116,11 @@ export component ToolsView inherits Rectangle {
     in property <string> subscription-name;
     in property <string> subscription-url;
     in property <[SubscriptionItem]> subscriptions;
+    in-out property <string> expanded-provider: "";
     callback calculate(string /* operation */, string /* start */, string /* end */, string /* offset */);
     callback set-weather-city(string);
+    callback search-weather-city(string);
+    callback choose-weather-city(int);
     callback refresh-weather();
     callback toggle-stopwatch();
     callback reset-stopwatch();
@@ -46,6 +130,11 @@ export component ToolsView inherits Rectangle {
     callback create-natural-event(string, string, string, string);
     callback add-subscription(string, string);
     callback sync-subscriptions();
+    callback sync-subscription(int);
+    callback edit-subscription(int, string, string) -> bool;
+    in property <bool> sync-busy;
+    callback delete-subscription(int);
+    callback configure-caldav(string, string, string, string) -> bool;
 
     background: Theme.bg-app;
 
@@ -56,24 +145,24 @@ export component ToolsView inherits Rectangle {
             // The tools page lives inside a resizable main window. Keep the
             // content readable on ultrawide/maximized windows instead of
             // stretching every form control across the entire viewport.
-            width: parent.width < 1280px ? parent.width : 1280px;
+            width: parent.width < 1120px ? parent.width : 1120px;
             x: (parent.width - self.width) / 2;
             padding: Theme.gap-lg;
             spacing: Theme.gap-md;
-        Text {
-            text: "日期与系统工具";
-            color: Theme.text-primary;
-            font-size: Theme.font-xl;
-            font-weight: 700;
-        }
-        Text {
-            text: "常用的日期计算、黄历摘要和天气设置集中在这里";
-            color: Theme.text-secondary;
-            font-size: Theme.font-sm;
-        }
-        HorizontalLayout {
+        VerticalLayout {
+        spacing: Theme.gap-md;
+        vertical-stretch: 0;
+        ToolSectionHeading { title: "时间工具"; }
+        GridLayout {
+            height: self.preferred-height;
+            vertical-stretch: 0;
             spacing: Theme.gap-md;
             Rectangle {
+                col: 0;
+                row: 0;
+                min-height: 116px;
+                min-width: 0px;
+                preferred-width: 0px;
                 horizontal-stretch: 1;
                 background: Theme.bg;
                 border-radius: Theme.radius-md;
@@ -92,6 +181,11 @@ export component ToolsView inherits Rectangle {
                 }
             }
             Rectangle {
+                col: root.compact ? 0 : 1;
+                row: root.compact ? 1 : 0;
+                min-height: 116px;
+                min-width: 0px;
+                preferred-width: 0px;
                 horizontal-stretch: 1;
                 background: Theme.bg;
                 border-radius: Theme.radius-md;
@@ -109,7 +203,16 @@ export component ToolsView inherits Rectangle {
                     }
                 }
             }
+        }
+        GridLayout {
+            height: self.preferred-height;
+            spacing: Theme.gap-md;
             Rectangle {
+                col: 0;
+                row: 0;
+                min-height: 104px;
+                min-width: 0px;
+                preferred-width: 0px;
                 horizontal-stretch: 1;
                 background: Theme.bg;
                 border-radius: Theme.radius-md;
@@ -118,16 +221,44 @@ export component ToolsView inherits Rectangle {
                 VerticalLayout {
                     padding: Theme.gap-md;
                     spacing: Theme.gap-sm;
-                    Text { text: "时间信息"; color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; }
-                    Text { text: time-progress-text; color: Theme.text-secondary; font-size: Theme.font-sm; wrap: word-wrap; vertical-stretch: 1; }
-                    Text { text: world-clock-text; color: Theme.text-muted; font-size: Theme.font-10; wrap: word-wrap; }
+                    Text { text: "时间进度"; color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; }
+                    Text { text: time-progress-text; color: Theme.text-secondary; font-size: Theme.font-md; wrap: word-wrap; vertical-stretch: 1; }
+                }
+            }
+            Rectangle {
+                col: root.compact ? 0 : 1;
+                row: root.compact ? 1 : 0;
+                min-height: 104px;
+                min-width: 0px;
+                preferred-width: 0px;
+                horizontal-stretch: 1;
+                background: Theme.bg;
+                border-radius: Theme.radius-md;
+                border-width: 1px;
+                border-color: Theme.panel-border;
+                VerticalLayout {
+                    padding: Theme.gap-md;
+                    spacing: Theme.gap-sm;
+                    Text { text: "世界时钟"; color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; }
+                    Text { text: world-clock-text; color: Theme.text-secondary; font-size: Theme.font-md; wrap: word-wrap; vertical-stretch: 1; }
                 }
             }
         }
-        HorizontalLayout {
+        }
+        VerticalLayout {
+        spacing: Theme.gap-md;
+        vertical-stretch: 0;
+        ToolSectionHeading { title: "日期与生活"; }
+        GridLayout {
             spacing: Theme.gap-md;
-            vertical-stretch: 1;
+            height: self.preferred-height;
+            vertical-stretch: 0;
             Rectangle {
+                col: 0;
+                row: 0;
+                min-height: 330px;
+                min-width: 0px;
+                preferred-width: 0px;
                 horizontal-stretch: 1;
                 background: Theme.bg;
                 border-radius: Theme.radius-md;
@@ -137,16 +268,23 @@ export component ToolsView inherits Rectangle {
                     padding: Theme.gap-md;
                     spacing: Theme.gap-sm;
                     Text { text: "日期计算"; color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; }
-                    Text { text: "输入日期格式：YYYY-MM-DD"; color: Theme.text-muted; font-size: Theme.font-sm; }
-                    start-input := LineEdit { text: date-start; placeholder-text: "开始日期"; }
-                    end-input := LineEdit { text: date-end; placeholder-text: "结束日期"; }
-                    offset-input := LineEdit { text: date-offset; placeholder-text: "推算天数，例如 10 或 -3"; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        GhostButton { text: "日期间隔"; selected: !root.calculate-offset; clicked => { root.calculate-offset = false; } }
+                        GhostButton { text: "日期推算"; selected: root.calculate-offset; clicked => { root.calculate-offset = true; } }
+                    }
+                    Text { text: "起始日期（YYYY-MM-DD）"; color: Theme.text-secondary; font-size: Theme.font-sm; }
+                    start-input := LineEdit { text: date-start; placeholder-text: "例如 2026-09-05"; }
+                    Text { text: root.calculate-offset ? "推算天数（负数向前）" : "结束日期（YYYY-MM-DD）"; color: Theme.text-secondary; font-size: Theme.font-sm; }
+                    end-input := LineEdit { height: root.calculate-offset ? 0px : 34px; visible: !root.calculate-offset; text: date-end; placeholder-text: "结束日期"; }
+                    offset-input := LineEdit { height: root.calculate-offset ? 34px : 0px; visible: root.calculate-offset; text: date-offset; placeholder-text: "例如 10 或 -3"; }
                     HorizontalLayout {
                         spacing: Theme.gap-sm;
-                        GhostButton { text: "间隔"; clicked => { calculate("diff", start-input.text, end-input.text, offset-input.text); } }
-                        GhostButton { text: "自然日"; clicked => { calculate("calendar", start-input.text, end-input.text, offset-input.text); } }
-                        GhostButton { text: "工作日"; clicked => { calculate("workday", start-input.text, end-input.text, offset-input.text); } }
+                        GhostButton { visible: !root.calculate-offset; text: "计算间隔"; clicked => { calculate("diff", start-input.text, end-input.text, offset-input.text); } }
+                        GhostButton { visible: root.calculate-offset; text: "按自然日推算"; clicked => { calculate("calendar", start-input.text, end-input.text, offset-input.text); } }
+                        GhostButton { visible: root.calculate-offset; text: "按工作日推算"; clicked => { calculate("workday", start-input.text, end-input.text, offset-input.text); } }
                     }
+                    Text { text: "仅内置 2026 年节假日；其他年份工作日为估算"; color: Theme.text-secondary; font-size: Theme.font-sm; wrap: word-wrap; }
                     Text {
                         text: calculator-result;
                         color: Theme.accent;
@@ -157,6 +295,11 @@ export component ToolsView inherits Rectangle {
                 }
             }
             Rectangle {
+                col: root.compact ? 0 : 1;
+                row: root.compact ? 1 : 0;
+                min-height: 240px;
+                min-width: 0px;
+                preferred-width: 0px;
                 horizontal-stretch: 1;
                 background: Theme.bg;
                 border-radius: Theme.radius-md;
@@ -167,41 +310,91 @@ export component ToolsView inherits Rectangle {
                     spacing: Theme.gap-sm;
                     Text { text: "黄历摘要"; color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; }
                     Text { text: almanac-text; color: Theme.text-secondary; font-size: Theme.font-md; wrap: word-wrap; vertical-stretch: 1; }
-                    Text { text: "仅展示可验证的农历与干支信息，不编造宜忌吉凶"; color: Theme.text-muted; font-size: Theme.font-sm; wrap: word-wrap; }
+                    Text { text: "传统民俗，仅供参考"; color: Theme.text-muted; font-size: Theme.font-sm; wrap: word-wrap; }
                 }
             }
         }
         Rectangle {
+            height: weather-layout.preferred-height;
+            vertical-stretch: 0;
             background: Theme.bg;
             border-radius: Theme.radius-md;
             border-width: 1px;
             border-color: Theme.panel-border;
-            VerticalLayout {
+            weather-layout := VerticalLayout {
                 padding: Theme.gap-md;
                 spacing: Theme.gap-sm;
                 HorizontalLayout {
                     spacing: Theme.gap-sm;
                     SvgIcon { source: Icons.cloud; size: 18px; tint: Theme.accent; }
                     Text { text: "天气"; color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; }
-                    Rectangle { horizontal-stretch: 1; }
-                    Text { text: weather-status; color: Theme.text-secondary; font-size: Theme.font-sm; vertical-alignment: center; }
+                    Text {
+                        min-width: 0px;
+                        horizontal-stretch: 1;
+                        text: weather-status;
+                        wrap: word-wrap;
+                        color: Theme.text-secondary;
+                        font-size: Theme.font-sm;
+                        horizontal-alignment: right;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
                 }
                 HorizontalLayout {
                     spacing: Theme.gap-sm;
                     city-input := LineEdit { text: weather-city; placeholder-text: "城市，例如北京"; horizontal-stretch: 1; }
-                    PrimaryButton { width: 88px; text: "保存城市"; clicked => { set-weather-city(city-input.text); } }
+                    PrimaryButton {
+                        width: 88px;
+                        text: weather-city-searching ? "查找中" : "查找";
+                        enabled: !weather-city-searching;
+                        clicked => { search-weather-city(city-input.text); }
+                    }
                     GhostButton { width: 88px; text: "刷新"; clicked => { refresh-weather(); } }
+                }
+                Text {
+                    text: weather-city-search-status;
+                    color: weather-city-search-error ? Theme.danger : Theme.text-muted;
+                    font-size: Theme.font-xs;
+                    overflow: elide;
+                }
+                for candidate in weather-city-candidates: Rectangle {
+                    height: 28px;
+                    border-radius: Theme.radius-sm;
+                    background: candidate-touch.pressed ? Theme.accent-soft : (candidate-touch.has-hover ? Theme.bg-hover : Theme.bg-surface-2);
+                    border-width: 1px;
+                    border-color: candidate-touch.has-hover ? Theme.accent : Theme.panel-border;
+                    accessible-role: button;
+                    accessible-label: "选择天气地点：" + candidate.label;
+                    accessible-action-default => { choose-weather-city(candidate.id); }
+                    Text {
+                        x: Theme.gap-sm;
+                        width: parent.width - Theme.gap-sm * 2;
+                        height: 100%;
+                        text: candidate.label;
+                        color: candidate-touch.has-hover ? Theme.accent : Theme.text-primary;
+                        font-size: Theme.font-sm;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                    candidate-touch := FocusTouchArea {
+                        clicked => { choose-weather-city(candidate.id); }
+                    }
                 }
             }
         }
+        }
+        VerticalLayout {
+        spacing: Theme.gap-md;
+        vertical-stretch: 0;
+        ToolSectionHeading { title: "日程助手"; }
         Rectangle {
-            height: ai-draft != "" || ai-draft-title != "" ? 132px : 94px;
+            height: assistant-layout.preferred-height;
             vertical-stretch: 0;
             background: Theme.bg-surface;
             border-radius: Theme.radius-md;
             border-width: 1px;
             border-color: Theme.panel-border;
-            VerticalLayout {
+            assistant-layout := VerticalLayout {
                 padding: Theme.gap-md;
                 spacing: Theme.gap-sm;
                 Text { text: "自然语言助手"; color: Theme.text-primary; font-size: Theme.font-md; font-weight: 700; }
@@ -210,63 +403,156 @@ export component ToolsView inherits Rectangle {
                     ai-input-box := LineEdit { text: ai-input; placeholder-text: "例如：明天下午两点和供应商开会，提前一天提醒我"; horizontal-stretch: 1; }
                     PrimaryButton { width: 104px; text: "解析草稿"; clicked => { parse-natural(ai-input-box.text); } }
                 }
-                if ai-draft != "": Text { text: ai-draft; color: Theme.text-secondary; font-size: Theme.font-sm; wrap: word-wrap; overflow: elide; }
+                if ai-draft != "": Text { text: ai-draft; color: Theme.text-secondary; font-size: Theme.font-sm; wrap: word-wrap; }
                 if ai-draft-title != "": HorizontalLayout {
-                    Text { text: "标题：" + ai-draft-title + "  " + ai-draft-date + " " + ai-draft-time + "  提醒 " + ai-draft-reminder + " 分钟前"; color: Theme.accent; font-size: Theme.font-sm; horizontal-stretch: 1; overflow: elide; }
+                    Text { text: "标题：" + ai-draft-title + "  " + ai-draft-date + " " + ai-draft-time + "  提醒 " + ai-draft-reminder + " 分钟前"; color: Theme.text-1; font-size: Theme.font-sm; horizontal-stretch: 1; wrap: word-wrap; }
                     PrimaryButton { width: 104px; text: "确认创建"; clicked => { create-natural-event(ai-draft-title, ai-draft-date, ai-draft-time, ai-draft-reminder); } }
                 }
             }
         }
+        HorizontalLayout {
+            height: 182px;
+            spacing: Theme.gap-md;
+            Rectangle {
+                min-width: 0px;
+                preferred-width: 0px;
+                horizontal-stretch: 1;
+                border-radius: Theme.radius-md;
+                border-width: 1px;
+                border-color: Theme.panel-border;
+                background: Theme.bg-surface;
+                VerticalLayout {
+                    padding: Theme.gap-md;
+                    spacing: Theme.gap-sm;
+                    Text { text: "常用表达"; color: Theme.text-primary; font-size: Theme.font-md; font-weight: 700; }
+                    Text { text: "点击示例后可继续修改，再交给助手解析"; color: Theme.text-secondary; font-size: Theme.font-sm; }
+                    GhostButton { text: "明天上午九点项目晨会，提前十分钟提醒"; clicked => { ai-input-box.text = "明天上午九点项目晨会，提前十分钟提醒"; } }
+                    GhostButton { text: "下周一下午三点提交周报"; clicked => { ai-input-box.text = "下周一下午三点提交周报"; } }
+                    GhostButton { text: "10月1日全天国庆安排"; clicked => { ai-input-box.text = "10月1日全天国庆安排"; } }
+                }
+            }
+            Rectangle {
+                min-width: 0px;
+                preferred-width: 0px;
+                horizontal-stretch: 1;
+                border-radius: Theme.radius-md;
+                border-width: 1px;
+                border-color: Theme.panel-border;
+                background: Theme.bg-surface;
+                VerticalLayout {
+                    padding: Theme.gap-md;
+                    spacing: Theme.gap-sm;
+                    Text { text: "创建前确认"; color: Theme.text-primary; font-size: Theme.font-md; font-weight: 700; }
+                    Text { text: "助手只生成草稿，不会直接写入日历。"; color: Theme.text-secondary; font-size: Theme.font-sm; wrap: word-wrap; }
+                    Text { text: "• 核对日期与时间"; color: Theme.text-primary; font-size: Theme.font-sm; }
+                    Text { text: "• 检查标题与提醒时间"; color: Theme.text-primary; font-size: Theme.font-sm; }
+                    Text { text: "• 点击“确认创建”后才会保存"; color: Theme.text-primary; font-size: Theme.font-sm; }
+                }
+            }
+        }
+        }
+        VerticalLayout {
+        spacing: Theme.gap-md;
+        vertical-stretch: 0;
+        ToolSectionHeading { title: "日历同步"; }
         Rectangle {
-            height: 110px + (integration-status != "" ? 44px : 0px) + (subscriptions.length == 0 ? 56px : subscriptions.length * 60px);
+            height: connection-layout.preferred-height;
             vertical-stretch: 0;
             background: Theme.bg-surface;
             border-radius: Theme.radius-md;
             border-width: 1px;
             border-color: Theme.panel-border;
-            VerticalLayout {
+            connection-layout := VerticalLayout {
                 padding: Theme.gap-md;
                 spacing: Theme.gap-sm;
                 HorizontalLayout { height: 26px; cross-axis-alignment: center;
-                    Text { text: "连接与同步"; color: Theme.text-primary; font-size: Theme.font-md; font-weight: 700; vertical-alignment: center; }
+                    VerticalLayout { spacing: 1px;
+                        Text { text: "连接与同步"; color: Theme.text-primary; font-size: Theme.font-md; font-weight: 700; }
+                        Text { text: "统一管理 ICS、CalDAV 与常用办公日历"; color: Theme.text-secondary; font-size: Theme.font-xs; }
+                    }
                     Rectangle { horizontal-stretch: 1; }
                     Text { text: subscriptions.length + " 个日历订阅"; color: Theme.text-muted; font-size: Theme.font-sm; vertical-alignment: center; }
+                    GhostButton { width: 92px; text: "全部同步"; enabled: subscriptions.length > 0 && !root.sync-busy; clicked => { sync-subscriptions(); } }
                 }
-                HorizontalLayout {
-                    height: 34px;
-                    spacing: Theme.gap-sm;
-                    subscription-name-box := LineEdit { text: subscription-name; placeholder-text: "订阅名称"; width: 156px; horizontal-stretch: 0; }
-                    subscription-url-box := LineEdit { text: subscription-url; placeholder-text: "ICS URL（http/https）"; horizontal-stretch: 1; }
-                    GhostButton { width: 116px; text: "添加并同步"; clicked => { add-subscription(subscription-name-box.text, subscription-url-box.text); } }
-                    GhostButton { width: 96px; text: "立即同步"; clicked => { sync-subscriptions(); } }
+                IntegrationConnector {
+                    title: "Outlook / ICS";
+                    description: "粘贴公开订阅地址，定时拉取日程更新";
+                    action-label: expanded-provider == "ics" ? "收起配置" : "添加订阅";
+                    action => { root.expanded-provider = root.expanded-provider == "ics" ? "" : "ics"; }
+                }
+                if expanded-provider == "ics": Rectangle {
+                    height: 42px; border-radius: Theme.radius-sm; background: Theme.bg-surface-2;
+                    border-width: 1px; border-color: Theme.panel-border;
+                    HorizontalLayout {
+                        padding-left: Theme.gap-sm; padding-right: Theme.gap-sm; spacing: Theme.gap-sm;
+                        subscription-name-box := LineEdit { text: subscription-name; placeholder-text: "订阅名称"; width: root.compact ? 112px : 156px; horizontal-stretch: 0; }
+                        subscription-url-box := LineEdit { text: subscription-url; placeholder-text: "ICS URL（http/https）"; horizontal-stretch: 1; }
+                        PrimaryButton { width: 116px; text: "添加并同步"; clicked => { add-subscription(subscription-name-box.text, subscription-url-box.text); } }
+                    }
+                }
+                IntegrationConnector {
+                    title: "钉钉会议";
+                    description: "使用钉钉生成的 CalDAV 专用账号持续同步";
+                    action-label: expanded-provider == "dingtalk" ? "收起配置" : "配置账号";
+                    action => { root.expanded-provider = root.expanded-provider == "dingtalk" ? "" : "dingtalk"; }
+                }
+                if expanded-provider == "dingtalk": CalDavConfig {
+                    compact: root.compact;
+                    instruction: "钉钉：日历设置 → 同步 → 同步到其他日历 → 获取 CalDAV 账号";
+                    server-placeholder: "服务器地址，如 calendar.dingtalk.com";
+                    save(server, username, password) => { return configure-caldav("dingtalk", server, username, password); }
+                }
+                IntegrationConnector {
+                    title: "飞书日历";
+                    description: "使用飞书生成的 CalDAV 账号只读同步日程";
+                    action-label: expanded-provider == "feishu" ? "收起配置" : "配置账号";
+                    action => { root.expanded-provider = root.expanded-provider == "feishu" ? "" : "feishu"; }
+                }
+                if expanded-provider == "feishu": CalDavConfig {
+                    compact: root.compact;
+                    instruction: "飞书：日历设置 → CalDAV 同步 → 生成账号，并复制服务器地址";
+                    server-placeholder: "飞书提供的 CalDAV 服务器地址";
+                    save(server, username, password) => { return configure-caldav("feishu", server, username, password); }
+                }
+                IntegrationConnector {
+                    title: "通用 CalDAV";
+                    description: "连接 Nextcloud、iCloud 及其他标准 CalDAV 服务";
+                    action-label: expanded-provider == "caldav" ? "收起配置" : "配置账号";
+                    action => { root.expanded-provider = root.expanded-provider == "caldav" ? "" : "caldav"; }
+                }
+                if expanded-provider == "caldav": CalDavConfig {
+                    compact: root.compact;
+                    instruction: "输入服务商提供的 CalDAV 地址、用户名和应用专用密码";
+                    server-placeholder: "CalDAV 服务器地址（HTTPS）";
+                    save(server, username, password) => { return configure-caldav("caldav", server, username, password); }
+                }
+                IntegrationConnector {
+                    title: "企业微信 / 微信";
+                    description: "尚未接入；如有 ICS 订阅地址，可从 Outlook / ICS 添加";
+                    action-label: "接口受限";
+                    action-enabled: false;
                 }
                 if integration-status != "": Rectangle {
-                    height: 36px; border-radius: Theme.radius-sm; background: Theme.bg-surface-2;
-                    border-width: 1px; border-color: Theme.panel-border;
-                    Text { x: 12px; width: parent.width - 24px; height: parent.height; text: integration-status; color: Theme.text-secondary; font-size: Theme.font-sm; overflow: elide; vertical-alignment: center; }
+                    height: 90px;
+                    VerticalLayout {
+                        status-details := TextEdit { text: root.integration-status; read-only: true; wrap: word-wrap; }
+                        GhostButton { text: "复制同步结果"; clicked => { status-details.select-all(); status-details.copy(); status-details.clear-selection(); } }
+                    }
                 }
                 if subscriptions.length == 0: Rectangle {
                     height: 48px; border-radius: Theme.radius-sm; background: Theme.bg-surface-2;
                     border-width: 1px; border-color: Theme.panel-border;
                     Text { text: "尚未添加日历订阅"; color: Theme.text-muted; font-size: Theme.font-sm; horizontal-alignment: center; vertical-alignment: center; }
                 }
-                for subscription in subscriptions: Rectangle {
-                    height: 52px; border-radius: Theme.radius-sm; background: Theme.bg-surface-2;
-                    border-width: 1px; border-color: subscription.has-error ? Theme.danger : Theme.panel-border;
-                    HorizontalLayout { padding-left: 12px; padding-right: 12px; spacing: 10px; cross-axis-alignment: center;
-                        Rectangle { width: 30px; height: 30px; border-radius: Theme.radius-sm; background: Theme.accent-soft;
-                            SvgIcon { source: Icons.calendar; size: 16px; tint: Theme.accent; x: 7px; y: 7px; }
-                        }
-                        VerticalLayout { spacing: 2px; horizontal-stretch: 1;
-                            Text { text: subscription.name; color: Theme.text-primary; font-size: Theme.font-sm; font-weight: 600; overflow: elide; }
-                            Text { text: subscription.detail; color: Theme.text-muted; font-size: Theme.font-10; overflow: elide; }
-                        }
-                        Rectangle { width: 78px; height: 24px; border-radius: 12px; background: subscription.has-error ? Theme.danger.with-alpha(12%) : Theme.accent-soft;
-                            Text { text: subscription.status; color: subscription.has-error ? Theme.danger : Theme.accent; font-size: Theme.font-10; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
-                        }
-                    }
+                for subscription in subscriptions: SubscriptionCard {
+                    item: subscription;
+                    busy: root.sync-busy;
+                    retry(id) => { root.sync-subscription(id); }
+                    save(id, name, password) => { return root.edit-subscription(id, name, password); }
+                    remove(id) => { root.delete-subscription(id); }
                 }
             }
+        }
         }
         }
     }

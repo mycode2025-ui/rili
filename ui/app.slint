@@ -10,22 +10,22 @@ import { RecordsView, RecordItem } from "records-view.slint";
 import { ShiftView, ShiftTypeItem, ShiftAssignmentItem } from "shift-view.slint";
 import { KanbanView, QuadrantView, TodoStatsView, TodoBoardItem } from "todo-board.slint";
 import { SidePanel, EventItem, TodoItem, NoteItem, HabitItem, CalendarItem } from "side-panel.slint";
-import { WidgetWindow, CountdownItem, WeatherDayItem } from "widget.slint";
-import { CalendarWidgetWindow, EventsWidgetWindow, CountdownWidgetWindow, ClockWidgetWindow, WeatherWidgetWindow, FocusWidgetWindow, TodoWidgetWindow, NotesWidgetWindow, WidgetAppearanceWindow } from "desktop-widgets.slint";
+import { WidgetWindow, CountdownItem, WeatherDayItem, WeatherLocationChoice } from "widget.slint";
+import { CalendarWidgetWindow, EventsWidgetWindow, CountdownWidgetWindow, ClockWidgetWindow, WeatherWidgetWindow, FocusWidgetWindow, TodoWidgetWindow, NotesWidgetWindow, DailyQuoteWidgetWindow, AlmanacWidgetWindow, WidgetAppearanceWindow } from "desktop-widgets.slint";
 import { QuickPanelWindow } from "quick-panel.slint";
 import { NotificationWindow } from "notification-window.slint";
 import { NewEventDialog, NewEventWindow } from "new-event-dialog.slint";
 import { ThemeComparisonWindow } from "theme-comparison.slint";
 import { NotesView } from "notes-view.slint";
 import { CourseView, CourseItem } from "course-view.slint";
-import { GhostButton, DangerGhostButton, Dropdown, ThemeCheckBox, NavButton, IconButton, PrimaryButton } from "widgets.slint";
+import { FocusTouchArea, GhostButton, DangerGhostButton, Dropdown, ThemeCheckBox, NavButton, IconButton, PrimaryButton } from "widgets.slint";
 import { Icons, SvgIcon } from "icons.slint";
 import { Palette, ScrollView } from "std-widgets.slint";
 import { MainWindowDragArea, MiniDay, ToolbarButton, SidebarQuickAction, OverviewMetricCard, DesktopWidgetManagerItem } from "app-shell-components.slint";
 import { WidgetManagerDialog, TodoAddDialog, CalendarAddDialog, EventDeleteDialog } from "app-dialogs.slint";
 import { AppSettingsOverlay } from "app-settings-overlay.slint";
 
-export { CalendarDay, EventItem, TodoItem, NoteItem, HabitItem, CalendarItem, WeekDayItem, TimelineDay, TimelineEvent, TodoBoardItem, YearMonth, SearchItem, RecordItem, ShiftTypeItem, ShiftAssignmentItem, CourseItem, SubscriptionItem, CountdownItem, WeatherDayItem, WidgetWindow, CalendarWidgetWindow, EventsWidgetWindow, CountdownWidgetWindow, ClockWidgetWindow, WeatherWidgetWindow, FocusWidgetWindow, TodoWidgetWindow, NotesWidgetWindow, WidgetAppearanceWindow, QuickPanelWindow, NotificationWindow, NewEventWindow, ThemeComparisonWindow, Theme }
+export { CalendarDay, EventItem, TodoItem, NoteItem, HabitItem, CalendarItem, WeekDayItem, TimelineDay, TimelineEvent, TodoBoardItem, YearMonth, SearchItem, RecordItem, ShiftTypeItem, ShiftAssignmentItem, CourseItem, SubscriptionItem, CountdownItem, WeatherDayItem, WidgetWindow, CalendarWidgetWindow, EventsWidgetWindow, CountdownWidgetWindow, ClockWidgetWindow, WeatherWidgetWindow, FocusWidgetWindow, TodoWidgetWindow, NotesWidgetWindow, DailyQuoteWidgetWindow, AlmanacWidgetWindow, WidgetAppearanceWindow, QuickPanelWindow, NotificationWindow, NewEventWindow, ThemeComparisonWindow, Theme }
 
 export component AppWindow inherits Window {
     title: "日历";
@@ -38,6 +38,8 @@ export component AppWindow inherits Window {
     no-frame: true;
     background: Theme.bg;
     forward-focus: shortcut-scope;
+    private property <bool> compact-content-layout: false;
+    changed width => { root.compact-content-layout = root.width < 1180px; }
 
     in property <string> month-title;
     in property <[CalendarDay]> days;
@@ -62,6 +64,8 @@ export component AppWindow inherits Window {
     in-out property <bool> desktop-focus-visible: true;
     in-out property <bool> desktop-todo-visible: true;
     in-out property <bool> desktop-notes-visible: true;
+    in-out property <bool> desktop-quote-visible: false;
+    in-out property <bool> desktop-almanac-visible: false;
     in-out property <bool> desktop-click-through: false;
     in property <bool> week-starts-sunday: false;
     in property <bool> show-week-numbers: false;
@@ -109,7 +113,23 @@ export component AppWindow inherits Window {
     in property <string> today-weather-fact-text;
     in property <float> today-year-progress;
     in property <string> today-year-progress-text;
+    in property <string> today-year-progress-label;
+    in property <string> today-next-event-text;
+    in property <string> today-next-event-status;
+    in property <int> today-current-minutes;
+    in property <int> today-next-event-id: -1;
+    in property <int> today-todo-completed-count;
+    in property <int> today-todo-count;
+    in property <int> today-event-count;
+    in property <[CountdownItem]> today-countdowns;
     in property <string> status-left-text: "";
+    in property <bool> status-has-error: false;
+    // Keep an unsaved draft alive when its page is temporarily unmounted.
+    private property <int> note-editor-id: 0;
+    private property <string> note-editor-title: "";
+    private property <string> note-editor-body: "";
+    private property <string> note-editor-status: "输入后自动保存";
+    private property <bool> note-editor-failed: false;
     in property <string> status-right-text: "";
     in property <int> current-minutes: 22 * 60 + 53;
     in property <string> current-time-text: "22:53";
@@ -136,6 +156,10 @@ export component AppWindow inherits Window {
     in property <string> almanac-text;
     in property <string> weather-city;
     in property <string> weather-status;
+    in property <[WeatherLocationChoice]> weather-city-candidates;
+    in property <string> weather-city-search-status: "输入城市或区县后查找";
+    in property <bool> weather-city-searching: false;
+    in property <bool> weather-city-search-error: false;
     in property <string> stopwatch-text;
     in property <bool> stopwatch-running;
     in property <string> pomodoro-text;
@@ -221,6 +245,8 @@ export component AppWindow inherits Window {
     callback next-year();
     callback calculate-tool(string, string, string, string);
     callback set-weather-city(string);
+    callback search-weather-city(string);
+    callback choose-weather-city(int);
     callback refresh-weather();
     callback toggle-stopwatch();
     callback reset-stopwatch();
@@ -243,6 +269,11 @@ export component AppWindow inherits Window {
     callback create-natural-event(string, string, string, string);
     callback add-subscription(string, string);
     callback sync-subscriptions();
+    callback delete-subscription(int);
+    callback configure-caldav(string, string, string, string) -> bool;
+    callback sync-subscription(int);
+    callback edit-subscription(int, string, string) -> bool;
+    in-out property <bool> sync-busy: false;
     callback refresh-external-data();
     callback set-todo-board-mode(int);
     callback move-todo-status(int, string);
@@ -252,8 +283,8 @@ export component AppWindow inherits Window {
     callback add-todo(string);
     callback toggle-todo(int);
     callback delete-todo(int);
-    callback add-note(string, string);
-    callback update-note(int, string, string);
+    callback add-note(string, string) -> int;
+    callback update-note(int, string, string) -> bool;
     callback delete-note(int);
     callback add-habit(string);
     callback toggle-habit(int);
@@ -385,8 +416,15 @@ export component AppWindow inherits Window {
                         Text { text: root.search-query == "" ? "搜索日程、待办、便签、课程..." : root.search-query; color: root.search-query == "" ? Theme.text-muted : Theme.text-1; font-size: Theme.font-sm; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
                         Text { text: "Ctrl K"; color: Theme.text-muted; font-size: Theme.font-xs; vertical-alignment: center; }
                     }
-                    search-touch := TouchArea {
-                        mouse-cursor: text;
+                    accessible-role: button;
+                    accessible-label: "搜索日程、待办、便签和课程";
+                    accessible-action-default => {
+                        root.search-focus-request += 1;
+                        root.search-open = true;
+                        root.search(root.search-query);
+                    }
+                    forward-focus: search-touch;
+                    search-touch := FocusTouchArea {
                         clicked => {
                             root.search-focus-request += 1;
                             root.search-open = true;
@@ -402,17 +440,13 @@ export component AppWindow inherits Window {
                         maximize-requested => { root.maximize-window(); }
                     }
                 }
-                IconButton { icon: Icons.sync; size: 30px; borderless: true; clicked => { root.action-message = "正在同步日历与订阅…"; root.sync-subscriptions(); } }
-                IconButton { icon: Icons.bell; size: 30px; borderless: true; clicked => { root.notification-open = !root.notification-open; } }
-                IconButton { icon: Icons.gear; size: 30px; borderless: true; clicked => { root.search-open = false; root.notification-open = false; root.settings-open = true; } }
+                IconButton { icon: Icons.sync; accessible-name: "同步全部日历"; size: 30px; borderless: true; clicked => { root.action-message = "正在同步日历与订阅…"; root.sync-subscriptions(); } }
+                IconButton { icon: Icons.bell; accessible-name: "通知"; size: 30px; borderless: true; clicked => { root.notification-open = !root.notification-open; } }
+                IconButton { icon: Icons.gear; accessible-name: "设置"; size: 30px; borderless: true; clicked => { root.search-open = false; root.notification-open = false; root.settings-open = true; } }
                 Rectangle { width: 1px; height: 20px; background: Theme.border-default; }
-                Rectangle {
-                    width: 28px; height: 28px; border-radius: 14px; background: Theme.c-purple;
-                    Text { text: "陈"; color: Theme.on-accent; font-size: Theme.font-11; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
-                }
-                IconButton { icon: Icons.minimize; size: 40px; icon-size: 14px; borderless: true; clicked => { root.minimize-window(); } }
-                IconButton { icon: Icons.maximize; size: 40px; icon-size: 14px; borderless: true; clicked => { root.maximize-window(); } }
-                IconButton { icon: Icons.close; size: 40px; icon-size: 14px; borderless: true; clicked => { root.close-window(); } }
+                IconButton { icon: Icons.minimize; accessible-name: "最小化"; size: 40px; icon-size: 14px; borderless: true; clicked => { root.minimize-window(); } }
+                IconButton { icon: Icons.maximize; accessible-name: "最大化或还原"; size: 40px; icon-size: 14px; borderless: true; clicked => { root.maximize-window(); } }
+                IconButton { icon: Icons.close; accessible-name: "关闭主窗口"; size: 40px; icon-size: 14px; borderless: true; clicked => { root.close-window(); } }
             }
         }
 
@@ -424,7 +458,12 @@ export component AppWindow inherits Window {
                 background: Theme.sidebar-bg;
                 border-width: 1px;
                 border-color: Theme.panel-border;
+                ScrollView {
+                width: 100%; height: 100%;
                 VerticalLayout {
+                    x: 0px; y: 0px;
+                    width: parent.visible-width;
+                    height: max(self.preferred-height, parent.visible-height);
                     padding: Theme.space-3;
                     spacing: 2px;
                     Rectangle {
@@ -442,11 +481,15 @@ export component AppWindow inherits Window {
                             }
                             Text { height: parent.height; text: "新建"; color: Theme.on-accent; font-size: Theme.font-md; font-weight: 600; horizontal-stretch: 1; vertical-alignment: center; }
                         }
-                        new-touch := TouchArea { clicked => { root.open-new-event-editor(); } }
+                        accessible-role: button;
+                        accessible-label: "新建日程";
+                        accessible-action-default => { root.open-new-event-editor(); }
+                        forward-focus: new-touch;
+                        new-touch := FocusTouchArea { clicked => { root.open-new-event-editor(); } }
                     }
                     // V4: the navigation group starts 12px below the primary action.
                     Rectangle { height: Theme.space-3; }
-                    today-nav := NavButton { label: "今天"; icon: Icons.today; badge: "6"; selected: view-mode == 2 || view-mode == 3; clicked => { root.goto-today(); root.set-view-mode(2); } }
+                    today-nav := NavButton { label: "今天"; icon: Icons.today; badge: (root.today-event-count + root.today-todo-count) > 0 ? (root.today-event-count + root.today-todo-count) : ""; selected: view-mode == 2 || view-mode == 3; clicked => { root.goto-today(); root.set-view-mode(2); } }
                     calendar-nav := NavButton { label: "日历"; icon: Icons.calendar; selected: view-mode == 0 || view-mode == 1 || view-mode == 5; clicked => { root.set-view-mode(0); } }
                     course-nav := NavButton { label: "课程表"; icon: Icons.grid; selected: view-mode == 12; clicked => { root.set-view-mode(12); } }
                     NavButton { label: "待办"; icon: Icons.check; selected: view-mode == 4; clicked => { root.set-view-mode(4); } }
@@ -459,8 +502,8 @@ export component AppWindow inherits Window {
                       spacing: 1px;
                       HorizontalLayout { height: 24px; cross-axis-alignment: center;
                         Text { text: month-title; color: Theme.text-muted; font-size: Theme.font-xs; font-weight: 600; horizontal-stretch: 1; vertical-alignment: center; }
-                        IconButton { icon: Icons.left; size: 22px; icon-size: 11px; borderless: true; clicked => { root.prev-month(); } }
-                        IconButton { icon: Icons.right; size: 22px; icon-size: 11px; borderless: true; clicked => { root.next-month(); } }
+                        IconButton { icon: Icons.left; accessible-name: "上一页"; size: 22px; icon-size: 11px; borderless: true; clicked => { root.prev-month(); } }
+                        IconButton { icon: Icons.right; accessible-name: "下一页"; size: 22px; icon-size: 11px; borderless: true; clicked => { root.next-month(); } }
                       }
                       HorizontalLayout {
                         spacing: 1px;
@@ -486,12 +529,17 @@ export component AppWindow inherits Window {
                       Rectangle { height: Theme.gap-md; }
                       HorizontalLayout { height: 24px;
                         Text { text: "我的日历"; color: Theme.text-muted; font-size: Theme.font-xs; font-weight: 600; horizontal-stretch: 1; vertical-alignment: center; }
-                        IconButton { icon: Icons.plus; size: 22px; icon-size: 11px; borderless: true; clicked => { root.calendar-draft-name = ""; root.calendar-add-open = true; } }
+                        IconButton { icon: Icons.plus; accessible-name: "添加"; size: 22px; icon-size: 11px; borderless: true; clicked => { root.calendar-draft-name = ""; root.calendar-add-open = true; } }
                       }
                       for c in calendars: Rectangle {
                         height: 28px; border-radius: Theme.r-sm;
                         background: row-touch.has-hover ? Theme.bg-hover : transparent;
-                        row-touch := TouchArea { mouse-cursor: pointer; clicked => { root.toggle-calendar-visible(c.id, !c.visible); } }
+                        accessible-role: checkbox;
+                        accessible-label: c.name;
+                        accessible-checked: c.visible;
+                        accessible-action-default => { root.toggle-calendar-visible(c.id, !c.visible); }
+                        forward-focus: row-touch;
+                        row-touch := FocusTouchArea { clicked => { root.toggle-calendar-visible(c.id, !c.visible); } }
                         HorizontalLayout {
                             padding-left: 10px; padding-right: 10px; spacing: Theme.space-2;
                             cross-axis-alignment: center;
@@ -510,15 +558,7 @@ export component AppWindow inherits Window {
                         }
                       }
                     }
-                    if view-mode == 2: VerticalLayout {
-                        width: 100%;
-                        height: 242px;
-                        spacing: Theme.space-2;
-                        Text { height: 20px; text: "今日概览"; color: Theme.text-3; font-size: Theme.font-11; font-weight: 600; vertical-alignment: center; }
-                        OverviewMetricCard { label: "日程"; value: events-for-day.length + " 个"; }
-                        OverviewMetricCard { label: "待办已完成"; value: "3 / " + todos-for-day.length; }
-                        OverviewMetricCard { label: "专注时长"; value: "2.5 小时"; }
-                    }
+
                     Rectangle { vertical-stretch: 1; }
                     Text {
                         height: 20px;
@@ -545,6 +585,7 @@ export component AppWindow inherits Window {
                         }
                     }
                 }
+                }
             }
 
             Rectangle {
@@ -564,9 +605,9 @@ export component AppWindow inherits Window {
                             padding-right: Theme.gap-xl;
                             spacing: Theme.gap-sm;
                             cross-axis-alignment: center;
-                            IconButton { icon: Icons.left; size: 30px; borderless: true; clicked => { if (view-mode == 0) { root.prev-month(); } else if (view-mode == 1) { root.prev-week(); } else if (view-mode == 5) { root.prev-year(); } else { root.prev-timeline(); } } }
+                            IconButton { icon: Icons.left; accessible-name: "上一页"; size: 30px; borderless: true; clicked => { if (view-mode == 0) { root.prev-month(); } else if (view-mode == 1) { root.prev-week(); } else if (view-mode == 5) { root.prev-year(); } else { root.prev-timeline(); } } }
                             ToolbarButton { label: "今天"; button-width: 52px; clicked => { root.goto-today(); } }
-                            IconButton { icon: Icons.right; size: 30px; borderless: true; clicked => { if (view-mode == 0) { root.next-month(); } else if (view-mode == 1) { root.next-week(); } else if (view-mode == 5) { root.next-year(); } else { root.next-timeline(); } } }
+                            IconButton { icon: Icons.right; accessible-name: "下一页"; size: 30px; borderless: true; clicked => { if (view-mode == 0) { root.next-month(); } else if (view-mode == 1) { root.next-week(); } else if (view-mode == 5) { root.next-year(); } else { root.next-timeline(); } } }
                             Text { text: view-mode == 0 ? month-title : (view-mode == 1 ? week-title : (view-mode == 5 ? calendar-year + "年" : timeline-title)); color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; vertical-alignment: center; horizontal-stretch: 1; }
                             if view-mode == 0: PrimaryButton {
                                 width: 108px;
@@ -679,6 +720,8 @@ export component AppWindow inherits Window {
                             background: Theme.bg-app;
                             clip: true;
                             TodayView {
+                                current-minutes: root.today-current-minutes;
+                                next-event-id: root.today-next-event-id;
                                 width: parent.width;
                                 height: parent.height;
                                 events: events-for-day;
@@ -692,6 +735,11 @@ export component AppWindow inherits Window {
                                 weather-fact-text: root.today-weather-fact-text;
                                 year-progress: root.today-year-progress;
                                 year-progress-text: root.today-year-progress-text;
+                                year-progress-label: root.today-year-progress-label;
+                                next-event-text: root.today-next-event-text;
+                                next-event-status: root.today-next-event-status;
+                                todo-completed-count: root.today-todo-completed-count;
+                                countdowns: root.today-countdowns;
                                 toggle-todo(id) => { root.toggle-todo(id); }
                                 add-event => { root.open-new-event-editor(); }
                                 add-todo => { root.set-view-mode(4); }
@@ -799,6 +847,10 @@ export component AppWindow inherits Window {
                                 almanac-text: almanac-text;
                                 weather-city: weather-city;
                                 weather-status: weather-status;
+                                weather-city-candidates: weather-city-candidates;
+                                weather-city-search-status: weather-city-search-status;
+                                weather-city-searching: weather-city-searching;
+                                weather-city-search-error: weather-city-search-error;
                                 stopwatch-text: stopwatch-text;
                                 stopwatch-running: stopwatch-running;
                                 pomodoro-text: pomodoro-text;
@@ -817,6 +869,8 @@ export component AppWindow inherits Window {
                                 subscriptions: subscriptions;
                                 calculate(operation, start, end, offset) => { calculate-tool(operation, start, end, offset); }
                                 set-weather-city(city) => { set-weather-city(city); }
+                                search-weather-city(city) => { search-weather-city(city); }
+                                choose-weather-city(id) => { choose-weather-city(id); }
                                 refresh-weather => { refresh-weather(); }
                                 toggle-stopwatch => { toggle-stopwatch(); }
                                 reset-stopwatch => { reset-stopwatch(); }
@@ -825,7 +879,14 @@ export component AppWindow inherits Window {
                                 parse-natural(text) => { parse-natural(text); }
                                 create-natural-event(title, date, time, reminder) => { create-natural-event(title, date, time, reminder); }
                                 add-subscription(name, url) => { add-subscription(name, url); }
+                                sync-busy: root.sync-busy;
+                                sync-subscription(id) => { root.sync-subscription(id); }
+                                edit-subscription(id, name, password) => { return root.edit-subscription(id, name, password); }
                                 sync-subscriptions => { sync-subscriptions(); }
+                                delete-subscription(id) => { delete-subscription(id); }
+                                configure-caldav(provider, server-url, username, password) => {
+                                    return configure-caldav(provider, server-url, username, password);
+                                }
                             }
                         }
                         if view-mode == 8: RecordsView {
@@ -855,10 +916,16 @@ export component AppWindow inherits Window {
                             delete-assignment(id) => { delete-shift(id); }
                         }
                         if view-mode == 11: NotesView {
+                            selected-id <=> root.note-editor-id;
+                            draft-title <=> root.note-editor-title;
+                            draft-content <=> root.note-editor-body;
+                            save-status <=> root.note-editor-status;
+                            save-failed <=> root.note-editor-failed;
                             horizontal-stretch: 1; vertical-stretch: 1;
+                            compact-layout: root.compact-content-layout;
                             notes: notes;
-                            add-note(title, content) => { root.add-note(title, content); }
-                            update-note(id, title, content) => { root.update-note(id, title, content); }
+                            add-note(title, content) => { return root.add-note(title, content); }
+                            update-note(id, title, content) => { return root.update-note(id, title, content); }
                             delete-note(id) => { root.delete-note(id); }
                         }
                         if view-mode == 12: CourseView {
@@ -895,9 +962,9 @@ export component AppWindow inherits Window {
                 spacing: Theme.space-2;
                 cross-axis-alignment: center;
                 Rectangle { width: Theme.w-sidebar - Theme.gap-lg; }
-                Rectangle { width: 6px; height: 6px; border-radius: 3px; background: Theme.success; }
+                Rectangle { width: 6px; height: 6px; border-radius: 3px; background: root.status-has-error ? Theme.danger : root.sync-busy ? Theme.warning : Theme.text-3; }
                 Text {
-                    text: status-left-text != "" ? status-left-text : "已同步 · 本地优先";
+                    text: root.sync-busy ? "正在同步…" : status-left-text != "" ? status-left-text : "本地模式";
                     color: Theme.text-muted; font-size: Theme.font-xs; vertical-alignment: center;
                 }
                 Rectangle { horizontal-stretch: 1; }
@@ -971,11 +1038,15 @@ export component AppWindow inherits Window {
             padding: Theme.space-4; spacing: Theme.space-2;
             HorizontalLayout {
                 Text { text: "通知"; color: Theme.text-1; font-size: Theme.font-15; font-weight: 700; vertical-alignment: center; horizontal-stretch: 1; }
-                IconButton { icon: Icons.close; size: 28px; borderless: true; clicked => { root.notification-open = false; } }
+                IconButton { icon: Icons.close; accessible-name: "关闭"; size: 28px; borderless: true; clicked => { root.notification-open = false; } }
             }
             Rectangle {
                 height: 66px; border-radius: Theme.r-md; background: notify-today.has-hover ? Theme.bg-hover : Theme.bg-surface-2;
-                notify-today := TouchArea { mouse-cursor: pointer; clicked => { root.notification-open = false; root.set-view-mode(2); } }
+                accessible-role: button;
+                accessible-label: "打开今日安排";
+                accessible-action-default => { root.notification-open = false; root.set-view-mode(2); }
+                forward-focus: notify-today;
+                notify-today := FocusTouchArea { clicked => { root.notification-open = false; root.set-view-mode(2); } }
                 VerticalLayout { padding: Theme.space-3; spacing: Theme.space-1;
                     Text { text: "今日安排"; color: Theme.text-1; font-size: Theme.font-13; font-weight: 600; }
                     Text { text: "今天共有 " + events-for-day.length + " 项日程"; color: Theme.text-3; font-size: Theme.font-11; }
@@ -983,7 +1054,11 @@ export component AppWindow inherits Window {
             }
             Rectangle {
                 height: 66px; border-radius: Theme.r-md; background: notify-todo.has-hover ? Theme.bg-hover : Theme.bg-surface-2;
-                notify-todo := TouchArea { mouse-cursor: pointer; clicked => { root.notification-open = false; root.set-view-mode(4); } }
+                accessible-role: button;
+                accessible-label: "打开待办提醒";
+                accessible-action-default => { root.notification-open = false; root.set-view-mode(4); }
+                forward-focus: notify-todo;
+                notify-todo := FocusTouchArea { clicked => { root.notification-open = false; root.set-view-mode(4); } }
                 VerticalLayout { padding: Theme.space-3; spacing: Theme.space-1;
                     Text { text: "待办提醒"; color: Theme.text-1; font-size: Theme.font-13; font-weight: 600; }
                     Text { text: "今日还有 " + todos-for-day.length + " 项待办"; color: Theme.text-3; font-size: Theme.font-11; }
@@ -1003,6 +1078,8 @@ export component AppWindow inherits Window {
         focus-visible <=> root.desktop-focus-visible;
         todo-visible <=> root.desktop-todo-visible;
         notes-visible <=> root.desktop-notes-visible;
+        quote-visible <=> root.desktop-quote-visible;
+        almanac-visible <=> root.desktop-almanac-visible;
         click-through <=> root.desktop-click-through;
         set-visible(kind, value) => { root.set-desktop-widget-visible(kind, value); }
         set-click-through(value) => { root.set-desktop-click-through(value); }

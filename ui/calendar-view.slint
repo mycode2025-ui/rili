@@ -1,4 +1,5 @@
 import { Theme } from "design-system.slint";
+import { FocusTouchArea } from "widgets.slint";
 
 export struct EventTag {
     id: int,
@@ -37,7 +38,11 @@ component DayCell inherits Rectangle {
     border-color: transparent-background ? Theme.widget-glass-border : Theme.divider;
     background: data.is-today ? Theme.accent-soft : (selected ? Theme.accent-soft : (transparent-background ? (data.in-current-month ? transparent : Theme.widget-row) : (data.in-current-month ? Theme.panel-bg : Theme.panel-bg-secondary)));
 
-    touch := TouchArea { }
+    accessible-role: button;
+    accessible-label: root.data.date;
+    accessible-action-default => { root.clicked(); }
+    forward-focus: touch;
+    touch := FocusTouchArea { enabled: root.data.in-current-month; }
 
     VerticalLayout {
         padding: Theme.space-2;
@@ -97,7 +102,11 @@ component DayCell inherits Rectangle {
             border-width: 1px;
             border-color: tag.color;
             background: tag.color.with-alpha(15%);
-            TouchArea { mouse-cursor: pointer; clicked => { root.open-event(tag.id, root.data.date); } }
+            accessible-role: button;
+            accessible-label: "打开日程：" + tag.title;
+            accessible-action-default => { root.open-event(tag.id, root.data.date); }
+            forward-focus: tag-touch;
+            tag-touch := FocusTouchArea { clicked => { root.open-event(tag.id, root.data.date); } }
             HorizontalLayout {
                 padding-left: 4px;
                 padding-right: 4px;
@@ -110,7 +119,7 @@ component DayCell inherits Rectangle {
                 Text {
                     text: tag.title;
                     font-size: Theme.font-11;
-                    color: tag.color.darker(25%);
+                    color: Theme.text-1;
                     overflow: elide;
                     horizontal-stretch: 1;
                     vertical-alignment: center;

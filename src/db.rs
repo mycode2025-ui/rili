@@ -103,6 +103,9 @@ pub fn open() -> Result<Connection> {
             enabled       INTEGER NOT NULL DEFAULT 1,
             last_sync     TEXT,
             last_error    TEXT,
+            source_type   TEXT NOT NULL DEFAULT 'ics',
+            username      TEXT NOT NULL DEFAULT '',
+            secret        TEXT NOT NULL DEFAULT '',
             created_at    TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS event_sources (
@@ -159,10 +162,31 @@ pub fn open() -> Result<Connection> {
     )
     .context("初始化数据库表结构失败")?;
     migrate_add_columns(&conn)?;
+    migrate_subscription_columns(&conn)?;
     seed_default_calendars(&conn)?;
     migrate_legacy_calendar_colors(&conn)?;
     seed_default_shift_types(&conn)?;
     Ok(conn)
+}
+
+fn migrate_subscription_columns(conn: &Connection) -> Result<()> {
+    let mut stmt = conn.prepare("PRAGMA table_info(subscriptions)")?;
+    let existing: Vec<String> = stmt
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    for (column, definition) in [
+        ("source_type", "TEXT NOT NULL DEFAULT 'ics'"),
+        ("username", "TEXT NOT NULL DEFAULT ''"),
+        ("secret", "TEXT NOT NULL DEFAULT ''"),
+    ] {
+        if !existing.iter().any(|item| item == column) {
+            conn.execute(
+                &format!("ALTER TABLE subscriptions ADD COLUMN {column} {definition}"),
+                [],
+            )?;
+        }
+    }
+    Ok(())
 }
 
 /// 首次运行时数据库里还没有任何日历分类，插入设计稿定义的默认分类颜色，
@@ -445,6 +469,10 @@ pub struct Subscription {
     pub enabled: bool,
     pub last_sync: Option<String>,
     pub last_error: Option<String>,
+    pub source_type: String,
+    pub username: String,
+    #[serde(skip_serializing, default)]
+    pub secret: String,
     pub created_at: String,
 }
 
@@ -457,7 +485,10 @@ fn row_to_subscription(row: &rusqlite::Row) -> rusqlite::Result<Subscription> {
         enabled: row.get::<_, i64>(4)? != 0,
         last_sync: row.get(5)?,
         last_error: row.get(6)?,
-        created_at: row.get(7)?,
+        source_type: row.get(7)?,
+        username: row.get(8)?,
+        secret: row.get(9)?,
+        created_at: row.get(10)?,
     })
 }
 
@@ -484,22 +515,95 @@ pub fn create_subscription(
     get_subscription(conn, id)?.context("刚插入的订阅读取失败")
 }
 
+pub fn create_or_update_caldav_subscription(
+    conn: &Connection,
+    name: &str,
+    url: &str,
+    username: &str,
+    password: &str,
+    calendar_id: i64,
+) -> Result<Subscription> {
+    let url = normalize_caldav_server_url(url)?;
+    anyhow::ensure!(!username.trim().is_empty(), "CalDAV 用户名不能为空");
+    anyhow::ensure!(!password.is_empty(), "CalDAV 专用密码不能为空");
+    let secret = crate::secret_store::protect(password)?;
+    conn.execute(
+        "INSERT INTO subscriptions (name, url, calendar_id, enabled, last_sync, last_error, source_type, username, secret, created_at)
+         VALUES (?1, ?2, ?3, 1, NULL, NULL, 'caldav', ?4, ?5, ?6)
+         ON CONFLICT(url) DO UPDATE SET
+            name = excluded.name, calendar_id = excluded.calendar_id, enabled = 1,
+            last_error = NULL, source_type = 'caldav', username = excluded.username,
+            secret = excluded.secret",
+        params![name.trim(), &url, calendar_id, username.trim(), secret, now()],
+    )?;
+    get_subscription_by_url(conn, &url)?.context("保存后的 CalDAV 账号读取失败")
+}
+
+fn normalize_caldav_server_url(value: &str) -> Result<String> {
+    let value = value.trim();
+    anyhow::ensure!(!value.is_empty(), "CalDAV 服务器地址不能为空");
+
+    let candidate = if value.contains("://") {
+        value.to_owned()
+    } else {
+        format!("https://{value}")
+    };
+    let mut parsed = url::Url::parse(&candidate).context("CalDAV 服务器地址格式无效")?;
+    anyhow::ensure!(
+        parsed.scheme() == "https",
+        "CalDAV 服务器必须使用 HTTPS 安全连接"
+    );
+    anyhow::ensure!(parsed.host_str().is_some(), "CalDAV 服务器地址缺少域名");
+
+    // 钉钉展示给用户的是服务器域名，但 CalDAV 服务实际挂载在 /dav。
+    // 其他服务仍保留用户输入的路径，避免对通用 CalDAV 地址作错误猜测。
+    if parsed.host_str() == Some("calendar.dingtalk.com") && parsed.path() == "/" {
+        parsed.set_path("/dav");
+    }
+
+    Ok(parsed.to_string().trim_end_matches('/').to_owned())
+}
+
 pub fn get_subscription(conn: &Connection, id: i64) -> Result<Option<Subscription>> {
-    let mut stmt = conn.prepare("SELECT id, name, url, calendar_id, enabled, last_sync, last_error, created_at FROM subscriptions WHERE id = ?1")?;
+    let mut stmt = conn.prepare("SELECT id, name, url, calendar_id, enabled, last_sync, last_error, source_type, username, secret, created_at FROM subscriptions WHERE id = ?1")?;
     Ok(stmt
         .query_row(params![id], row_to_subscription)
         .optional()?)
 }
 
+/// Editing metadata/credentials never changes the identity or ownership of mirrors.
+pub fn edit_subscription(conn: &Connection, id: i64, name: &str, password: &str) -> Result<()> {
+    anyhow::ensure!(!name.trim().is_empty(), "连接名称不能为空");
+    let subscription = get_subscription(conn, id)?.context("同步连接已不存在")?;
+    let secret = if password.is_empty() {
+        subscription.secret
+    } else {
+        anyhow::ensure!(
+            subscription.source_type == "caldav",
+            "ICS 连接不使用专用密码"
+        );
+        crate::secret_store::protect(password)?
+    };
+    conn.execute(
+        "UPDATE subscriptions SET name = ?1, secret = ?2 WHERE id = ?3",
+        params![name.trim(), secret, id],
+    )?;
+    Ok(())
+}
+
+pub fn subscription_summary(conn: &Connection, id: i64) -> Result<(String, i32)> {
+    conn.query_row("SELECT COALESCE(c.name, '未分类'), (SELECT COUNT(*) FROM event_sources es WHERE es.subscription_id = s.id) FROM subscriptions s LEFT JOIN calendars c ON c.id = s.calendar_id WHERE s.id = ?1", params![id], |r| Ok((r.get(0)?, r.get(1)?))).context("读取同步来源失败")
+}
+
 pub fn get_subscription_by_url(conn: &Connection, url: &str) -> Result<Option<Subscription>> {
-    let mut stmt = conn.prepare("SELECT id, name, url, calendar_id, enabled, last_sync, last_error, created_at FROM subscriptions WHERE url = ?1")?;
+    let mut stmt = conn.prepare("SELECT id, name, url, calendar_id, enabled, last_sync, last_error, source_type, username, secret, created_at FROM subscriptions WHERE url = ?1")?;
     Ok(stmt
         .query_row(params![url.trim()], row_to_subscription)
         .optional()?)
 }
 
 pub fn list_subscriptions(conn: &Connection) -> Result<Vec<Subscription>> {
-    let mut stmt = conn.prepare("SELECT id, name, url, calendar_id, enabled, last_sync, last_error, created_at FROM subscriptions ORDER BY id DESC")?;
+    let mut stmt = conn.prepare("SELECT id, name, url, calendar_id, enabled, last_sync, last_error, source_type, username, secret, created_at FROM subscriptions ORDER BY id DESC")?;
     let rows = stmt
         .query_map([], row_to_subscription)?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -513,13 +617,13 @@ pub fn set_subscription_result(
     last_error: Option<&str>,
 ) -> Result<()> {
     conn.execute(
-        "UPDATE subscriptions SET last_sync = ?1, last_error = ?2 WHERE id = ?3",
+        "UPDATE subscriptions SET last_sync = COALESCE(?1, last_sync), last_error = ?2 WHERE id = ?3",
         params![last_sync, last_error, id],
     )?;
     Ok(())
 }
 
-pub fn upsert_subscribed_event(conn: &Connection, subscribed: SubscribedEvent<'_>) -> Result<()> {
+pub fn upsert_subscribed_event(conn: &Connection, subscribed: SubscribedEvent<'_>) -> Result<i64> {
     anyhow::ensure!(
         !subscribed.external_uid.trim().is_empty(),
         "订阅事件缺少 UID"
@@ -531,7 +635,7 @@ pub fn upsert_subscribed_event(conn: &Connection, subscribed: SubscribedEvent<'_
             |row| row.get(0),
         )
         .optional()?;
-    if let Some(event_id) = existing {
+    let event_id = if let Some(event_id) = existing {
         update_event(
             conn,
             event_id,
@@ -539,6 +643,7 @@ pub fn upsert_subscribed_event(conn: &Connection, subscribed: SubscribedEvent<'_
                 title: Some(subscribed.title),
                 date: Some(subscribed.date),
                 time: Some(subscribed.time),
+                duration_minutes: Some(subscribed.duration_minutes.max(1)),
                 note: Some(subscribed.note),
                 repeat_rule: Some(subscribed.repeat_rule),
                 category: Some("event"),
@@ -547,6 +652,7 @@ pub fn upsert_subscribed_event(conn: &Connection, subscribed: SubscribedEvent<'_
             },
         )?;
         set_event_source_kind(conn, event_id, "subscription")?;
+        event_id
     } else {
         let reminder = default_event_reminder(conn)?;
         let event = create_event(
@@ -562,6 +668,14 @@ pub fn upsert_subscribed_event(conn: &Connection, subscribed: SubscribedEvent<'_
                 calendar_id: subscribed.calendar_id,
             },
         )?;
+        update_event(
+            conn,
+            event.id,
+            EventUpdate {
+                duration_minutes: Some(subscribed.duration_minutes.max(1)),
+                ..EventUpdate::default()
+            },
+        )?;
         set_event_source_kind(conn, event.id, "subscription")?;
         conn.execute(
             "INSERT INTO event_sources (event_id, subscription_id, external_uid) VALUES (?1, ?2, ?3)",
@@ -570,6 +684,27 @@ pub fn upsert_subscribed_event(conn: &Connection, subscribed: SubscribedEvent<'_
                 subscribed.subscription_id,
                 subscribed.external_uid
             ],
+        )?;
+        event.id
+    };
+    Ok(event_id)
+}
+
+/// 设置外部周期事件的结束边界。`until` 是远端 RRULE 中包含的最后发生日；
+/// 数据库沿用 `from:` 截断标记，因此存储下一天作为首个不再显示的日期。
+pub fn set_subscribed_event_repeat_until(
+    conn: &Connection,
+    event_id: i64,
+    until: Option<NaiveDate>,
+) -> Result<()> {
+    conn.execute(
+        "DELETE FROM event_exceptions WHERE event_id = ?1 AND occurrence_date LIKE 'from:%'",
+        params![event_id],
+    )?;
+    if let Some(cutoff) = until.and_then(|date| date.succ_opt()) {
+        conn.execute(
+            "INSERT OR REPLACE INTO event_exceptions (event_id, occurrence_date) VALUES (?1, ?2)",
+            params![event_id, format!("from:{cutoff}")],
         )?;
     }
     Ok(())
@@ -603,8 +738,39 @@ pub fn delete_subscribed_event(
     Ok(true)
 }
 
-pub fn delete_subscription(conn: &Connection, id: i64) -> Result<usize> {
+#[derive(Debug, Clone, Serialize)]
+pub struct DeleteSubscriptionResult {
+    pub deleted_connection: bool,
+    pub deleted_events: usize,
+    pub deleted_calendar: bool,
+    pub calendar_name: String,
+}
+
+/// 删除同步连接及其本地镜像日程。
+///
+/// 默认分类和仍被其他数据使用的分类会保留；只有已经完全空闲的非默认分类
+/// （例如自动创建的“钉钉会议”）才随连接一并移除。
+pub fn delete_subscription(conn: &Connection, id: i64) -> Result<DeleteSubscriptionResult> {
     let tx = conn.unchecked_transaction()?;
+    let subscription: Option<(i64, String)> = tx
+        .query_row(
+            "SELECT s.calendar_id, COALESCE(c.name, '')
+             FROM subscriptions s
+             LEFT JOIN calendars c ON c.id = s.calendar_id
+             WHERE s.id = ?1",
+            params![id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()?;
+    let Some((calendar_id, calendar_name)) = subscription else {
+        tx.commit()?;
+        return Ok(DeleteSubscriptionResult {
+            deleted_connection: false,
+            deleted_events: 0,
+            deleted_calendar: false,
+            calendar_name: String::new(),
+        });
+    };
     let event_ids: Vec<i64> = {
         let mut stmt =
             tx.prepare("SELECT event_id FROM event_sources WHERE subscription_id = ?1")?;
@@ -615,12 +781,42 @@ pub fn delete_subscription(conn: &Connection, id: i64) -> Result<usize> {
         "DELETE FROM event_sources WHERE subscription_id = ?1",
         params![id],
     )?;
-    for event_id in event_ids {
+    for event_id in &event_ids {
+        tx.execute(
+            "DELETE FROM reminder_log WHERE event_id = ?1",
+            params![event_id],
+        )?;
+        tx.execute(
+            "DELETE FROM event_exceptions WHERE event_id = ?1",
+            params![event_id],
+        )?;
         tx.execute("DELETE FROM events WHERE id = ?1", params![event_id])?;
     }
-    let affected = tx.execute("DELETE FROM subscriptions WHERE id = ?1", params![id])?;
+    tx.execute("DELETE FROM subscriptions WHERE id = ?1", params![id])?;
+
+    let remaining_subscriptions: i64 = tx.query_row(
+        "SELECT COUNT(*) FROM subscriptions WHERE calendar_id = ?1",
+        params![calendar_id],
+        |row| row.get(0),
+    )?;
+    let remaining_events: i64 = tx.query_row(
+        "SELECT COUNT(*) FROM events WHERE calendar_id = ?1",
+        params![calendar_id],
+        |row| row.get(0),
+    )?;
+    let is_default_calendar = matches!(calendar_name.as_str(), "默认" | "工作" | "个人" | "家庭");
+    let deleted_calendar = calendar_id != 1
+        && !is_default_calendar
+        && remaining_subscriptions == 0
+        && remaining_events == 0
+        && tx.execute("DELETE FROM calendars WHERE id = ?1", params![calendar_id])? > 0;
     tx.commit()?;
-    Ok(affected)
+    Ok(DeleteSubscriptionResult {
+        deleted_connection: true,
+        deleted_events: event_ids.len(),
+        deleted_calendar,
+        calendar_name,
+    })
 }
 
 // ------------------------------ Shift（本地排班） ------------------------------
@@ -813,6 +1009,7 @@ pub struct SubscribedEvent<'a> {
     pub title: &'a str,
     pub date: NaiveDate,
     pub time: Option<&'a str>,
+    pub duration_minutes: i64,
     pub note: &'a str,
     pub repeat_rule: &'a str,
 }
@@ -1593,13 +1790,156 @@ pub fn toggle_habit_log(conn: &Connection, habit_id: i64, date: NaiveDate) -> Re
 }
 
 pub fn delete_habit(conn: &Connection, id: i64) -> Result<usize> {
-    conn.execute("DELETE FROM habit_logs WHERE habit_id = ?1", params![id])?;
-    Ok(conn.execute("DELETE FROM habits WHERE id = ?1", params![id])?)
+    let tx = conn.unchecked_transaction()?;
+    tx.execute("DELETE FROM habit_logs WHERE habit_id = ?1", params![id])?;
+    let count = tx.execute("DELETE FROM habits WHERE id = ?1", params![id])?;
+    tx.commit()?;
+    Ok(count)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn subscription_delete_test_db() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE calendars (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                color TEXT NOT NULL,
+                visible INTEGER NOT NULL DEFAULT 1,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL
+             );
+             CREATE TABLE events (
+                id INTEGER PRIMARY KEY,
+                title TEXT NOT NULL,
+                date TEXT NOT NULL,
+                time TEXT,
+                duration_minutes INTEGER NOT NULL DEFAULT 60,
+                note TEXT NOT NULL DEFAULT '',
+                repeat_rule TEXT NOT NULL DEFAULT 'none',
+                reminder_offsets TEXT NOT NULL DEFAULT '',
+                category TEXT NOT NULL DEFAULT 'event',
+                source_kind TEXT NOT NULL DEFAULT 'local',
+                calendar_id INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+             );
+             CREATE TABLE subscriptions (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                url TEXT NOT NULL UNIQUE,
+                calendar_id INTEGER NOT NULL,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                last_sync TEXT,
+                last_error TEXT,
+                source_type TEXT NOT NULL DEFAULT 'ics',
+                username TEXT NOT NULL DEFAULT '',
+                secret TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL
+             );
+             CREATE TABLE event_sources (
+                event_id INTEGER PRIMARY KEY,
+                subscription_id INTEGER NOT NULL,
+                external_uid TEXT NOT NULL
+             );
+             CREATE TABLE event_exceptions (
+                event_id INTEGER NOT NULL,
+                occurrence_date TEXT NOT NULL,
+                PRIMARY KEY (event_id, occurrence_date)
+             );
+             CREATE TABLE reminder_log (
+                event_id INTEGER NOT NULL,
+                occurrence_date TEXT NOT NULL,
+                offset_minutes INTEGER NOT NULL,
+                notified_at TEXT NOT NULL,
+                PRIMARY KEY (event_id, occurrence_date, offset_minutes)
+             );",
+        )
+        .unwrap();
+        conn
+    }
+
+    #[test]
+    fn deleting_subscription_clears_mirrors_and_unused_calendar() {
+        let conn = subscription_delete_test_db();
+        conn.execute_batch(
+            "INSERT INTO calendars VALUES (6, '钉钉会议', '#1677ff', 1, 0, 'now');
+             INSERT INTO subscriptions VALUES (2, '钉钉日历', 'https://calendar.dingtalk.com/dav', 6, 1, NULL, NULL, 'caldav', 'user', 'secret', 'now');
+             INSERT INTO events VALUES (20, '会议', '2026-10-01', '10:00', 60, '', 'none', '10', 'event', 'subscription', 6, 'now', 'now');
+             INSERT INTO event_sources VALUES (20, 2, 'meeting-20');
+             INSERT INTO event_exceptions VALUES (20, 'from:2026-10-02');
+             INSERT INTO reminder_log VALUES (20, '2026-10-01', 10, 'now');",
+        )
+        .unwrap();
+
+        let report = delete_subscription(&conn, 2).unwrap();
+        assert!(report.deleted_connection);
+        assert_eq!(report.deleted_events, 1);
+        assert!(report.deleted_calendar);
+        assert_eq!(report.calendar_name, "钉钉会议");
+        for table in [
+            "subscriptions",
+            "events",
+            "event_sources",
+            "event_exceptions",
+            "reminder_log",
+            "calendars",
+        ] {
+            let count: i64 = conn
+                .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                    row.get(0)
+                })
+                .unwrap();
+            assert_eq!(count, 0, "{table} should be empty");
+        }
+    }
+
+    #[test]
+    fn deleting_subscription_preserves_default_calendar_and_local_events() {
+        let conn = subscription_delete_test_db();
+        conn.execute_batch(
+            "INSERT INTO calendars VALUES (1, '默认', '#2e6be6', 1, 0, 'now');
+             INSERT INTO subscriptions VALUES (1, 'Outlook', 'https://example.com/a.ics', 1, 1, NULL, NULL, 'ics', '', '', 'now');
+             INSERT INTO events VALUES (10, '订阅日程', '2026-09-04', '09:00', 60, '', 'none', '', 'event', 'subscription', 1, 'now', 'now');
+             INSERT INTO events VALUES (11, '本地日程', '2026-09-04', '10:00', 60, '', 'none', '', 'event', 'local', 1, 'now', 'now');
+             INSERT INTO event_sources VALUES (10, 1, 'outlook-10');",
+        )
+        .unwrap();
+
+        let report = delete_subscription(&conn, 1).unwrap();
+        assert!(report.deleted_connection);
+        assert_eq!(report.deleted_events, 1);
+        assert!(!report.deleted_calendar);
+        assert!(get_event(&conn, 10).unwrap().is_none());
+        assert_eq!(get_event(&conn, 11).unwrap().unwrap().title, "本地日程");
+        let calendar_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM calendars", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(calendar_count, 1);
+    }
+
+    #[test]
+    fn caldav_server_accepts_dingtalk_domain_without_scheme() {
+        assert_eq!(
+            normalize_caldav_server_url(" calendar.dingtalk.com ").unwrap(),
+            "https://calendar.dingtalk.com/dav"
+        );
+        assert_eq!(
+            normalize_caldav_server_url("https://calendar.dingtalk.com/").unwrap(),
+            "https://calendar.dingtalk.com/dav"
+        );
+        assert_eq!(
+            normalize_caldav_server_url("calendar.dingtalk.com/dav").unwrap(),
+            "https://calendar.dingtalk.com/dav"
+        );
+        assert!(normalize_caldav_server_url("http://calendar.dingtalk.com")
+            .unwrap_err()
+            .to_string()
+            .contains("HTTPS"));
+    }
 
     fn reminder_test_db() -> Connection {
         let conn = Connection::open_in_memory().unwrap();
@@ -1652,7 +1992,7 @@ mod tests {
 
         let todo_text = "🏷️ #研发／紧急 · ①测试 𠮷";
         let note_title = "📌 灵感 #生活";
-        let note_content = "中英混排 Café → ✓ ♫ 😀 𝄞";
+        let note_content = "中英混排 Café → ✓ ♫ 😀 𝄞\n第二行\n第三行";
         create_todo(&conn, todo_text, None, 2).unwrap();
         create_note(&conn, note_title, note_content).unwrap();
 

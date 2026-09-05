@@ -57,23 +57,14 @@ pub(crate) fn register_widget_content_callbacks(
         });
     }
     {
-        let ui_weak = ui.as_weak();
-        let widget_weak = widget.as_weak();
         let state = state.clone();
         widget.on_save_widget_note(move |id, title, content| {
-            let title = if title.trim().is_empty() {
-                "新便签"
-            } else {
-                title.trim()
-            };
+            let title = super::data_actions::normalized_note_title(&title, &content);
             {
                 let s = state.borrow();
-                if let Err(error) = db::update_note(&s.conn, id as i64, title, content.as_str()) {
+                if let Err(error) = db::update_note(&s.conn, id as i64, &title, content.as_str()) {
                     error_reporter::report("保存便签卡片失败", &error);
                 }
-            }
-            if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
-                refresh_notes(&ui, &widget, &state);
             }
         });
     }

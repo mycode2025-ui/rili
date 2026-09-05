@@ -14,7 +14,7 @@ export struct EventItem {
     lane: int,
     lane-count: int,
 }
-export struct TodoItem { id: int, title: string, done: bool, priority: int }
+export struct TodoItem { id: int, title: string, done: bool, priority: int, meta-text: string, is-overdue: bool }
 export struct NoteItem { id: int, title: string, content: string }
 export struct HabitItem { id: int, title: string, streak: int, done-today: bool }
 export struct CalendarItem { id: int, name: string, color: color, visible: bool }
@@ -66,7 +66,7 @@ component TodoRow inherits Rectangle {
         cross-axis-alignment: center;
         CheckMark { checked: todo.done; }
         Text { text: todo.title; color: todo.done ? Theme.text-disabled : Theme.text-1; font-size: Theme.font-13; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
-        if !todo.done: Text { text: todo.priority > 1 ? "逾期 2 天" : "今天"; color: todo.priority > 1 ? Theme.danger : Theme.text-3; font-size: Theme.font-11; vertical-alignment: center; }
+        if !todo.done: Text { text: todo.meta-text; color: todo.is-overdue ? Theme.danger : Theme.text-3; font-size: Theme.font-11; vertical-alignment: center; }
     }
 }
 

@@ -3,6 +3,7 @@
 
 use crate::holidays::{self, WorkState};
 use anyhow::{Context, Result};
+use chrono::Datelike;
 use chrono::NaiveDate;
 use serde::Serialize;
 
@@ -14,6 +15,15 @@ pub struct DateDiff {
     pub calendar_days: i64,
     /// [start, end) 区间内的工作日天数（不含 end 当天；顺序反过来时为负）。
     pub workdays: i64,
+}
+
+/// Do not imply that an unsupported year's statutory holidays are known.
+pub fn coverage_note(start: NaiveDate, end: NaiveDate) -> &'static str {
+    if start.year() == 2026 && end.year() == 2026 {
+        "工作日含 2026 年法定节假日及调休"
+    } else {
+        "注意：仅内置 2026 年节假日；其他年份按周一至周五估算，未计法定节假日及调休"
+    }
 }
 
 /// 计算两个日期之间的自然日间隔与工作日间隔。
@@ -60,7 +70,7 @@ fn is_workday(date: NaiveDate) -> bool {
 /// 从 `start` 起，往后数 `n` 个自然日（n 可为负，表示往前）。
 pub fn add_calendar_days(start: NaiveDate, n: i64) -> Result<NaiveDate> {
     start
-        .checked_add_signed(chrono::Duration::days(n))
+        .checked_add_signed(chrono::Duration::try_days(n).context("推算天数过大")?)
         .context("日期推算超出支持范围")
 }
 
@@ -71,6 +81,10 @@ pub fn add_workdays(start: NaiveDate, n: i64) -> Result<NaiveDate> {
         return Ok(start);
     }
     let step = if n > 0 { 1 } else { -1 };
+    anyhow::ensure!(
+        n.unsigned_abs() <= 366_000,
+        "推算天数过大，请输入 -366000 至 366000"
+    );
     let mut remaining = n.abs();
     let mut d = start;
     while remaining > 0 {
@@ -89,6 +103,22 @@ pub fn add_workdays(start: NaiveDate, n: i64) -> Result<NaiveDate> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn flags_unsupported_holiday_years_and_extreme_offsets() {
+        let known = NaiveDate::from_ymd_opt(2026, 9, 5).unwrap();
+        let unknown = NaiveDate::from_ymd_opt(2027, 1, 1).unwrap();
+        assert!(!coverage_note(known, known).contains("估算"));
+        assert!(coverage_note(known, unknown).contains("估算"));
+        assert!(add_workdays(known, i64::MIN).is_err());
+        assert!(add_calendar_days(known, i64::MAX).is_err());
+        assert!(add_calendar_days(known, i64::MIN).is_err());
+        assert_eq!(diff(known, known).calendar_days, 0);
+        assert_eq!(
+            diff(known, unknown).workdays,
+            -diff(unknown, known).workdays
+        );
+    }
 
     #[test]
     fn date_arithmetic_reports_supported_range_overflow() {
