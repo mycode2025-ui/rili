@@ -20,7 +20,7 @@ jobs:
       - name: Clippy
         run: cargo clippy --all-targets -j 1 -- -D warnings
       - name: Core tests
-        run: cargo test --lib --test data_safety_regression --test note_ui_regression -j 1
+        run: cargo test --all-targets -j 1
 
   visual-regression:
     runs-on: windows-latest

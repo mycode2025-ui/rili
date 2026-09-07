@@ -134,23 +134,26 @@ export component CourseView inherits Rectangle {
         spacing: Theme.space-3;
 
         Rectangle {
-            height: 66px;
+            height: 112px;
             border-radius: Theme.r-lg;
             border-width: 1px;
             border-color: Theme.border-subtle;
             background: Theme.bg-surface;
-            HorizontalLayout {
+            VerticalLayout {
                 padding-left: Theme.space-4;
                 padding-right: Theme.space-3;
+                padding-top: 8px;
+                padding-bottom: 8px;
                 spacing: Theme.space-2;
+                HorizontalLayout {
                 cross-axis-alignment: center;
                 VerticalLayout {
-                    width: 210px; spacing: 2px; alignment: center;
+                    horizontal-stretch: 1; min-width: 0px; spacing: 2px; alignment: center;
                     Text { text: "第 " + root.current-week + " 周"; color: Theme.text-1; font-size: Theme.font-18; font-weight: 700; }
                     Text { text: root.week-title; color: Theme.text-3; font-size: Theme.font-11; overflow: elide; }
                 }
                 IconButton { icon: Icons.left; size: 30px; borderless: true; clicked => { root.change-week(-1); } }
-                GhostButton { text: root.current-week == root.actual-week ? "本周" : "回到本周"; clicked => { root.goto-current-week(); } }
+                GhostButton { width: 96px; text: root.current-week == root.actual-week ? "本周" : "回到本周"; clicked => { root.goto-current-week(); } }
                 IconButton { icon: Icons.right; size: 30px; borderless: true; clicked => { root.change-week(1); } }
                 Rectangle {
                     height: 28px; min-width: 92px; border-radius: Theme.pill-radius-26;
@@ -160,16 +163,22 @@ export component CourseView inherits Rectangle {
                         Text { text: root.active-count + " 门课"; color: Theme.accent; font-size: Theme.font-11; font-weight: 600; vertical-alignment: center; }
                     }
                 }
-                Rectangle { horizontal-stretch: 1; }
+                }
+                HorizontalLayout {
+                spacing: Theme.space-2;
+                cross-axis-alignment: center;
                 Text { text: "开学日"; color: Theme.text-3; font-size: Theme.font-11; vertical-alignment: center; }
                 term-input := LineEdit { width: 118px; text: root.term-start; placeholder-text: "YYYY-MM-DD"; }
                 GhostButton {
+                    width: 64px;
                     text: "应用";
                     clicked => {
                         root.page-message = root.set-term-start(term-input.text);
                     }
                 }
+                Rectangle { horizontal-stretch: 1; }
                 add-course-button := PrimaryButton { text: "新建课程"; icon: Icons.plus; show-icon: true; clicked => { root.open-new(); } }
+                }
             }
         }
 
@@ -195,7 +204,7 @@ export component CourseView inherits Rectangle {
                             Text { text: "节次"; color: Theme.text-3; font-size: Theme.font-10; horizontal-alignment: center; vertical-alignment: center; }
                         }
                         for label[i] in ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]: Rectangle {
-                            horizontal-stretch: 1; min-width: 92px; border-width: 1px; border-color: Theme.border-subtle;
+                            horizontal-stretch: 1; min-width: 0px; border-width: 1px; border-color: Theme.border-subtle;
                             background: (i == 5 || i == 6) ? Theme.holiday-bg.with-alpha(35%) : transparent;
                             Text { text: label; color: (i == 5 || i == 6) ? Theme.weekend : Theme.text-2; font-size: Theme.font-12; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
                         }
@@ -204,10 +213,11 @@ export component CourseView inherits Rectangle {
                 Flickable {
                     vertical-stretch: 1;
                     interactive: true;
-                    viewport-width: max(self.width, 710px);
+                    viewport-width: self.width;
                     viewport-height: 12 * 58px;
                     timetable := Rectangle {
-                        width: max(parent.width, 710px);
+                        x: 0px; y: 0px;
+                        width: parent.width;
                         height: 12 * 58px;
                         background: Theme.bg-surface;
                         for period in 12: Rectangle {

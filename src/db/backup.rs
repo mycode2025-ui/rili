@@ -125,11 +125,19 @@ impl Default for CourseJsonSchema {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupEventException {
+    pub event_id: i64,
+    pub occurrence_date: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocalBackup {
     pub format_version: u32,
     pub exported_at: String,
     pub calendars: Vec<Calendar>,
     pub events: Vec<Event>,
+    #[serde(default)]
+    pub event_exceptions: Vec<BackupEventException>,
     pub todos: Vec<Todo>,
     pub notes: Vec<Note>,
     #[serde(default)]
@@ -176,6 +184,9 @@ pub fn export_backup(conn: &Connection) -> Result<LocalBackup> {
         exported_at: now(),
         calendars: list_calendars(conn)?,
         events: list_all_events(conn)?,
+        event_exceptions: conn.prepare("SELECT x.event_id, x.occurrence_date FROM event_exceptions x JOIN events e ON e.id = x.event_id ORDER BY x.event_id, x.occurrence_date")?
+            .query_map([], |row| Ok(BackupEventException { event_id: row.get(0)?, occurrence_date: row.get(1)? }))?
+            .collect::<rusqlite::Result<Vec<_>>>()?,
         todos: list_all_todos(conn)?,
         notes: list_notes(conn)?,
         course_schema: CourseJsonSchema::default(),
@@ -216,12 +227,28 @@ pub fn import_backup(conn: &mut Connection, backup: &LocalBackup) -> Result<Impo
         calendar_ids.insert(calendar.id, id);
     }
     let mut event_count = 0;
+    let mut event_ids = std::collections::HashMap::new();
     for event in &backup.events {
         tx.execute(
             "INSERT INTO events (title, date, time, duration_minutes, note, repeat_rule, reminder_offsets, category, calendar_id, created_at, updated_at, source_kind) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![event.title, event.date, event.time, event.duration_minutes, event.note, event.repeat_rule, event.reminder_offsets, event.category, calendar_ids.get(&event.calendar_id).copied().unwrap_or(1), event.created_at, event.updated_at, event.source_kind],
         )?;
         event_count += 1;
+        event_ids.insert(event.id, tx.last_insert_rowid());
+    }
+    for exception in &backup.event_exceptions {
+        let event_id = event_ids
+            .get(&exception.event_id)
+            .context("备份日程例外引用了不存在的日程")?;
+        let value = exception
+            .occurrence_date
+            .strip_prefix("from:")
+            .unwrap_or(&exception.occurrence_date);
+        NaiveDate::parse_from_str(value, "%Y-%m-%d").context("备份日程例外日期无效")?;
+        tx.execute(
+            "INSERT OR IGNORE INTO event_exceptions(event_id, occurrence_date) VALUES (?1, ?2)",
+            params![event_id, exception.occurrence_date],
+        )?;
     }
     let mut todo_count = 0;
     for todo in &backup.todos {

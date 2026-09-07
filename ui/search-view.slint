@@ -11,6 +11,7 @@ export struct SearchItem {
 }
 
 export component SearchView inherits Rectangle {
+    callback close-requested();
     in-out property <string> query;
     in property <int> focus-request: 0;
     in property <[SearchItem]> results;
@@ -57,6 +58,10 @@ export component SearchView inherits Rectangle {
                 vertical-alignment: center;
             }
             search-input := TextInput {
+                key-pressed(event) => {
+                    if event.text == Key.Escape { root.close-requested(); return accept; }
+                    return reject;
+                }
                 x: 38px; width: parent.width - 50px; height: parent.height;
                 text <=> root.query;
                 color: Theme.text-primary;

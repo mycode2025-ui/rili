@@ -295,7 +295,7 @@ export component CalendarWidgetWindow inherits Window {
             }
         }
     }
-    WindowDragStrip { x: 12px; y: 12px; width: parent.width - 164px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+    WindowDragStrip { x: 0px; y: 0px; width: parent.width - 152px; height: 48px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
     WindowResizeGrip { visible: !root.locked; x: parent.width - self.width; y: parent.height - self.height; resize-requested => { root.begin-window-resize(); } resize-finished => { root.end-window-resize(); } }
 }
 
@@ -383,7 +383,7 @@ export component EventsWidgetWindow inherits Window {
             }
         }
     }
-    WindowDragStrip { x: 12px; y: 12px; width: parent.width - 136px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+    WindowDragStrip { x: 0px; y: 0px; width: parent.width - 124px; height: 48px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
     WindowResizeGrip { visible: !root.locked; x: parent.width - self.width; y: parent.height - self.height; resize-requested => { root.begin-window-resize(); } resize-finished => { root.end-window-resize(); } }
 }
 
@@ -456,7 +456,7 @@ export component CountdownWidgetWindow inherits Window {
             save(title, date) => { root.create-countdown(title, date); }
         }
     }
-    WindowDragStrip { x: 12px; y: 12px; width: parent.width - 136px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+    WindowDragStrip { x: 0px; y: 0px; width: parent.width - 124px; height: 48px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
     WindowResizeGrip { visible: !root.locked; x: parent.width - self.width; y: parent.height - self.height; resize-requested => { root.begin-window-resize(); } resize-finished => { root.end-window-resize(); } }
 }
 
@@ -538,7 +538,7 @@ export component ClockWidgetWindow inherits Window {
             save(title, time) => { root.create-reminder(title, time); }
         }
     }
-    WindowDragStrip { x: 14px; y: 12px; width: parent.width - 138px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+    WindowDragStrip { x: 0px; y: 0px; width: parent.width - 124px; height: 48px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
     WindowResizeGrip { visible: !root.locked; x: parent.width - self.width; y: parent.height - self.height; resize-requested => { root.begin-window-resize(); } resize-finished => { root.end-window-resize(); } }
 }
 
@@ -684,7 +684,7 @@ export component WeatherWidgetWindow inherits Window {
             }
         }
     }
-    WindowDragStrip { x: 14px; y: 12px; width: parent.width - 138px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+    WindowDragStrip { x: 0px; y: 0px; width: parent.width - 124px; height: 48px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
     WindowResizeGrip { visible: !root.locked; x: parent.width - self.width; y: parent.height - self.height; resize-requested => { root.begin-window-resize(); } resize-finished => { root.end-window-resize(); } }
 }
 
@@ -767,7 +767,7 @@ export component FocusWidgetWindow inherits Window {
             save(title, minutes) => { root.create-focus(title, minutes); }
         }
     }
-    WindowDragStrip { x: 14px; y: 12px; width: parent.width - 138px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+    WindowDragStrip { x: 0px; y: 0px; width: parent.width - 124px; height: 48px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
     WindowResizeGrip { visible: !root.locked; x: parent.width - self.width; y: parent.height - self.height; resize-requested => { root.begin-window-resize(); } resize-finished => { root.end-window-resize(); } }
 }
 
@@ -850,7 +850,7 @@ export component TodoWidgetWindow inherits Window {
             save(title, detail) => { root.create-todo(title); }
         }
     }
-    WindowDragStrip { x: 14px; y: 12px; width: parent.width - 138px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+    WindowDragStrip { x: 0px; y: 0px; width: parent.width - 124px; height: 48px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
     WindowResizeGrip { visible: !root.locked; x: parent.width - self.width; y: parent.height - self.height; resize-requested => { root.begin-window-resize(); } resize-finished => { root.end-window-resize(); } }
 }
 
@@ -940,7 +940,7 @@ export component NotesWidgetWindow inherits Window {
             font-size: Theme.font-10-5; vertical-alignment: center;
         }
     }
-    WindowDragStrip { x: 14px; y: 12px; width: parent.width - 138px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+    WindowDragStrip { x: 0px; y: 0px; width: parent.width - 124px; height: 48px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
     WindowResizeGrip { visible: !root.locked; x: parent.width - self.width; y: parent.height - self.height; resize-requested => { root.begin-window-resize(); } resize-finished => { root.end-window-resize(); } }
 }
 
@@ -983,7 +983,7 @@ export component DailyQuoteWidgetWindow inherits Window {
             wrap: word-wrap; vertical-alignment: center; horizontal-alignment: left;
         }
     }
-    WindowDragStrip { x: 14px; y: 12px; width: parent.width - 110px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+    WindowDragStrip { x: 0px; y: 0px; width: parent.width - 96px; height: 48px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
     WindowResizeGrip { visible: !root.locked; x: parent.width - self.width; y: parent.height - self.height; resize-requested => { root.begin-window-resize(); } resize-finished => { root.end-window-resize(); } }
 }
 
@@ -1049,6 +1049,6 @@ export component AlmanacWidgetWindow inherits Window {
             Text { text: root.clash-text + " · 传统民俗仅供生活参考"; color: Theme.widget-text-3; font-size: Theme.font-10-5; overflow: elide; }
         }
     }
-    WindowDragStrip { x: 14px; y: 12px; width: parent.width - 110px; height: 24px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
+    WindowDragStrip { x: 0px; y: 0px; width: parent.width - 96px; height: 48px; drag-requested => { root.begin-window-drag(); } drag-finished => { root.end-window-drag(); } }
     WindowResizeGrip { visible: !root.locked; x: parent.width - self.width; y: parent.height - self.height; resize-requested => { root.begin-window-resize(); } resize-finished => { root.end-window-resize(); } }
 }

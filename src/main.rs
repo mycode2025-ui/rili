@@ -8,6 +8,8 @@ mod app_state;
 mod controllers;
 mod desktop;
 mod font_settings;
+#[cfg(test)]
+mod navigation_performance_tests;
 mod presentation;
 mod runtime;
 mod system_tray;

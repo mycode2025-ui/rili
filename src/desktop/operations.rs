@@ -15,6 +15,24 @@ pub(crate) fn sync_desktop_visibility_to_ui(ui: &AppWindow, visible: DesktopWidg
 
 thread_local! {
     pub(crate) static DESKTOP_WIDGET_WINDOWS: RefCell<Option<Rc<DesktopWidgetWindows>>> = const { RefCell::new(None) };
+    static DESKTOP_SYNC_DEPTH: Cell<usize> = const { Cell::new(0) };
+}
+
+/// Coalesce nested partial refreshes into one card update after all models are ready.
+pub(crate) struct DesktopSyncBatch<'a>(&'a WidgetWindow);
+
+impl<'a> DesktopSyncBatch<'a> {
+    pub(crate) fn new(source: &'a WidgetWindow) -> Self {
+        DESKTOP_SYNC_DEPTH.with(|depth| depth.set(depth.get() + 1));
+        Self(source)
+    }
+}
+
+impl Drop for DesktopSyncBatch<'_> {
+    fn drop(&mut self) {
+        DESKTOP_SYNC_DEPTH.with(|depth| depth.set(depth.get() - 1));
+        sync_desktop_widgets(self.0);
+    }
 }
 
 /// Return the physical rectangle of the exact card that opened a companion
@@ -59,6 +77,9 @@ pub(crate) fn desktop_widget_rect(instance_key: &str) -> Option<(i32, i32, i32, 
 }
 
 pub(crate) fn sync_desktop_widgets(source: &WidgetWindow) {
+    if DESKTOP_SYNC_DEPTH.with(|depth| depth.get() > 0) {
+        return;
+    }
     DESKTOP_WIDGET_WINDOWS.with(|slot| {
         if let Some(windows) = slot.borrow().as_ref() {
             windows.sync_from(source);

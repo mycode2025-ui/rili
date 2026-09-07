@@ -76,7 +76,63 @@ fn sync_subscription_inner(
             .into_string()
             .context("读取 ICS 订阅响应失败")?
     };
+    // A successful HTTP response may actually be a login page. Never interpret
+    // malformed content as an authoritative empty calendar.
+    let mut depth = 0;
+    let mut calendars = 0;
+    let mut event_depth = 0;
+    for line in content
+        .trim_start_matches('\u{feff}')
+        .lines()
+        .map(str::trim_end)
+    {
+        match line {
+            "BEGIN:VCALENDAR" => {
+                anyhow::ensure!(depth == 0, "日历结构无效");
+                depth = 1;
+                calendars += 1;
+            }
+            "END:VCALENDAR" => {
+                anyhow::ensure!(depth == 1 && event_depth == 0, "日历结构不完整");
+                depth = 0;
+            }
+            "BEGIN:VEVENT" => {
+                anyhow::ensure!(depth == 1 && event_depth == 0, "日程结构无效");
+                event_depth = 1;
+            }
+            "END:VEVENT" => {
+                anyhow::ensure!(event_depth == 1, "日程结构无效");
+                event_depth = 0;
+            }
+            _ => {}
+        }
+    }
+    // CalDAV may legitimately return no resources for its bounded query.
+    anyhow::ensure!(
+        (calendars > 0 || (subscription.source_type == "caldav" && content.trim().is_empty()))
+            && depth == 0
+            && event_depth == 0,
+        "服务器未返回完整的 iCalendar 数据，请检查订阅地址或登录状态"
+    );
     let events = ics::parse_ics(&content).context("解析 ICS 订阅失败")?;
+    let declared_events = content
+        .lines()
+        .filter(|line| line.trim_end() == "BEGIN:VEVENT")
+        .count();
+    anyhow::ensure!(
+        events.len() == declared_events,
+        "日历包含无法解析的日程，已保留原有数据"
+    );
+    let seen: std::collections::HashSet<String> = events
+        .iter()
+        .map(|event| {
+            if event.uid.trim().is_empty() {
+                fallback_uid(event)
+            } else {
+                event.uid.clone()
+            }
+        })
+        .collect();
     let mut imported = 0;
     let mut removed_cancelled = 0;
     for event in events {
@@ -109,6 +165,20 @@ fn sync_subscription_inner(
         )?;
         db::set_subscribed_event_repeat_until(conn, event_id, event.repeat_until)?;
         imported += 1;
+    }
+    // ICS URL is a complete snapshot. CalDAV REPORT is time-bounded: absence
+    // there must not remove historic/out-of-range meetings.
+    if subscription.source_type != "caldav" {
+        let mut stmt =
+            conn.prepare("SELECT external_uid FROM event_sources WHERE subscription_id = ?1")?;
+        let existing = stmt
+            .query_map([subscription.id], |row| row.get::<_, String>(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        for uid in existing {
+            if !seen.contains(&uid) && db::delete_subscribed_event(conn, subscription.id, &uid)? {
+                removed_cancelled += 1;
+            }
+        }
     }
     Ok(SubscriptionSyncResult {
         imported_events: imported,

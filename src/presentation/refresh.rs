@@ -4,6 +4,7 @@ use crate::*;
 
 /// 重新计算当前月份网格 + 选中日详情 + 今日日程（挂件用），并写回两个窗口的 Slint 属性。
 pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefCell<AppState>>) {
+    let _batch = DesktopSyncBatch::new(widget);
     let (
         year,
         month,
@@ -533,24 +534,7 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
         refresh_courses(ui, widget, state);
     }
     if state.borrow().view_mode == 6 {
-        let s = state.borrow();
-        ui.set_calculator_start(s.calculator_start.clone().into());
-        ui.set_calculator_end(s.calculator_end.clone().into());
-        ui.set_calculator_offset(s.calculator_offset.clone().into());
-        ui.set_calculator_result(s.calculator_result.clone().into());
-        ui.set_weather_city(
-            db::get_setting(&s.conn, "weather_city", "北京")
-                .unwrap_or_else(|_| "北京".to_string())
-                .into(),
-        );
-        ui.set_ai_input(s.ai_input.clone().into());
-        ui.set_ai_draft(s.ai_draft.clone().into());
-        ui.set_ai_draft_title(s.ai_draft_title.clone().into());
-        ui.set_ai_draft_date(s.ai_draft_date.clone().into());
-        ui.set_ai_draft_time(s.ai_draft_time.clone().into());
-        ui.set_ai_draft_reminder(s.ai_draft_reminder.clone().into());
-        ui.set_subscription_name(s.subscription_name.clone().into());
-        ui.set_subscription_url(s.subscription_url.clone().into());
+        refresh_tool_inputs(ui, state);
     }
     let almanac_date = NaiveDate::from_ymd_opt(year, month, selected_day)
         .unwrap_or_else(|| Local::now().date_naive());

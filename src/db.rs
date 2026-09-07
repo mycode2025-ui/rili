@@ -734,6 +734,14 @@ pub fn delete_subscribed_event(
         params![subscription_id, external_uid],
     )?;
     tx.execute("DELETE FROM events WHERE id = ?1", params![event_id])?;
+    tx.execute(
+        "DELETE FROM event_exceptions WHERE event_id = ?1",
+        params![event_id],
+    )?;
+    tx.execute(
+        "DELETE FROM reminder_log WHERE event_id = ?1",
+        params![event_id],
+    )?;
     tx.commit()?;
     Ok(true)
 }

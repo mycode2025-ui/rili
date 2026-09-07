@@ -29,6 +29,7 @@ pub fn day_ganzhi(date: NaiveDate) -> String {
 }
 
 /// 黄历摘要：农历日期、日柱、值星、天神、传统宜忌与冲煞。
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AlmanacInfo {
     pub solar_date: String,
     pub lunar_full_text: String,
@@ -40,6 +41,27 @@ pub struct AlmanacInfo {
 }
 
 pub fn describe(date: NaiveDate) -> AlmanacInfo {
+    // The main page and several cards request the same dates repeatedly.
+    // Bound the per-thread cache; calendar navigation must not grow it forever.
+    thread_local! {
+        static CACHE: std::cell::RefCell<std::collections::VecDeque<(NaiveDate, AlmanacInfo)>> =
+            const { std::cell::RefCell::new(std::collections::VecDeque::new()) };
+    }
+    CACHE.with(|cache| {
+        let mut cache = cache.borrow_mut();
+        if let Some((_, info)) = cache.iter().find(|(key, _)| *key == date) {
+            return info.clone();
+        }
+        let info = describe_uncached(date);
+        if cache.len() == 32 {
+            cache.pop_front();
+        }
+        cache.push_back((date, info.clone()));
+        info
+    })
+}
+
+fn describe_uncached(date: NaiveDate) -> AlmanacInfo {
     let solar = solar::from_ymd(date.year() as i64, date.month() as i64, date.day() as i64);
     let lunar = solar.get_lunar();
     let suitable = lunar
@@ -74,6 +96,29 @@ pub fn describe(date: NaiveDate) -> AlmanacInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cached_almanac_matches_source_and_keeps_dates_separate() {
+        let date = NaiveDate::from_ymd_opt(2026, 9, 7).unwrap();
+        let start = std::time::Instant::now();
+        let expected = describe_uncached(date);
+        let uncached = start.elapsed();
+        assert_eq!(describe(date), expected);
+        let start = std::time::Instant::now();
+        for _ in 0..100 {
+            assert_eq!(describe(date), expected);
+        }
+        eprintln!(
+            "ALMANAC uncached_us={} cached_avg_us={}",
+            uncached.as_micros(),
+            start.elapsed().as_micros() / 100
+        );
+        let next = date.succ_opt().unwrap();
+        assert_eq!(describe(next), describe_uncached(next));
+        let mut modified = describe(date);
+        modified.suitable.clear();
+        assert_eq!(describe(date), expected);
+    }
 
     #[test]
     fn matches_known_reference_dates() {

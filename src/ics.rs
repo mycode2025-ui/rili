@@ -104,7 +104,7 @@ fn parse_rrule_until(value: &str) -> Option<NaiveDate> {
     let digits: String = value.chars().filter(|c| c.is_ascii_digit()).collect();
     if digits.len() >= 14 && value.ends_with('Z') {
         let utc = NaiveDateTime::parse_from_str(&digits[..14], "%Y%m%d%H%M%S").ok()?;
-        return Some((utc + chrono::Duration::hours(8)).date());
+        return Some(utc.and_utc().with_timezone(&chrono::Local).date_naive());
     }
     (digits.len() >= 8)
         .then(|| NaiveDate::parse_from_str(&digits[..8], "%Y%m%d").ok())
@@ -325,7 +325,17 @@ fn parse_ics_datetime(value: &str) -> Option<(NaiveDate, Option<String>, Option<
     let Ok(parsed_time) = NaiveTime::parse_from_str(&candidate, "%H:%M") else {
         return Some((date, None, None));
     };
-    Some((date, Some(candidate), Some(date.and_time(parsed_time))))
+    let start = date.and_time(parsed_time);
+    let local = if value.ends_with('Z') {
+        start.and_utc().with_timezone(&chrono::Local).naive_local()
+    } else {
+        start
+    };
+    Some((
+        local.date(),
+        Some(local.format("%H:%M").to_string()),
+        Some(local),
+    ))
 }
 
 /// 解析会议导出常见的 ISO 8601 时长，如 PT45M、PT1H30M。

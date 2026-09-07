@@ -352,6 +352,7 @@ export component AppWindow inherits Window {
         KeyBinding {
             keys: @keys(Escape);
             activated => {
+                if (root.search-open) { root.search-open = false; }
                 if (root.settings-open) {
                     root.settings-open = false;
                 }
@@ -1011,6 +1012,7 @@ export component AppWindow inherits Window {
         TouchArea { clicked => { root.search-open = false; } }
     }
     if search-open: SearchView {
+        close-requested => { root.search-open = false; }
         x: search-box.absolute-position.x;
         y: Theme.titlebar-height + Theme.space-1;
         width: 520px;

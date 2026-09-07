@@ -223,8 +223,12 @@ pub(crate) fn register_schedule_callbacks(
             };
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
                 set_main_view_mode(&ui, mode);
-                if needs_refresh {
+                let timeline_mismatch = matches!(mode, 2 | 3)
+                    && ui.get_timeline_days().row_count() != if mode == 3 { 3 } else { 1 };
+                if needs_refresh || timeline_mismatch {
                     refresh_all(&ui, &widget, &state);
+                } else {
+                    refresh_navigation_page(&ui, &widget, &state);
                 }
             }
         });

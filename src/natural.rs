@@ -21,6 +21,19 @@ pub fn parse(input: &str, today: NaiveDate) -> Result<Draft> {
     if input.is_empty() {
         bail!("请输入一句日程描述");
     }
+    for candidate in input.as_bytes().windows(10) {
+        if candidate[4] == b'-'
+            && candidate[7] == b'-'
+            && candidate
+                .iter()
+                .enumerate()
+                .all(|(i, b)| i == 4 || i == 7 || b.is_ascii_digit())
+        {
+            let value = std::str::from_utf8(candidate)?;
+            NaiveDate::parse_from_str(value, "%Y-%m-%d")
+                .map_err(|_| anyhow::anyhow!("日期无效：{value}，请修正后重试"))?;
+        }
+    }
     let date = find_date(input, today).unwrap_or(today);
     let time = find_time(input).unwrap_or_default();
     let reminder = find_reminder(input);
@@ -120,11 +133,11 @@ fn find_time(input: &str) -> Option<String> {
         if marker == "凌晨" && hour == 12 {
             hour = 0;
         }
-        let minute = if let Some(fen_index) = after.find('分') {
-            first_chinese_number(&after[..fen_index]).unwrap_or(0)
-        } else {
-            0
-        };
+        let suffix = after
+            .split_once('点')
+            .map(|(_, suffix)| suffix)
+            .unwrap_or("");
+        let (minute, _) = minute_suffix(suffix);
         if hour < 24 && minute < 60 {
             return Some(format!("{hour:02}:{minute:02}"));
         }
@@ -152,7 +165,27 @@ fn find_reminder(input: &str) -> String {
         .unwrap_or_default()
 }
 
-fn clean_title(input: &str, date: NaiveDate, time: &str, reminder: &str) -> String {
+// Only consume a minute expression immediately following 点, never a later
+// reminder's 分 or words in the meeting title.
+fn minute_suffix(value: &str) -> (u32, usize) {
+    if value.starts_with('半') {
+        return (30, '半'.len_utf8());
+    }
+    let end = value
+        .char_indices()
+        .take_while(|(_, c)| c.is_ascii_digit() || is_cn_digit(*c) || *c == '十')
+        .map(|(i, c)| i + c.len_utf8())
+        .last()
+        .unwrap_or(0);
+    if end > 0 && value[end..].starts_with('分') {
+        if let Some(minutes) = first_chinese_number(&value[..end]) {
+            return (minutes, end + '分'.len_utf8());
+        }
+    }
+    (0, 0)
+}
+
+fn clean_title(input: &str, date: NaiveDate, time: &str, _reminder: &str) -> String {
     let mut title = input.to_string();
     for keyword in [
         "提醒我",
@@ -164,8 +197,8 @@ fn clean_title(input: &str, date: NaiveDate, time: &str, reminder: &str) -> Stri
         "新建",
         "今天",
         "明天",
-        "后天",
         "大后天",
+        "后天",
     ] {
         title = title.replace(keyword, "");
     }
@@ -188,18 +221,13 @@ fn clean_title(input: &str, date: NaiveDate, time: &str, reminder: &str) -> Stri
             if let Some(point_index) = after.find('点') {
                 let mut end = index + marker.len() + point_index + '点'.len_utf8();
                 let after_point = &title[end..];
-                if let Some(minute_index) = after_point.find('分') {
-                    end += minute_index + '分'.len_utf8();
-                }
+                end += minute_suffix(after_point).1;
                 title.replace_range(index..end, "");
             }
         }
     }
     if let Some(index) = title.find("提前") {
         title.truncate(index);
-    }
-    if !reminder.is_empty() {
-        title = title.replace(reminder, "");
     }
     title
         .trim_matches(|c: char| " ，,。；;：:的".contains(c))
@@ -224,7 +252,7 @@ fn parse_weekday(value: char) -> Option<Weekday> {
 fn first_chinese_number(value: &str) -> Option<u32> {
     let mut chars = value
         .chars()
-        .skip_while(|c| !c.is_ascii_digit() && !is_cn_digit(*c));
+        .skip_while(|c| !c.is_ascii_digit() && !is_cn_digit(*c) && *c != '十');
     let first = chars.next()?;
     if first.is_ascii_digit() {
         let mut digits = String::from(first);

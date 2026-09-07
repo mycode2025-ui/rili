@@ -55,6 +55,8 @@ try {
     }
 
     $env:SLINT_SCALE_FACTOR = '1.0'
+    & slint-viewer tests\visual\main-review-preview.slint --load-data tests\visual\main-course-dark.json --screenshot (Join-Path $currentDir 'CoursePreview-dark.png')
+    if ($LASTEXITCODE -ne 0) { throw '渲染失败：CoursePreview dark' }
     & slint-viewer tests\visual\subscription-states-preview.slint --screenshot (Join-Path $currentDir 'SubscriptionStates-dark.png')
     if ($LASTEXITCODE -ne 0) { throw '渲染失败：SubscriptionStates dark' }
     & slint-viewer tests\visual\today-preview.slint --component TodayPreview --screenshot (Join-Path $currentDir 'TodayPreview-light.png')

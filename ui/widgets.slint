@@ -2,6 +2,12 @@ import { Theme } from "theme.slint";
 import { Icons, SvgIcon } from "icons.slint";
 
 export component FocusTouchArea {
+    // A root-less component has no implicit hit area. Match TouchArea's
+    // parent-filling behavior for every caller, including calendar tags.
+    x: 0px;
+    y: 0px;
+    width: 100%;
+    height: 100%;
     in property <bool> enabled: true;
     out property <bool> pressed <=> pointer-area.pressed;
     out property <bool> has-hover <=> pointer-area.has-hover;

@@ -5,6 +5,50 @@
 
 use crate::*;
 
+/// Navigation is read-only: keep resident todo/note/calendar models intact.
+/// Mutation callbacks already refresh those models. Lazy pages only read their
+/// own tables; none of these paths synchronizes unrelated desktop cards.
+pub(crate) fn refresh_navigation_page(
+    ui: &AppWindow,
+    widget: &WidgetWindow,
+    state: &Rc<RefCell<AppState>>,
+) {
+    let mode = state.borrow().view_mode;
+    match mode {
+        6 => {
+            refresh_tool_inputs(ui, state);
+            refresh_subscriptions(ui, state);
+            update_tool_status_source(ui, widget, state);
+        }
+        7 => refresh_search(ui, state),
+        8 => refresh_records(ui, state),
+        9 => refresh_shifts(ui, state),
+        12 => refresh_courses(ui, widget, state),
+        _ => {}
+    }
+}
+
+pub(crate) fn refresh_tool_inputs(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
+    let s = state.borrow();
+    ui.set_calculator_start(s.calculator_start.clone().into());
+    ui.set_calculator_end(s.calculator_end.clone().into());
+    ui.set_calculator_offset(s.calculator_offset.clone().into());
+    ui.set_calculator_result(s.calculator_result.clone().into());
+    ui.set_weather_city(
+        db::get_setting(&s.conn, "weather_city", "北京")
+            .unwrap_or_else(|_| "北京".into())
+            .into(),
+    );
+    ui.set_ai_input(s.ai_input.clone().into());
+    ui.set_ai_draft(s.ai_draft.clone().into());
+    ui.set_ai_draft_title(s.ai_draft_title.clone().into());
+    ui.set_ai_draft_date(s.ai_draft_date.clone().into());
+    ui.set_ai_draft_time(s.ai_draft_time.clone().into());
+    ui.set_ai_draft_reminder(s.ai_draft_reminder.clone().into());
+    ui.set_subscription_name(s.subscription_name.clone().into());
+    ui.set_subscription_url(s.subscription_url.clone().into());
+}
+
 pub(crate) fn refresh_todos(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefCell<AppState>>) {
     let (selected, today_items, board_items) = {
         let s = state.borrow();

@@ -13,13 +13,13 @@ pub fn show_plan(visible: bool, minimized: bool) -> ShowPlan {
     }
 }
 
-/// 大部分页面切换只需切换已有模型。只有时间轴跨度发生变化，或进入周/日视图时
-/// 锚点确实改变，才需要重新构造日期模型。
+/// Whether navigation needs the expensive calendar aggregate. Non-calendar
+/// pages load their own data and must never rebuild the calendar as a side effect.
 pub fn navigation_refresh_needed(previous_mode: i32, next_mode: i32, anchor_changed: bool) -> bool {
-    const LAZY_DATA_MODES: [i32; 7] = [4, 5, 6, 7, 8, 9, 12];
-    anchor_changed
-        || (previous_mode == 3) != (next_mode == 3)
-        || (previous_mode != next_mode && LAZY_DATA_MODES.contains(&next_mode))
+    matches!(next_mode, 0 | 1 | 2 | 3 | 5)
+        && (anchor_changed
+            || (previous_mode == 3) != (next_mode == 3)
+            || (previous_mode != next_mode && next_mode == 5))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,12 +105,17 @@ mod tests {
     #[test]
     fn ordinary_view_switch_reuses_existing_models() {
         assert!(!navigation_refresh_needed(0, 2, false));
-        assert!(navigation_refresh_needed(0, 4, false));
+        assert!(!navigation_refresh_needed(0, 4, false));
         assert!(navigation_refresh_needed(0, 5, false));
-        assert!(navigation_refresh_needed(0, 12, false));
+        assert!(!navigation_refresh_needed(0, 12, false));
         assert!(navigation_refresh_needed(0, 2, true));
         assert!(navigation_refresh_needed(2, 3, false));
         assert!(navigation_refresh_needed(3, 2, false));
+        for previous in 0..=12 {
+            for page in [4, 6, 7, 8, 9, 10, 11, 12] {
+                assert!(!navigation_refresh_needed(previous, page, true));
+            }
+        }
     }
 
     #[test]
