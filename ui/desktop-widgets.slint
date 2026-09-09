@@ -129,19 +129,44 @@ component WindowResizeGrip inherits Rectangle {
     }
 }
 
-component FutureEventRow inherits Rectangle {
+// 桌面 Agenda 行：日期只在分组首项显示，避免每条日程重复日期。
+component AgendaEventBlock inherits Rectangle {
     in property <EventItem> event;
     callback clicked();
-    height: 38px;
-    border-radius: 10px;
-    background: touch.has-hover ? Theme.widget-glass-hover : Theme.widget-row;
-    HorizontalLayout {
-        padding-left: Theme.space-2; padding-right: Theme.space-2; spacing: Theme.space-2; cross-axis-alignment: center;
-        Rectangle { width: 3px; height: 22px; border-radius: 2px; background: event.color; }
-        Text { width: 76px; text: event.meta-text; color: Theme.widget-text-3; font-size: Theme.font-10-5; vertical-alignment: center; overflow: elide; }
-        Text { text: event.title; color: Theme.widget-text-1; font-size: Theme.font-12; font-weight: 600; vertical-alignment: center; overflow: elide; }
+    height: event.show-date-group ? 64px : 40px;
+
+    if event.show-date-group: Text {
+        x: 0px; y: 0px; width: parent.width; height: 24px;
+        text: event.date-group-text;
+        color: Theme.widget-text-3;
+        font-size: Theme.font-11;
+        font-weight: 500;
+        vertical-alignment: center;
+        overflow: elide;
     }
-    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    row := Rectangle {
+        x: 0px; y: root.event.show-date-group ? 24px : 0px;
+        width: parent.width; height: 40px;
+        border-radius: Theme.r-md;
+        background: row-touch.has-hover ? Theme.widget-glass-hover : transparent;
+        Rectangle {
+            x: 0px; y: 8px; width: 3px; height: 24px;
+            border-radius: 1.5px; background: root.event.color;
+        }
+        Text {
+            x: 12px; y: 0px; width: 54px; height: parent.height;
+            text: root.event.all-day ? "全天" : root.event.time-text;
+            color: Theme.widget-text-1; font-size: Theme.font-12;
+            font-weight: 500; vertical-alignment: center; overflow: elide;
+        }
+        Text {
+            x: 72px; y: 0px; width: parent.width - 80px; height: parent.height;
+            text: root.event.title;
+            color: Theme.widget-text-1; font-size: Theme.font-12;
+            vertical-alignment: center; overflow: elide;
+        }
+        row-touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    }
 }
 
 component CalendarActionButton inherits Rectangle {
@@ -300,15 +325,15 @@ export component CalendarWidgetWindow inherits Window {
 }
 
 export component EventsWidgetWindow inherits Window {
-    title: "TimeHub 日程";
+    title: "TimeHub 我的日程";
     default-font-family: Theme.font-family;
     icon: Icons.app-logo;
     preferred-width: 304px;
     min-width: 260px;
     max-width: 1000px;
-    preferred-height: Math.min(520px, Math.max(280px, 128px + (root.today-events.length + root.upcoming-events.length) * 42px));
-    min-height: 240px;
-    max-height: 620px;
+    preferred-height: Math.min(640px, Math.max(360px, 96px + (root.today-events.length + root.upcoming-events.length) * 48px));
+    min-height: 300px;
+    max-height: 760px;
     no-frame: true;
     always-on-top: pinned;
     background: transparent;
@@ -335,7 +360,7 @@ export component EventsWidgetWindow inherits Window {
             padding: Theme.space-3;
             spacing: 6px;
             CardTitle {
-                title: "日程";
+                title: "我的日程";
                 icon: Icons.clock;
                 pinned: root.pinned;
                 show-add: true;
@@ -349,18 +374,18 @@ export component EventsWidgetWindow inherits Window {
             ScrollView {
                 vertical-stretch: 1;
                 VerticalLayout {
-                    spacing: 6px;
-                    Text { height: 18px; text: "今天 · " + root.today-events.length + " 项"; color: Theme.widget-text-3; font-size: Theme.font-10-5; font-weight: 600; vertical-alignment: center; }
-                    for event in root.today-events: EventRow {
+                    spacing: 0px;
+                    for event in root.today-events: AgendaEventBlock {
                         event: event;
-                        current-minutes: root.current-minutes;
                         clicked => { root.open-main-view("event", event.id, event.occurrence-date); }
                     }
-                    if root.today-events.length == 0: Text { height: 28px; text: "今天没有安排"; color: Theme.widget-text-3; font-size: Theme.font-11; horizontal-alignment: center; vertical-alignment: center; }
-                    if root.upcoming-events.length > 0: Text { height: 18px; text: "接下来"; color: Theme.widget-text-3; font-size: Theme.font-10-5; font-weight: 600; vertical-alignment: center; }
-                    for event in root.upcoming-events: FutureEventRow {
+                    for event in root.upcoming-events: AgendaEventBlock {
                         event: event;
                         clicked => { root.open-main-view("event", event.id, event.occurrence-date); }
+                    }
+                    if root.today-events.length + root.upcoming-events.length == 0: Text {
+                        height: 64px; text: "未来暂无日程"; color: Theme.widget-text-3;
+                        font-size: Theme.font-11; horizontal-alignment: center; vertical-alignment: center;
                     }
                 }
             }
@@ -373,7 +398,7 @@ export component EventsWidgetWindow inherits Window {
                     cross-axis-alignment: center;
                     SvgIcon { source: Icons.arrow-right; size: 14px; tint: Theme.widget-text-3; }
                     Text {
-                        text: "在 TimeHub 中查看全部 " + (root.today-events.length + root.upcoming-events.length) + " 项";
+                        text: "打开完整日历 · 共 " + (root.today-events.length + root.upcoming-events.length) + " 项";
                         color: Theme.widget-text-3;
                         font-size: Theme.font-11;
                         vertical-alignment: center;

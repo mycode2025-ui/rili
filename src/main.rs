@@ -143,6 +143,9 @@ fn run_gui(startup: bool) -> Result<()> {
     let reduce_motion = db::get_setting(&conn, "reduce_motion", "0").unwrap_or_default() == "1";
     let notifications_enabled =
         db::get_setting(&conn, "notifications_enabled", "1").unwrap_or_default() != "0";
+    let notification_style = reminders::NotificationStyle::from_setting(
+        &db::get_setting(&conn, "notification_style", "standard").unwrap_or_default(),
+    );
     let default_event_reminder = db::default_event_reminder(&conn)
         .unwrap_or_else(|_| db::DEFAULT_EVENT_REMINDER.to_string());
     let local_only = db::get_setting(&conn, "local_only", "0").unwrap_or_default() == "1";
@@ -400,6 +403,8 @@ fn run_gui(startup: bool) -> Result<()> {
     ui.set_interface_density(interface_density);
     ui.set_reduce_motion(reduce_motion);
     ui.set_notifications_enabled(notifications_enabled);
+    ui.set_notification_style(notification_style.as_setting().into());
+    ui.set_notification_effect_level(notification_style.effect_level());
     ui.set_default_event_reminder(default_event_reminder.into());
     ui.set_local_only(local_only);
     ui.set_taskbar_clock_enabled(taskbar_clock_enabled);

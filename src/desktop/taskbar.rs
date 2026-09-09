@@ -322,8 +322,35 @@ pub(crate) fn position_quick_panel_at_rect(quick: &QuickPanelWindow, taskbar: Ta
 /// For the usual bottom taskbar this is the screen's bottom-right corner,
 /// immediately above the taskbar. Unlike the quick panel, showing a
 /// notification must not steal keyboard focus from the user's current app.
-pub(crate) fn show_screen_notification(notification: &NotificationWindow) {
-    if let Some(taskbar) = windows_taskbar_rect() {
+pub(crate) fn show_screen_notification(
+    notification: &NotificationWindow,
+    anchor_window: &AppWindow,
+) {
+    let anchor_position = anchor_window.window().position();
+    let anchor_size = anchor_window.window().size();
+    let anchor_x = anchor_position.x + anchor_size.width as i32 / 2;
+    let anchor_y = anchor_position.y + anchor_size.height as i32 / 2;
+    let taskbar = windows_taskbar_rects()
+        .into_iter()
+        .min_by_key(|taskbar| {
+            let dx = if anchor_x < taskbar.left {
+                taskbar.left - anchor_x
+            } else if anchor_x > taskbar.right {
+                anchor_x - taskbar.right
+            } else {
+                0
+            };
+            let dy = if anchor_y < taskbar.top {
+                taskbar.top - anchor_y
+            } else if anchor_y > taskbar.bottom {
+                anchor_y - taskbar.bottom
+            } else {
+                0
+            };
+            i64::from(dx) * i64::from(dx) + i64::from(dy) * i64::from(dy)
+        })
+        .or_else(windows_taskbar_rect);
+    if let Some(taskbar) = taskbar {
         let scale = taskbar.scale;
         let width = (410.0 * scale).round() as i32;
         let height = (76.0 * scale).round() as i32;
@@ -345,9 +372,70 @@ pub(crate) fn show_screen_notification(notification: &NotificationWindow) {
             .set_position(slint::PhysicalPosition::new(x, y));
     }
     notification.window().set_minimized(false);
-    let _ = notification.show();
+    if let Err(error) = notification.show() {
+        error_reporter::report("显示日程提醒窗口失败", &error);
+    }
     remove_widget_from_taskbar(notification);
 }
+
+#[cfg(target_os = "windows")]
+pub(crate) fn play_notification_sound() {
+    const MB_ICONEXCLAMATION: u32 = 0x0000_0030;
+    #[link(name = "user32")]
+    unsafe extern "system" {
+        fn MessageBeep(kind: u32) -> i32;
+    }
+    unsafe {
+        MessageBeep(MB_ICONEXCLAMATION);
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub(crate) fn play_notification_sound() {}
+
+#[cfg(target_os = "windows")]
+pub(crate) fn flash_window_attention<C: ComponentHandle>(component: &C) {
+    use slint::winit_030::winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    use std::ffi::c_void;
+
+    #[repr(C)]
+    struct FlashWindowInfo {
+        size: u32,
+        window: *mut c_void,
+        flags: u32,
+        count: u32,
+        timeout_ms: u32,
+    }
+
+    const FLASHW_ALL: u32 = 0x0000_0003;
+    const FLASHW_TIMERNOFG: u32 = 0x0000_000C;
+    #[link(name = "user32")]
+    unsafe extern "system" {
+        fn FlashWindowEx(info: *mut FlashWindowInfo) -> i32;
+    }
+
+    let _ = component.window().with_winit_window(|native| {
+        let Ok(window_handle) = native.window_handle() else {
+            return;
+        };
+        let RawWindowHandle::Win32(window_handle) = window_handle.as_raw() else {
+            return;
+        };
+        let mut info = FlashWindowInfo {
+            size: std::mem::size_of::<FlashWindowInfo>() as u32,
+            window: window_handle.hwnd.get() as *mut c_void,
+            flags: FLASHW_ALL | FLASHW_TIMERNOFG,
+            count: 5,
+            timeout_ms: 0,
+        };
+        unsafe {
+            FlashWindowEx(&mut info);
+        }
+    });
+}
+
+#[cfg(not(target_os = "windows"))]
+pub(crate) fn flash_window_attention<C: ComponentHandle>(_component: &C) {}
 
 pub(crate) static TASKBAR_CLOCK_HOOK_ENABLED: AtomicBool = AtomicBool::new(false);
 #[cfg(target_os = "windows")]

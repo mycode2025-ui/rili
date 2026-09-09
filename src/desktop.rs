@@ -211,7 +211,7 @@ impl DesktopWidgetWindows {
     pub(crate) fn reset_card_size(&self, instance_key: &str) -> bool {
         let (width, height) = match instance_key.split(':').next().unwrap_or(instance_key) {
             "calendar" => (304.0, 280.0),
-            "events" => (304.0, 280.0),
+            "events" => (304.0, 500.0),
             "countdown" => (304.0, 280.0),
             "clock" => (304.0, 190.0),
             "weather" => (304.0, 244.0),

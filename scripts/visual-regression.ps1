@@ -35,6 +35,9 @@ try {
             if ($component -eq 'WeatherWidgetWindow') {
                 $arguments += @('--load-data', 'tests\visual\weather.json')
             }
+            if ($component -eq 'EventsWidgetWindow') {
+                $arguments += @('--load-data', 'tests\visual\events.json')
+            }
             & slint-viewer @arguments
             if ($LASTEXITCODE -ne 0) { throw "渲染失败：$component @ $scale" }
         }

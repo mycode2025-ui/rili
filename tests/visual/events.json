@@ -1,0 +1,12 @@
+{
+  "today-events": [
+    { "id": 1, "occurrence-date": "2026-09-09", "date-group-text": "9月9日 星期三 今天", "show-date-group": true, "title": "家庭化产品周会", "time-text": "15:00", "meta-text": "", "color": "#4f8cff", "start-minutes": 900, "duration-minutes": 60, "all-day": false, "lane": 0, "lane-count": 1 }
+  ],
+  "upcoming-events": [
+    { "id": 2, "occurrence-date": "2026-09-10", "date-group-text": "9月10日 星期四 明天", "show-date-group": true, "title": "教师节", "time-text": "", "meta-text": "", "color": "#4f8cff", "start-minutes": 0, "duration-minutes": 1440, "all-day": true, "lane": 0, "lane-count": 1 },
+    { "id": 3, "occurrence-date": "2026-09-10", "date-group-text": "", "show-date-group": false, "title": "嵌入式软件周会", "time-text": "16:00", "meta-text": "", "color": "#4f8cff", "start-minutes": 960, "duration-minutes": 60, "all-day": false, "lane": 0, "lane-count": 1 },
+    { "id": 4, "occurrence-date": "2026-09-11", "date-group-text": "9月11日 星期五 2天后", "show-date-group": true, "title": "NZS例会", "time-text": "14:00", "meta-text": "", "color": "#4f8cff", "start-minutes": 840, "duration-minutes": 60, "all-day": false, "lane": 0, "lane-count": 1 },
+    { "id": 5, "occurrence-date": "2026-09-14", "date-group-text": "9月14日 星期一 5天后", "show-date-group": true, "title": "研发产品测试资源协调会", "time-text": "13:30", "meta-text": "", "color": "#4f8cff", "start-minutes": 810, "duration-minutes": 90, "all-day": false, "lane": 0, "lane-count": 1 },
+    { "id": 6, "occurrence-date": "2026-09-14", "date-group-text": "", "show-date-group": false, "title": "推进会", "time-text": "13:30", "meta-text": "", "color": "#4f8cff", "start-minutes": 810, "duration-minutes": 60, "all-day": false, "lane": 0, "lane-count": 1 }
+  ]
+}

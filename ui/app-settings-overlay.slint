@@ -15,6 +15,7 @@ export component AppSettingsOverlay inherits Rectangle {
     in property <string> interface-font-family;
     in property <int> interface-density: 1;
     in property <bool> notifications-enabled: true;
+    in property <string> notification-style: "standard";
     in property <string> default-event-reminder;
     in property <bool> local-only: false;
     in property <bool> taskbar-clock-enabled: true;
@@ -35,6 +36,7 @@ export component AppSettingsOverlay inherits Rectangle {
     callback set-interface-density(int);
     callback set-reduce-motion(bool);
     callback set-notifications-enabled(bool);
+    callback set-notification-style(string);
     callback set-default-event-reminder(string);
     callback set-local-only(bool);
     callback set-taskbar-clock-enabled(bool);
@@ -91,7 +93,7 @@ export component AppSettingsOverlay inherits Rectangle {
                 week-starts-sunday: root.week-starts-sunday; show-week-numbers: root.show-week-numbers;
                 interface-font-size: root.interface-font-size; interface-font-family: root.interface-font-family;
                 interface-density: root.interface-density; reduce-motion: root.reduce-motion;
-                notifications-enabled: root.notifications-enabled; default-event-reminder: root.default-event-reminder;
+                notifications-enabled: root.notifications-enabled; notification-style: root.notification-style; default-event-reminder: root.default-event-reminder;
                 local-only: root.local-only; taskbar-clock-enabled: root.taskbar-clock-enabled;
                 auto-start-enabled: root.auto-start-enabled; quick-panel-pinned: root.quick-panel-pinned;
                 widget-style-name: root.widget-style-name; widget-style-opacity: root.widget-style-opacity;
@@ -107,6 +109,7 @@ export component AppSettingsOverlay inherits Rectangle {
                 set-interface-density(value) => { root.set-interface-density(value); }
                 set-reduce-motion(value) => { root.set-reduce-motion(value); }
                 set-notifications-enabled(value) => { root.set-notifications-enabled(value); }
+                set-notification-style(value) => { root.set-notification-style(value); }
                 set-default-event-reminder(value) => { root.set-default-event-reminder(value); }
                 set-local-only(value) => { root.set-local-only(value); }
                 set-taskbar-clock-enabled(value) => { root.set-taskbar-clock-enabled(value); }

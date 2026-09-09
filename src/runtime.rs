@@ -8,7 +8,7 @@ use crate::system_tray::{build_tray_icon, TrayHandles};
 use crate::windowing::*;
 use crate::{AppWindow, NotificationWindow, QuickPanelWindow, WidgetWindow};
 use chrono::{Local, Timelike};
-use rili::{error_reporter, system_theme, weather};
+use rili::{error_reporter, reminders, system_theme, weather};
 use slint::winit_030::WinitWindowAccessor;
 use slint::{ComponentHandle, SharedString};
 use std::cell::{Cell, RefCell};
@@ -23,12 +23,28 @@ pub(crate) fn register_notification_runtime(
     notification: &NotificationWindow,
 ) -> Rc<slint::Timer> {
     let timer = Rc::new(slint::Timer::default());
+    let alert_generation = Rc::new(Cell::new(0_u64));
     {
         let ui_weak = ui.as_weak();
         let notification_weak = notification.as_weak();
         let timer = timer.clone();
+        let alert_generation = alert_generation.clone();
         ui.on_show_action_notification(move |message| {
             timer.stop();
+            let generation = alert_generation.get().wrapping_add(1);
+            alert_generation.set(generation);
+            let is_reminder = message.starts_with("日程提醒：");
+            let effect_level = ui_weak
+                .upgrade()
+                .map(|ui| ui.get_notification_effect_level())
+                .unwrap_or(1);
+            let display_duration = if is_reminder && effect_level >= 2 {
+                Duration::from_secs(14)
+            } else if is_reminder {
+                Duration::from_secs(10)
+            } else {
+                Duration::from_secs(4)
+            };
             let Some(notification) = notification_weak.upgrade() else {
                 return;
             };
@@ -40,27 +56,56 @@ pub(crate) fn register_notification_runtime(
                 sync_notification_theme(&ui, &notification);
             }
             notification.set_message(message);
-            show_screen_notification(&notification);
+            if let Some(ui) = ui_weak.upgrade() {
+                show_screen_notification(&notification, &ui);
+            } else {
+                return;
+            }
+            if is_reminder && effect_level >= 2 {
+                play_notification_sound();
+                if let Some(ui) = ui_weak.upgrade() {
+                    flash_window_attention(&ui);
+                }
+                let base = notification.window().position();
+                for (step, offset) in [6, -6, 5, -5, 3, -3, 0].into_iter().enumerate() {
+                    let notification_weak = notification.as_weak();
+                    let alert_generation = alert_generation.clone();
+                    slint::Timer::single_shot(
+                        Duration::from_millis((step as u64 + 1) * 55),
+                        move || {
+                            if alert_generation.get() != generation {
+                                return;
+                            }
+                            if let Some(notification) = notification_weak.upgrade() {
+                                notification
+                                    .window()
+                                    .set_position(slint::PhysicalPosition::new(
+                                        base.x + offset,
+                                        base.y,
+                                    ));
+                            }
+                        },
+                    );
+                }
+            }
 
             let ui_weak = ui_weak.clone();
             let notification_weak = notification.as_weak();
-            timer.start(
-                slint::TimerMode::SingleShot,
-                Duration::from_secs(4),
-                move || {
-                    if let Some(notification) = notification_weak.upgrade() {
-                        let _ = notification.hide();
-                    }
-                    if let Some(ui) = ui_weak.upgrade() {
-                        ui.set_action_message("".into());
-                    }
-                },
-            );
+            timer.start(slint::TimerMode::SingleShot, display_duration, move || {
+                if let Some(notification) = notification_weak.upgrade() {
+                    let _ = notification.hide();
+                }
+                if let Some(ui) = ui_weak.upgrade() {
+                    ui.set_action_message("".into());
+                }
+            });
         });
     }
     {
         let ui_weak = ui.as_weak();
+        let alert_generation = alert_generation.clone();
         notification.on_close_requested(move || {
+            alert_generation.set(alert_generation.get().wrapping_add(1));
             if let Some(ui) = ui_weak.upgrade() {
                 ui.set_action_message("".into());
             }
@@ -72,6 +117,22 @@ pub(crate) fn register_notification_runtime(
             let _ = ui_weak.upgrade_in_event_loop(move |ui| {
                 ui.set_action_message(message.into());
             });
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        reminders::install_gui_notifier(move |alert| {
+            let result = ui_weak.upgrade_in_event_loop(move |ui| {
+                ui.set_notification_effect_level(alert.style.effect_level());
+                // Invoke the display callback directly. Relying on an indirect
+                // `changed action-message` binding can lose a background event
+                // while another transient status message is being updated.
+                ui.invoke_show_action_notification(alert.message.into());
+            });
+            if let Err(error) = &result {
+                error_reporter::record("日程提醒无法进入界面事件循环", error);
+            }
+            result.is_ok()
         });
     }
     timer

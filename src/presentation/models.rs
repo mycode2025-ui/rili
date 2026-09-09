@@ -225,6 +225,8 @@ pub(crate) fn to_ui_event_occ(
     EventItem {
         id: occ.event.id as i32,
         occurrence_date: occ.occurrence_date.clone().into(),
+        date_group_text: "".into(),
+        show_date_group: false,
         title: occ.event.title.clone().into(),
         time_text: occ.event.time.clone().unwrap_or_default().into(),
         meta_text: event_meta_text(occ).into(),

@@ -98,6 +98,7 @@ export component SettingsView inherits Rectangle {
     in property <int> interface-density: 1;
     in property <bool> reduce-motion: false;
     in property <bool> notifications-enabled: true;
+    in property <string> notification-style: "standard";
     in property <string> default-event-reminder: "10";
     in property <bool> local-only: false;
     in property <bool> taskbar-clock-enabled: true;
@@ -117,6 +118,7 @@ export component SettingsView inherits Rectangle {
     callback set-interface-density(int);
     callback set-reduce-motion(bool);
     callback set-notifications-enabled(bool);
+    callback set-notification-style(string);
     callback set-default-event-reminder(string);
     callback set-local-only(bool);
     callback set-taskbar-clock-enabled(bool);
@@ -287,9 +289,20 @@ export component SettingsView inherits Rectangle {
             }
             if root.selected-section == 2: VerticalLayout {
                 horizontal-stretch: 1;
-                height: 218px;
+                height: 291px;
                 spacing: 0px;
                 HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "系统通知"; description: "允许日程、待办和倒数日提醒"; horizontal-stretch: 1; } Switch { checked: root.notifications-enabled; toggled(value) => { root.set-notifications-enabled(value); } } }
+                Rectangle { height: 1px; background: Theme.border-subtle; }
+                HorizontalLayout {
+                    height: 72px; cross-axis-alignment: center;
+                    SettingInfo { title: "提醒方式"; description: "静默仅弹窗；强提醒增加抖动、提示音和任务栏闪烁"; horizontal-stretch: 1; }
+                    HorizontalLayout {
+                        spacing: 6px;
+                        SmallChoice { label: "静默"; selected: root.notification-style == "quiet"; clicked => { root.set-notification-style("quiet"); } }
+                        SmallChoice { label: "标准"; selected: root.notification-style == "standard"; clicked => { root.set-notification-style("standard"); } }
+                        SmallChoice { label: "强提醒"; selected: root.notification-style == "strong"; clicked => { root.set-notification-style("strong"); } }
+                    }
+                }
                 Rectangle { height: 1px; background: Theme.border-subtle; }
                 HorizontalLayout {
                     height: 72px; cross-axis-alignment: center;
@@ -304,7 +317,7 @@ export component SettingsView inherits Rectangle {
                     }
                 }
                 Rectangle { height: 1px; background: Theme.border-subtle; }
-                HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "验证系统通知"; description: "发送一条 TimeHub 示例提醒，用于检查 Windows 通知权限"; horizontal-stretch: 1; } SettingsAction { label: "发送示例"; clicked => { root.settings-action("test-notification"); } } }
+                HorizontalLayout { height: 72px; cross-axis-alignment: center; SettingInfo { title: "测试提醒"; description: "按当前提醒方式发送示例，确认弹窗与附加效果"; horizontal-stretch: 1; } SettingsAction { label: "发送示例"; clicked => { root.settings-action("test-notification"); } } }
             }
             if root.selected-section == 3: VerticalLayout {
                 horizontal-stretch: 1;

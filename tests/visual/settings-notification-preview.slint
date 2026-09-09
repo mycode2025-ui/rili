@@ -1,0 +1,17 @@
+import { AppWindow } from "../../ui/app.slint";
+import { Theme } from "../../ui/theme.slint";
+import { Palette } from "std-widgets.slint";
+
+export component SettingsNotificationPreview inherits AppWindow {
+    width: 1180px;
+    height: 760px;
+    settings-open: true;
+    settings-section: 2;
+    notifications-enabled: true;
+    notification-style: "strong";
+    default-event-reminder: "10";
+    init => {
+        Theme.theme-mode = 2;
+        Palette.color-scheme = ColorScheme.dark;
+    }
+}

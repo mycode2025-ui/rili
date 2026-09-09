@@ -2,6 +2,50 @@
 
 use crate::*;
 
+fn agenda_date_label(date: NaiveDate, today: NaiveDate) -> String {
+    let weekday =
+        ["一", "二", "三", "四", "五", "六", "日"][date.weekday().num_days_from_monday() as usize];
+    let days_from_today = date.signed_duration_since(today).num_days();
+    let relative = match days_from_today {
+        0 => "今天".to_string(),
+        1 => "明天".to_string(),
+        2..=14 => format!("{days_from_today}天后"),
+        _ => String::new(),
+    };
+    if relative.is_empty() {
+        format!("{}月{}日 星期{weekday}", date.month(), date.day())
+    } else {
+        format!(
+            "{}月{}日 星期{weekday} {relative}",
+            date.month(),
+            date.day()
+        )
+    }
+}
+
+#[cfg(test)]
+mod agenda_tests {
+    use super::*;
+
+    #[test]
+    fn agenda_date_groups_use_clear_relative_labels() {
+        let today = NaiveDate::from_ymd_opt(2026, 9, 9).unwrap();
+        assert_eq!(agenda_date_label(today, today), "9月9日 星期三 今天");
+        assert_eq!(
+            agenda_date_label(today + chrono::Duration::days(1), today),
+            "9月10日 星期四 明天"
+        );
+        assert_eq!(
+            agenda_date_label(today + chrono::Duration::days(5), today),
+            "9月14日 星期一 5天后"
+        );
+        assert_eq!(
+            agenda_date_label(today + chrono::Duration::days(20), today),
+            "9月29日 星期二"
+        );
+    }
+}
+
 /// 重新计算当前月份网格 + 选中日详情 + 今日日程（挂件用），并写回两个窗口的 Slint 属性。
 pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefCell<AppState>>) {
     let _batch = DesktopSyncBatch::new(widget);
@@ -145,25 +189,32 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
 
         // “今日日程”始终对应真实的今天，与用户当前浏览的月份无关，供桌面挂件展示。
         let today_str = today.to_string();
-        let today_events: Vec<EventItem> = if grid_start <= today && today <= grid_end {
+        let mut today_events: Vec<EventItem> = if grid_start <= today && today <= grid_end {
             occurrences_in_grid
                 .iter()
-                .filter(|o| o.occurrence_date == today_str)
+                .filter(|o| o.occurrence_date == today_str && o.event.category == "event")
                 .map(|o| to_ui_event_occ(o, &colors))
                 .collect()
         } else {
             db::list_event_occurrences(conn, today, today)
                 .unwrap_or_default()
                 .iter()
-                .filter(|o| visible_ids.contains(&o.event.calendar_id))
+                .filter(|o| {
+                    visible_ids.contains(&o.event.calendar_id) && o.event.category == "event"
+                })
                 .map(|o| to_ui_event_occ(o, &colors))
                 .collect()
         };
+        if let Some(first) = today_events.first_mut() {
+            first.show_date_group = true;
+            first.date_group_text = agenda_date_label(today, today).into();
+        }
 
         // 桌面日程卡片同时显示接下来的安排。展开重复日程后取未来 90 天，
         // 日期写进 meta_text，专供紧凑卡片的“接下来”列表显示。
         let tomorrow = today + chrono::Duration::days(1);
         let future_end = today + chrono::Duration::days(90);
+        let mut previous_occurrence_date = String::new();
         let upcoming_events: Vec<EventItem> =
             db::list_event_occurrences(conn, tomorrow, future_end)
                 .unwrap_or_default()
@@ -183,6 +234,11 @@ pub(crate) fn refresh_all(ui: &AppWindow, widget: &WidgetWindow, state: &Rc<RefC
                     };
                     let time_label = o.event.time.as_deref().unwrap_or("全天");
                     item.meta_text = format!("{date_label} {time_label}").into();
+                    item.show_date_group = previous_occurrence_date != o.occurrence_date;
+                    if item.show_date_group {
+                        item.date_group_text = agenda_date_label(occurrence_date, today).into();
+                        previous_occurrence_date.clone_from(&o.occurrence_date);
+                    }
                     item
                 })
                 .collect();

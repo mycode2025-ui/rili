@@ -229,7 +229,10 @@ export component TimeHubTimePickerPopup inherits PopupWindow {
     }
 
     width: root.compact ? 228px : 244px;
-    height: root.compact ? (root.selecting-hour ? 292px : 314px) : (root.selecting-hour ? 300px : 324px);
+    // PopupWindow 的原生窗口尺寸在 show() 时确定。若这里随 selecting-hour
+    // 从 300px 增长到 324px，Windows 上内容会增长但原生窗口仍保持旧高度，
+    // 分钟微调行就会把底部的取消/确定按钮推出可见区域。始终预留最大高度。
+    height: root.compact ? 314px : 324px;
     close-policy: PopupClosePolicy.no-auto-close;
     Rectangle {
         width: 100%; height: 100%; background: Theme.bg-surface;

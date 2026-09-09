@@ -33,6 +33,35 @@ pub(crate) fn register_settings_callbacks(
     {
         let ui_weak = ui.as_weak();
         let state = state.clone();
+        ui.on_set_notification_style(move |value| {
+            let style = reminders::NotificationStyle::from_setting(value.as_str());
+            let result = db::set_setting(
+                &state.borrow().conn,
+                "notification_style",
+                style.as_setting(),
+            );
+            if let Some(ui) = ui_weak.upgrade() {
+                match result {
+                    Ok(()) => {
+                        ui.set_notification_style(style.as_setting().into());
+                        ui.set_notification_effect_level(style.effect_level());
+                        let label = match style {
+                            reminders::NotificationStyle::Quiet => "静默提醒",
+                            reminders::NotificationStyle::Standard => "标准提醒",
+                            reminders::NotificationStyle::Strong => "强提醒",
+                        };
+                        ui.set_action_message(format!("提醒方式已设为{label}").into());
+                    }
+                    Err(error) => {
+                        ui.set_action_message(format!("保存提醒方式失败：{error}").into());
+                    }
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let state = state.clone();
         ui.on_set_notifications_enabled(move |enabled| {
             let previous = ui_weak
                 .upgrade()
@@ -190,8 +219,12 @@ pub(crate) fn register_settings_callbacks(
                         if !ui.get_notifications_enabled() {
                             "请先开启“系统通知”后再发送示例提醒".to_string()
                         } else {
-                            match reminders::send_test_notification() {
-                                Ok(()) => "示例提醒已发送，请查看 Windows 通知中心".to_string(),
+                            let style = reminders::NotificationStyle::from_setting(
+                                ui.get_notification_style().as_str(),
+                            );
+                            ui.set_notification_effect_level(style.effect_level());
+                            match reminders::send_test_notification(style) {
+                                Ok(()) => "日程提醒：这是当前提醒方式的测试效果".to_string(),
                                 Err(error) => format!("示例提醒发送失败：{error}"),
                             }
                         }

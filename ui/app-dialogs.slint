@@ -40,7 +40,7 @@ export component WidgetManagerDialog inherits Rectangle {
             for row in 5: HorizontalLayout {
                 height: 72px; spacing: Theme.space-3;
                 if row == 0: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "月历"; description: "月份与节日概览"; icon: Icons.calendar; installed: root.calendar-visible; toggled(v) => { root.calendar-visible = v; root.set-visible("calendar", v); } }
-                if row == 0: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "今日日程"; description: "今天的日程列表"; icon: Icons.clock; installed: root.events-visible; toggled(v) => { root.events-visible = v; root.set-visible("events", v); } }
+                if row == 0: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "我的日程"; description: "按日期分组查看近期安排"; icon: Icons.clock; installed: root.events-visible; toggled(v) => { root.events-visible = v; root.set-visible("events", v); } }
                 if row == 1: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "倒数日"; description: "重要日期倒计时"; icon: Icons.timer; installed: root.countdown-visible; toggled(v) => { root.countdown-visible = v; root.set-visible("countdown", v); } }
                 if row == 1: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "时钟"; description: "时间与今日进度"; icon: Icons.clock; installed: root.clock-visible; toggled(v) => { root.clock-visible = v; root.set-visible("clock", v); } }
                 if row == 2: DesktopWidgetManagerItem { width: (parent.width - Theme.space-3) / 2; label: "专注计时"; description: "番茄钟与专注任务"; icon: Icons.target; installed: root.focus-visible; toggled(v) => { root.focus-visible = v; root.set-visible("focus", v); } }
