@@ -25,6 +25,12 @@ export component AppSettingsOverlay inherits Rectangle {
     in property <int> widget-style-opacity;
     in property <int> widget-style-theme;
     in property <int> widget-style-accent;
+    in property <string> app-version;
+    in property <int> update-state;
+    in property <string> update-version;
+    in property <string> update-error;
+    in property <string> update-github-url;
+    in property <string> update-gitee-url;
 
     callback set-theme(int);
     callback set-visual-theme(int);
@@ -98,6 +104,8 @@ export component AppSettingsOverlay inherits Rectangle {
                 auto-start-enabled: root.auto-start-enabled; quick-panel-pinned: root.quick-panel-pinned;
                 widget-style-name: root.widget-style-name; widget-style-opacity: root.widget-style-opacity;
                 widget-style-theme: root.widget-style-theme; widget-style-accent: root.widget-style-accent;
+                app-version: root.app-version; update-state: root.update-state; update-version: root.update-version;
+                update-error: root.update-error; update-github-url: root.update-github-url; update-gitee-url: root.update-gitee-url;
                 selected-section <=> root.selected-section;
                 set-theme(index) => { root.set-theme(index); }
                 set-visual-theme(mode) => { root.set-visual-theme(mode); }

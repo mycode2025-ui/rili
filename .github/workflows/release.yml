@@ -14,6 +14,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Verify release version
+        shell: pwsh
+        run: |
+          $cargoVersion = (Select-String -Path Cargo.toml -Pattern '^version = "([^"]+)"$').Matches.Groups[1].Value
+          $tagVersion = $env:GITHUB_REF_NAME.TrimStart('v')
+          if ($cargoVersion -ne $tagVersion) {
+            throw "Cargo version $cargoVersion does not match tag $env:GITHUB_REF_NAME"
+          }
       - name: Test core
         run: cargo test --lib -j 1
       - name: Build Windows release
@@ -23,8 +31,10 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
           Copy-Item target/release/rili.exe dist/TimeHub.exe
+          $hash = (Get-FileHash dist/TimeHub.exe -Algorithm SHA256).Hash
+          "$hash  TimeHub.exe" | Set-Content dist/SHA256SUMS.txt -Encoding ascii
       - name: Publish GitHub Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create $env:GITHUB_REF_NAME dist/TimeHub.exe --generate-notes --verify-tag
+        run: gh release create $env:GITHUB_REF_NAME dist/TimeHub.exe dist/SHA256SUMS.txt --generate-notes --verify-tag

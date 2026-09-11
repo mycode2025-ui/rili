@@ -1,5 +1,68 @@
 use crate::*;
 
+pub(crate) fn start_update_check(weak: slint::Weak<AppWindow>, user_requested: bool) {
+    let Some(ui) = weak.upgrade() else { return };
+    if ui.get_update_state() == 1 {
+        return;
+    }
+    ui.set_update_state(1);
+    ui.set_update_error(SharedString::default());
+    drop(ui);
+
+    std::thread::spawn(move || {
+        let result = update::check(env!("CARGO_PKG_VERSION"));
+        let _ = slint::invoke_from_event_loop(move || {
+            let Some(ui) = weak.upgrade() else { return };
+            match result {
+                Ok(update::CheckResult::Available(info)) => {
+                    ui.set_update_version(info.version.into());
+                    ui.set_update_notes(info.notes.into());
+                    ui.set_update_github_url(info.github_download.into());
+                    ui.set_update_gitee_url(info.gitee_download.into());
+                    ui.set_update_state(3);
+                    ui.set_update_toast_open(true);
+                }
+                Ok(update::CheckResult::Current { latest }) => {
+                    ui.set_update_version(latest.into());
+                    ui.set_update_state(2);
+                    if user_requested {
+                        ui.set_action_message("当前已是最新版本".into());
+                    }
+                }
+                Err(error) => {
+                    ui.set_update_error(error.clone().into());
+                    ui.set_update_state(4);
+                    if user_requested {
+                        ui.set_action_message(format!("检查更新失败：{error}").into());
+                    }
+                }
+            }
+        });
+    });
+}
+
+fn open_update_url(url: &str) -> Result<(), String> {
+    if !url.starts_with("https://") {
+        return Err("下载地址无效".into());
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        std::process::Command::new("explorer.exe")
+            .creation_flags(CREATE_NO_WINDOW)
+            .arg(url)
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = url;
+        Err("当前平台尚未配置浏览器启动方式".into())
+    }
+}
+
 pub(crate) fn register_settings_callbacks(
     ui: &AppWindow,
     widget: &WidgetWindow,
@@ -295,7 +358,22 @@ pub(crate) fn register_settings_callbacks(
                         "数据已重新载入".to_string()
                     }
                     "reset-shortcuts" => "快捷键已恢复为默认值".to_string(),
-                    "check-update" => "当前为 TimeHub V3；更新服务地址尚未配置".to_string(),
+                    "check-update" => {
+                        start_update_check(ui.as_weak(), true);
+                        "正在同时检查 GitHub 与 Gitee…".to_string()
+                    }
+                    "open-update-github" => {
+                        match open_update_url(ui.get_update_github_url().as_str()) {
+                            Ok(()) => "已打开 GitHub 下载页".to_string(),
+                            Err(error) => format!("打开 GitHub 下载页失败：{error}"),
+                        }
+                    }
+                    "open-update-gitee" => {
+                        match open_update_url(ui.get_update_gitee_url().as_str()) {
+                            Ok(()) => "已打开 Gitee 下载页".to_string(),
+                            Err(error) => format!("打开 Gitee 下载页失败：{error}"),
+                        }
+                    }
                     "diagnostics" => {
                         let s = state.borrow();
                         let calendars = db::list_calendars(&s.conn).map(|v| v.len()).unwrap_or(0);

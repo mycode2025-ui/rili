@@ -39,7 +39,7 @@ use windowing::{set_main_view_mode, show_and_focus_main_window};
 use rili::window_policy::navigation_refresh_needed;
 use rili::{
     almanac, app_paths, autostart, cli, date_calc, db, error_reporter, holidays, integrations,
-    lunar, natural, recurrence, reminders, single_instance, system_theme, weather,
+    lunar, natural, recurrence, reminders, single_instance, system_theme, update, weather,
 };
 
 /// 新建分类日历时依次挑选的设计规范强调色循环。
@@ -403,6 +403,7 @@ fn run_gui(startup: bool) -> Result<()> {
     ui.set_interface_density(interface_density);
     ui.set_reduce_motion(reduce_motion);
     ui.set_notifications_enabled(notifications_enabled);
+    ui.set_app_version(env!("CARGO_PKG_VERSION").into());
     ui.set_notification_style(notification_style.as_setting().into());
     ui.set_notification_effect_level(notification_style.effect_level());
     ui.set_default_event_reminder(default_event_reminder.into());
@@ -479,6 +480,15 @@ fn run_gui(startup: bool) -> Result<()> {
         ui.set_settings_section(4);
         ui.set_settings_open(true);
     }
+    if debug_view.as_deref() == Some("settings-update") {
+        ui.set_settings_section(7);
+        ui.set_settings_open(true);
+        ui.set_update_state(3);
+        ui.set_update_version("0.3.0".into());
+        ui.set_update_notes("• 修复日程提醒\n• 改进日历交互\n• 优化同步稳定性".into());
+        ui.set_update_github_url("https://github.com/mycode2025-ui/rili/releases".into());
+        ui.set_update_gitee_url("https://gitee.com/mycode2025-ui/rili/releases".into());
+    }
     if debug_view.as_deref() == Some("tools-then-today") {
         let ui_weak = ui.as_weak();
         slint::Timer::single_shot(Duration::from_millis(2500), move || {
@@ -553,6 +563,9 @@ fn run_gui(startup: bool) -> Result<()> {
     );
     controllers::course::register_course_callbacks(&ui, &widget, &state);
     controllers::settings::register_settings_callbacks(&ui, &widget, &state);
+    if std::env::var("TIMEHUB_DEBUG_VIEW").ok().as_deref() != Some("settings-update") {
+        controllers::settings::start_update_check(ui.as_weak(), false);
+    }
     controllers::widget_content::register_widget_content_callbacks(
         &ui,
         &widget,

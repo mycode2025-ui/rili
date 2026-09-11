@@ -1,0 +1,36 @@
+import { AppWindow } from "../../ui/app.slint";
+import { Theme } from "../../ui/theme.slint";
+import { Palette } from "std-widgets.slint";
+
+export component SettingsUpdatePreview inherits AppWindow {
+    width: 1180px;
+    height: 760px;
+    settings-open: true;
+    settings-section: 7;
+    app-version: "0.2.0";
+    update-state: 3;
+    update-version: "0.3.0";
+    update-notes: "• 修复日程提醒\n• 改进日历交互\n• 优化同步稳定性";
+    update-github-url: "https://github.com/mycode2025-ui/rili/releases";
+    update-gitee-url: "https://gitee.com/mycode2025-ui/rili/releases";
+    init => {
+        Theme.theme-mode = 2;
+        Palette.color-scheme = ColorScheme.dark;
+    }
+}
+
+export component UpdateToastPreview inherits AppWindow {
+    width: 1180px;
+    height: 760px;
+    app-version: "0.2.0";
+    update-state: 3;
+    update-toast-open: true;
+    update-version: "0.3.0";
+    update-notes: "• 修复日程提醒\n• 改进日历交互\n• 优化同步稳定性";
+    update-github-url: "https://github.com/mycode2025-ui/rili/releases";
+    update-gitee-url: "https://gitee.com/mycode2025-ui/rili/releases";
+    init => {
+        Theme.theme-mode = 2;
+        Palette.color-scheme = ColorScheme.dark;
+    }
+}

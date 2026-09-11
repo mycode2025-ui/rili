@@ -1,6 +1,6 @@
 [package]
 name = "rili"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "本地优先的桌面日历 / 待办 / 便签工具，使用 Rust + Slint 构建"
 
@@ -22,6 +22,7 @@ lunar_rust = "1.0.1"
 clap = { version = "4.6", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+semver = "1"
 directories = "6"
 anyhow = "1"
 tray-icon = "0.24"

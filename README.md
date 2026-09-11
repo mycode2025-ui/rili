@@ -27,6 +27,7 @@
 - 个性化设置：3 套原创配色主题（默认蓝/暖阳橙/森野绿）、一周起始日、是否显示周数，均持久化保存
 - 系统托盘图标：右键菜单可"显示主窗口 / 打开-关闭桌面挂件 / 退出"
 - 开机启动：可在“设置 → 隐私”中开启或关闭；登录后静默进入系统托盘，并通过单实例锁避免重复运行
+- 自动更新检查：启动时并行检查 GitHub/Gitee 发布源，按语义化版本选择较新的 Windows 版本；发现更新后显示摘要和可用下载源，不在后台静默覆盖程序
 - 任务栏时钟入口：保留 Windows 原生时钟显示，单击任务栏时钟后在对应任务栏上沿打开固定快速面板
 - 桌面挂件：无边框、置顶、支持深浅主题的小窗口，提供月历、日程、倒数日、时钟、天气（当前天气与五日预报）、专注、待办和便签卡片，可独立于主窗口开关
 - 数据全部保存在本机 SQLite（`%LOCALAPPDATA%/rili/rili/data/rili.db`），不上传云端
@@ -68,7 +69,7 @@ cargo test --lib -j 1
 ```
 
 核心逻辑编译为独立库目标，GUI 二进制不生成庞大的测试链接目标，适合在内存有限的机器和 CI 中验证。
-推送 `v*` 标签会通过 GitHub Actions 构建 Windows 版本，并把 `TimeHub.exe` 发布到 GitHub Releases；
+推送 `v*` 标签会通过 GitHub Actions 构建 Windows 版本，并把 `TimeHub.exe` 和 `SHA256SUMS.txt` 发布到 GitHub Releases；
 二进制不再提交进源码仓库。
 
 ## 代码结构
@@ -130,6 +131,7 @@ rili calendar shift --date 2026-08-31 --days 10 --json  # 往后数 10 个自然
 - `src/db.rs` — SQLite 建表与增删改查（日程/待办/便签/习惯/分类日历/设置）
 - `src/recurrence.rs` — 重复日程规则展开（含每周多天、每月第N个星期几）
 - `src/reminders.rs` — 后台提醒扫描线程 + Windows Toast 通知
+- `src/update.rs` — GitHub/Gitee 双源版本检查、镜像合并与 Windows 发布资产选择
 - `src/autostart.rs` — Windows 当前用户开机启动项的读取与切换
 - `src/single_instance.rs` — Windows GUI 单实例锁
 - `src/presentation/partial_refresh.rs` — 待办、便签、习惯、课程与搜索的局部模型刷新

@@ -24,5 +24,6 @@ pub mod share;
 pub mod single_instance;
 pub mod sync;
 pub mod system_theme;
+pub mod update;
 pub mod weather;
 pub mod window_policy;
