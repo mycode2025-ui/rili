@@ -249,24 +249,12 @@ fn run_gui(startup: bool) -> Result<()> {
     let quick_panel = QuickPanelWindow::new()?;
     let notification = NotificationWindow::new()?;
     let _notification_runtime = register_notification_runtime(&ui, &notification);
-    let widgets_visible =
-        db::get_setting(&state.borrow().conn, "desktop_widgets_visible", "1")? == "1";
+    // 首次运行保持桌面整洁；已有用户写入数据库的开关仍按原样恢复。
+    let (widgets_visible, initial_widget_visibility, initial_click_through) =
+        load_desktop_widget_startup_state(&state.borrow().conn)?;
     let widget_shown = Rc::new(Cell::new(widgets_visible));
-    let desktop_widget_visibility = Rc::new(RefCell::new(DesktopWidgetVisibility {
-        calendar: db::get_setting(&state.borrow().conn, "widget_calendar_visible", "1")? == "1",
-        events: db::get_setting(&state.borrow().conn, "widget_events_visible", "1")? == "1",
-        countdown: db::get_setting(&state.borrow().conn, "widget_countdown_visible", "1")? == "1",
-        clock: db::get_setting(&state.borrow().conn, "widget_clock_visible", "1")? == "1",
-        weather: db::get_setting(&state.borrow().conn, "widget_weather_visible", "0")? == "1",
-        focus: db::get_setting(&state.borrow().conn, "widget_focus_visible", "1")? == "1",
-        todo: db::get_setting(&state.borrow().conn, "widget_todo_visible", "1")? == "1",
-        notes: db::get_setting(&state.borrow().conn, "widget_notes_visible", "1")? == "1",
-        quote: db::get_setting(&state.borrow().conn, "widget_quote_visible", "0")? == "1",
-        almanac: db::get_setting(&state.borrow().conn, "widget_almanac_visible", "0")? == "1",
-    }));
-    let desktop_click_through = Rc::new(Cell::new(
-        db::get_setting(&state.borrow().conn, "desktop_widgets_click_through", "0")? == "1",
-    ));
+    let desktop_widget_visibility = Rc::new(RefCell::new(initial_widget_visibility));
+    let desktop_click_through = Rc::new(Cell::new(initial_click_through));
     widget_shown.set(widgets_visible && desktop_widget_visibility.borrow().any());
     let widget_pinned = db::get_setting(&state.borrow().conn, "widget_pinned", "0")
         .unwrap_or_else(|_| "0".to_string())

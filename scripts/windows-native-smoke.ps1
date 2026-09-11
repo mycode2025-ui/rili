@@ -121,6 +121,16 @@ try {
     $quick = Wait-Window $process.Id 'TimeHub 快速面板'
     $notification = Wait-Window $process.Id 'TimeHub 通知'
 
+    $desktopCardTitles = @(
+        'TimeHub 月历', 'TimeHub 我的日程', 'TimeHub 倒数日', 'TimeHub 时钟',
+        'TimeHub 天气', 'TimeHub 专注计时', 'TimeHub 今日待办', 'TimeHub 便签',
+        'TimeHub 每日一言', 'TimeHub 黄历'
+    )
+    $unexpectedCards = @(Get-TimeHubWindows $process.Id | Where-Object Title -in $desktopCardTitles)
+    if ($unexpectedCards.Count -gt 0) {
+        throw "Fresh profile opened desktop cards by default: $($unexpectedCards.Title -join ', ')"
+    }
+
     $monitors = [TimeHubNativeSmoke]::Monitors()
     if ($monitors.Count -lt 1) { throw 'Windows reported no active monitors.' }
     $quickMonitor = Assert-InWorkArea $quick $monitors

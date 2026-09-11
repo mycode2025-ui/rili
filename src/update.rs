@@ -362,4 +362,17 @@ mod tests {
             CheckResult::Current { .. } | CheckResult::Available(_)
         ));
     }
+
+    #[test]
+    #[ignore = "requires a public release newer than v0.2.0"]
+    fn released_v020_detects_newer_update() {
+        let result = check("0.2.0").expect("v0.2.0 public update check");
+        let CheckResult::Available(info) = result else {
+            panic!("v0.2.0 did not detect a newer public release");
+        };
+        assert!(parse_version(&info.version).unwrap() > Version::new(0, 2, 0));
+        assert!(info
+            .github_download
+            .ends_with(&format!("/v{}/TimeHub.exe", info.version)));
+    }
 }

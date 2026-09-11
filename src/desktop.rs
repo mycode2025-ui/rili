@@ -10,7 +10,7 @@ pub(crate) use taskbar::*;
 
 /// 桌面挂件是彼此独立的系统窗口；`WidgetWindow` 仅继续承担现有数据/回调中转，
 /// 不再作为用户可见的“挂件集合页”。
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct DesktopWidgetVisibility {
     pub(crate) calendar: bool,
     pub(crate) events: bool,
@@ -22,6 +22,28 @@ pub(crate) struct DesktopWidgetVisibility {
     pub(crate) notes: bool,
     pub(crate) quote: bool,
     pub(crate) almanac: bool,
+}
+
+/// 读取桌面卡片的启动状态。缺少设置代表首次运行，默认不创建任何桌面窗口；
+/// 一旦用户主动开关卡片，数据库中的显式值仍按原样恢复。
+pub(crate) fn load_desktop_widget_startup_state(
+    conn: &rusqlite::Connection,
+) -> anyhow::Result<(bool, DesktopWidgetVisibility, bool)> {
+    let overall_visible = db::get_setting(conn, "desktop_widgets_visible", "0")? == "1";
+    let visibility = DesktopWidgetVisibility {
+        calendar: db::get_setting(conn, "widget_calendar_visible", "0")? == "1",
+        events: db::get_setting(conn, "widget_events_visible", "0")? == "1",
+        countdown: db::get_setting(conn, "widget_countdown_visible", "0")? == "1",
+        clock: db::get_setting(conn, "widget_clock_visible", "0")? == "1",
+        weather: db::get_setting(conn, "widget_weather_visible", "0")? == "1",
+        focus: db::get_setting(conn, "widget_focus_visible", "0")? == "1",
+        todo: db::get_setting(conn, "widget_todo_visible", "0")? == "1",
+        notes: db::get_setting(conn, "widget_notes_visible", "0")? == "1",
+        quote: db::get_setting(conn, "widget_quote_visible", "0")? == "1",
+        almanac: db::get_setting(conn, "widget_almanac_visible", "0")? == "1",
+    };
+    let click_through = db::get_setting(conn, "desktop_widgets_click_through", "0")? == "1";
+    Ok((overall_visible, visibility, click_through))
 }
 
 impl DesktopWidgetVisibility {
@@ -52,6 +74,48 @@ impl DesktopWidgetVisibility {
             "almanac" => self.almanac = visible,
             _ => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn settings_connection() -> rusqlite::Connection {
+        let conn = rusqlite::Connection::open_in_memory().expect("in-memory database");
+        conn.execute_batch(
+            "CREATE TABLE settings (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);",
+        )
+        .expect("settings table");
+        conn
+    }
+
+    #[test]
+    fn first_run_keeps_all_desktop_widgets_closed() {
+        let conn = settings_connection();
+        let (overall_visible, visibility, click_through) =
+            load_desktop_widget_startup_state(&conn).expect("load defaults");
+
+        assert!(!overall_visible);
+        assert!(!visibility.any());
+        assert!(!click_through);
+    }
+
+    #[test]
+    fn saved_widget_choices_are_restored() {
+        let conn = settings_connection();
+        db::set_setting(&conn, "desktop_widgets_visible", "1").expect("save overall state");
+        db::set_setting(&conn, "widget_calendar_visible", "1").expect("save calendar state");
+        db::set_setting(&conn, "widget_quote_visible", "1").expect("save quote state");
+
+        let (overall_visible, visibility, click_through) =
+            load_desktop_widget_startup_state(&conn).expect("load saved state");
+
+        assert!(overall_visible);
+        assert!(visibility.calendar);
+        assert!(visibility.quote);
+        assert!(!visibility.events);
+        assert!(!click_through);
     }
 }
 
@@ -578,9 +642,9 @@ impl DesktopWidgetWindows {
 
             let (visible, click_through) = if let Ok(conn) = db::open() {
                 (
-                    db::get_setting(&conn, "desktop_widgets_visible", "1").unwrap_or_default()
+                    db::get_setting(&conn, "desktop_widgets_visible", "0").unwrap_or_default()
                         != "0"
-                        && db::get_setting(&conn, "widget_notes_visible", "1").unwrap_or_default()
+                        && db::get_setting(&conn, "widget_notes_visible", "0").unwrap_or_default()
                             != "0",
                     db::get_setting(&conn, "desktop_widgets_click_through", "0")
                         .unwrap_or_default()
