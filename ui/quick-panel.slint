@@ -12,8 +12,8 @@ component HeaderButton inherits Rectangle {
     in property <string> label;
     in property <bool> danger: false;
     callback clicked();
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     border-radius: Theme.r-md;
     background: touch.pressed ? (danger ? Theme.danger-bg : Theme.accent-subtle) : (touch.has-hover ? Theme.bg-hover : transparent);
     accessible-role: button;
@@ -25,14 +25,14 @@ component HeaderButton inherits Rectangle {
     touch := FocusTouchArea { width: 100%; height: 100%; clicked => { root.clicked(); } }
     SvgIcon {
         source: root.icon;
-        size: 16px;
+        size: 14px;
         tint: root.danger && touch.has-hover ? Theme.danger : (touch.has-hover ? Theme.text-1 : Theme.text-2);
-        x: 8px;
-        y: 8px;
+        x: 7px;
+        y: 7px;
     }
     if touch.has-hover: Rectangle {
         x: (parent.width - 72px) / 2;
-        y: 34px;
+        y: 30px;
         width: 72px;
         height: 25px;
         border-radius: Theme.r-md;
@@ -48,8 +48,8 @@ component MonthButton inherits Rectangle {
     in property <image> icon;
     in property <string> label;
     callback clicked();
-    width: label == "" ? 28px : 48px;
-    height: 28px;
+    width: label == "" ? 26px : 44px;
+    height: 26px;
     border-radius: Theme.r-md;
     background: touch.pressed ? Theme.accent-subtle : (touch.has-hover ? Theme.bg-hover : transparent);
     accessible-role: button;
@@ -59,7 +59,7 @@ component MonthButton inherits Rectangle {
     border-width: touch.has-focus ? 2px : 0px;
     border-color: Theme.accent;
     touch := FocusTouchArea { width: 100%; height: 100%; clicked => { root.clicked(); } }
-    if label == "": SvgIcon { source: root.icon; size: 14px; tint: touch.has-hover ? Theme.accent : Theme.text-2; x: 7px; y: 7px; }
+    if label == "": SvgIcon { source: root.icon; size: 12px; tint: touch.has-hover ? Theme.accent : Theme.text-2; x: 7px; y: 7px; }
     if label != "": Text { text: root.label; color: touch.has-hover ? Theme.accent : Theme.text-2; font-size: Theme.font-11; horizontal-alignment: center; vertical-alignment: center; }
 }
 
@@ -69,8 +69,8 @@ component WeekdayCell inherits Rectangle {
     min-width: 0px;
     preferred-width: 0px;
     horizontal-stretch: 1;
-    height: 22px;
-    Text { text: root.label; color: weekend ? Theme.weekend : Theme.text-2; font-size: Theme.font-11; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+    height: 20px;
+    Text { text: root.label; color: weekend ? Theme.weekend : Theme.text-3; font-size: Theme.font-10; font-weight: 500; horizontal-alignment: center; vertical-alignment: center; }
 }
 
 component CalendarDayCell inherits Rectangle {
@@ -79,47 +79,57 @@ component CalendarDayCell inherits Rectangle {
     min-width: 0px;
     preferred-width: 0px;
     horizontal-stretch: 1;
-    height: 40px;
+    height: 38px;
     border-radius: Theme.r-md;
     border-width: touch.has-focus ? 2px : 0px;
     border-color: Theme.accent;
-    background: day.is-today ? Theme.accent-subtle : (touch.has-hover && day.in-current-month ? Theme.bg-hover : transparent);
+    background: touch.has-hover && day.in-current-month ? Theme.bg-hover : transparent;
     accessible-role: button;
     accessible-label: day.in-current-month ? "选择 " + day.day + " 日" : "非本月日期";
     accessible-action-default => { if (day.in-current-month) { root.select(); } }
     forward-focus: touch;
     touch := FocusTouchArea { width: 100%; height: 100%; enabled: day.in-current-month; clicked => { root.select(); } }
+    if day.is-today: Rectangle {
+        x: (parent.width - 38px) / 2;
+        y: 0px;
+        width: 34px;
+        height: 36px;
+        border-radius: Theme.r-sm;
+        border-width: 1px;
+        border-color: Theme.accent.with-alpha(34%);
+        background: Theme.accent-subtle;
+    }
     Text {
         x: 0px;
-        y: 2px;
+        y: 1px;
         width: 100%;
         height: 19px;
         text: day.day;
         color: day.is-today ? Theme.accent : (!day.in-current-month ? Theme.text-disabled : (day.is-weekend ? Theme.weekend : Theme.text-1));
         font-size: Theme.font-13;
-        font-weight: day.is-today ? 700 : 600;
+        font-weight: day.is-today ? 600 : 400;
         horizontal-alignment: center;
         vertical-alignment: center;
     }
     Text {
         x: 3px;
-        y: 21px;
+        y: 20px;
         width: parent.width - 6px;
         height: 13px;
         text: day.special-text != "" ? day.special-text : day.lunar-text;
         color: day.special-text != "" ? Theme.accent : (day.in-current-month ? Theme.text-3 : Theme.text-disabled);
         font-size: Theme.font-10;
-        font-weight: 500;
+        font-weight: 400;
         horizontal-alignment: center;
         vertical-alignment: center;
         overflow: elide;
     }
     if day.has-events: Rectangle {
         x: (parent.width - 4px) / 2;
-        y: 35px;
-        width: 4px;
-        height: 4px;
-        border-radius: 2px;
+        y: 34px;
+        width: 3px;
+        height: 3px;
+        border-radius: 1.5px;
         background: day.is-today ? Theme.accent : Theme.info;
     }
 }
@@ -133,19 +143,19 @@ component OverviewCard inherits Rectangle {
     min-width: 0px;
     preferred-width: 0px;
     horizontal-stretch: 1;
-    height: 62px;
-    border-radius: Theme.r-lg;
+    height: 52px;
+    border-radius: Theme.r-md;
     border-width: 1px;
     border-color: touch.has-hover ? tint.with-alpha(55%) : Theme.border-subtle;
-    background: touch.pressed ? tint.with-alpha(14%) : (touch.has-hover ? Theme.bg-hover : Theme.bg-surface-2);
+    background: touch.pressed ? tint.with-alpha(10%) : (touch.has-hover ? Theme.bg-hover : transparent);
     accessible-role: button;
     accessible-label: root.label + "，" + root.value;
     accessible-action-default => { root.clicked(); }
     forward-focus: touch;
     touch := FocusTouchArea { width: 100%; height: 100%; clicked => { root.clicked(); } }
-    Rectangle { x: 8px; y: 12px; width: 36px; height: 36px; border-radius: Theme.r-md; background: tint.with-alpha(16%); SvgIcon { source: root.icon; size: 20px; tint: root.tint; x: 8px; y: 8px; } }
-    Text { x: 52px; y: 10px; width: parent.width - 60px; height: 20px; text: root.value; color: Theme.text-1; font-size: Theme.font-14; font-weight: 700; vertical-alignment: center; }
-    Text { x: 52px; y: 31px; width: parent.width - 60px; height: 18px; text: root.label; color: Theme.text-2; font-size: Theme.font-11; font-weight: 500; vertical-alignment: center; overflow: elide; }
+    SvgIcon { source: root.icon; size: 16px; tint: root.tint; x: 10px; y: 18px; }
+    Text { x: 34px; y: 7px; width: parent.width - 42px; height: 18px; text: root.value; color: Theme.text-1; font-size: Theme.font-12; font-weight: 600; vertical-alignment: center; }
+    Text { x: 34px; y: 26px; width: parent.width - 42px; height: 17px; text: root.label; color: Theme.text-3; font-size: Theme.font-10; font-weight: 400; vertical-alignment: center; overflow: elide; }
 }
 
 component BottomNavButton inherits Rectangle {
@@ -156,7 +166,7 @@ component BottomNavButton inherits Rectangle {
     min-width: 0px;
     preferred-width: 0px;
     horizontal-stretch: 1;
-    height: 54px;
+    height: 46px;
     border-radius: Theme.r-md;
     background: touch.pressed ? Theme.accent-subtle : (touch.has-hover ? Theme.bg-hover : transparent);
     accessible-role: button;
@@ -166,28 +176,28 @@ component BottomNavButton inherits Rectangle {
     border-width: touch.has-focus ? 2px : 0px;
     border-color: Theme.accent;
     touch := FocusTouchArea { width: 100%; height: 100%; clicked => { root.clicked(); } }
-    if active: Rectangle { x: (parent.width - 24px) / 2; y: 2px; width: 24px; height: 3px; border-radius: 1.5px; background: Theme.accent; }
-    SvgIcon { source: root.icon; size: 20px; tint: active ? Theme.accent : (touch.has-hover ? Theme.text-1 : Theme.text-2); x: (parent.width - self.width) / 2; y: 8px; }
-    Text { x: 0px; y: 32px; width: 100%; height: 18px; text: root.label; color: active ? Theme.accent : Theme.text-2; font-size: Theme.font-11; font-weight: 500; horizontal-alignment: center; vertical-alignment: center; }
+    if active: Rectangle { x: (parent.width - 18px) / 2; y: 1px; width: 18px; height: 2px; border-radius: 1px; background: Theme.accent; }
+    SvgIcon { source: root.icon; size: 16px; tint: active ? Theme.accent : (touch.has-hover ? Theme.text-1 : Theme.text-2); x: (parent.width - self.width) / 2; y: 7px; }
+    Text { x: 0px; y: 26px; width: 100%; height: 16px; text: root.label; color: active ? Theme.accent : Theme.text-3; font-size: Theme.font-10; font-weight: active ? 500 : 400; horizontal-alignment: center; vertical-alignment: center; }
 }
 
 component AddButton inherits Rectangle {
     callback clicked();
-    width: 48px;
-    height: 48px;
-    border-radius: 24px;
-    background: touch.pressed ? Theme.accent-pressed : (touch.has-hover ? Theme.accent-hover : Theme.accent);
-    drop-shadow-color: Theme.accent.with-alpha(36%);
-    drop-shadow-blur: 10px;
-    drop-shadow-offset-y: 4px;
+    width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    background: touch.pressed ? Theme.accent.with-alpha(22%) : (touch.has-hover ? Theme.accent.with-alpha(18%) : Theme.accent-subtle);
+    border-width: touch.has-focus ? 2px : 1px;
+    border-color: touch.has-focus ? Theme.accent : Theme.accent.with-alpha(70%);
+    drop-shadow-color: Theme.shadow-1-color-a;
+    drop-shadow-blur: 4px;
+    drop-shadow-offset-y: 2px;
     accessible-role: button;
     accessible-label: "新建日程";
     accessible-action-default => { root.clicked(); }
     forward-focus: touch;
-    border-width: touch.has-focus ? 2px : 0px;
-    border-color: Theme.on-accent;
     touch := FocusTouchArea { width: 100%; height: 100%; clicked => { root.clicked(); } }
-    SvgIcon { source: Icons.plus; size: 24px; tint: Theme.on-accent; x: 12px; y: 12px; }
+    SvgIcon { source: Icons.plus; size: 20px; tint: Theme.accent; x: 10px; y: 10px; }
     if touch.has-hover: Rectangle {
         x: (parent.width - 76px) / 2;
         y: -31px;
@@ -203,8 +213,8 @@ export component QuickPanelWindow inherits Window {
     title: "TimeHub 快速面板";
     default-font-family: Theme.font-family;
     icon: Icons.app-logo;
-    width: 460px;
-    height: 640px;
+    width: 424px;
+    height: 580px;
     no-frame: true;
     always-on-top: root.pinned;
     background: transparent;
@@ -251,7 +261,7 @@ export component QuickPanelWindow inherits Window {
         y: 4px;
         width: parent.width - 8px;
         height: parent.height - 8px;
-        border-radius: Theme.r-xl;
+        border-radius: 10px;
         border-width: 1px;
         border-color: Theme.border-default;
         background: Theme.bg-surface;
@@ -266,49 +276,48 @@ export component QuickPanelWindow inherits Window {
             spacing: 0px;
 
             Rectangle {
-                height: 108px;
-                background: Theme.accent-subtle;
-                Rectangle { x: parent.width - 126px; y: -50px; width: 176px; height: 176px; border-radius: 88px; background: Theme.accent.with-alpha(7%); }
-                Rectangle { x: parent.width - 74px; y: 40px; width: 110px; height: 110px; border-radius: 55px; background: Theme.accent.with-alpha(6%); }
-                Text { x: 20px; y: 12px; width: 260px; height: 48px; text: root.time-text == "" ? "17:51:29" : root.time-text; color: Theme.text-1; font-size: Theme.font-44; font-weight: 700; vertical-alignment: center; }
-                Text { x: 20px; y: 64px; width: 270px; height: 20px; text: root.date-title + "  " + root.weekday-text; color: Theme.text-2; font-size: Theme.font-13; font-weight: 500; vertical-alignment: center; }
-                Text { x: 20px; y: 84px; width: 270px; height: 18px; text: root.lunar-text; color: Theme.text-2; font-size: Theme.font-11; font-weight: 500; vertical-alignment: center; overflow: elide; }
+                height: 90px;
+                background: Theme.bg-surface-2;
+                Rectangle { x: 0px; y: parent.height - 1px; width: 100%; height: 1px; background: Theme.border-subtle; }
+                Text { x: 18px; y: 10px; width: 220px; height: 38px; text: root.time-text == "" ? "17:51:29" : root.time-text; color: Theme.text-1; font-size: Theme.font-34; font-weight: 500; vertical-alignment: center; }
+                Text { x: 20px; y: 49px; width: 220px; height: 17px; text: root.date-title + "  " + root.weekday-text; color: Theme.text-2; font-size: Theme.font-11; font-weight: 400; vertical-alignment: center; }
+                Text { x: 20px; y: 68px; width: 220px; height: 16px; text: root.lunar-text; color: Theme.text-3; font-size: Theme.font-10; font-weight: 400; vertical-alignment: center; overflow: elide; }
                 Rectangle {
-                    x: parent.width - 180px;
-                    y: 36px;
-                    width: 168px;
-                    height: 64px;
-                    border-radius: Theme.r-lg;
-                    border-width: weather-card-touch.has-focus ? 2px : 0px;
-                    border-color: Theme.accent;
+                    x: parent.width - 158px;
+                    y: 32px;
+                    width: 146px;
+                    height: 50px;
+                    border-radius: Theme.r-md;
+                    border-width: weather-card-touch.has-focus ? 2px : 1px;
+                    border-color: weather-card-touch.has-focus ? Theme.accent : Theme.border-subtle;
                     background: weather-card-touch.has-hover ? Theme.bg-hover : Theme.bg-surface;
                     accessible-role: button;
                     accessible-label: root.weather-city == "" ? "打开天气" : "打开 " + root.weather-city + " 天气";
                     accessible-action-default => { root.open-weather(); }
                     forward-focus: weather-card-touch;
-                    WeatherArtwork { x: 8px; y: 8px; width: 48px; height: 48px; kind: root.weather-icon-kind; }
+                    WeatherArtwork { x: 8px; y: 10px; width: 30px; height: 30px; kind: root.weather-icon-kind; }
                     if root.weather-city == "": Text {
-                        x: 60px; y: 8px; width: 80px; height: 42px;
+                        x: 44px; y: 7px; width: 78px; height: 34px;
                         text: "天气加载中"; color: Theme.text-2; font-size: Theme.font-11;
                         vertical-alignment: center; overflow: elide;
                     }
                     if root.weather-city != "": Text {
-                        x: 60px; y: 4px; width: 80px; height: 20px;
-                        text: root.weather-city; color: Theme.text-1; font-size: Theme.font-11; font-weight: 600;
+                        x: 44px; y: 3px; width: 78px; height: 17px;
+                        text: root.weather-city; color: Theme.text-1; font-size: Theme.font-10; font-weight: 500;
                         vertical-alignment: center; overflow: elide;
                     }
                     if root.weather-city != "": Text {
-                        x: 60px; y: 22px; width: 48px; height: 22px;
-                        text: root.weather-temperature; color: Theme.text-1; font-size: Theme.font-13; font-weight: 700;
+                        x: 44px; y: 18px; width: 38px; height: 16px;
+                        text: root.weather-temperature; color: Theme.text-1; font-size: Theme.font-11; font-weight: 500;
                         vertical-alignment: center; overflow: elide;
                     }
                     if root.weather-city != "": Text {
-                        x: 108px; y: 24px; width: 48px; height: 18px;
-                        text: root.weather-description; color: Theme.text-2; font-size: Theme.font-11;
+                        x: 82px; y: 18px; width: 54px; height: 16px;
+                        text: root.weather-description; color: Theme.text-2; font-size: Theme.font-10;
                         horizontal-alignment: right; vertical-alignment: center; overflow: elide;
                     }
                     Text {
-                        x: 60px; y: 44px; width: 96px; height: 16px;
+                        x: 44px; y: 34px; width: 90px; height: 13px;
                         text: root.weather-refreshing ? "正在更新…"
                             : root.weather-refresh-error ? "更新失败 · 点击重试"
                             : root.weather-updated + (root.weather-provider == "" ? "" : " · " + root.weather-provider);
@@ -317,7 +326,7 @@ export component QuickPanelWindow inherits Window {
                     }
                     weather-card-touch := FocusTouchArea { width: 100%; height: 100%; clicked => { root.open-weather(); } }
                     Rectangle {
-                        x: parent.width - 24px; y: 4px; width: 20px; height: 20px; border-radius: 10px;
+                        x: parent.width - 22px; y: 3px; width: 18px; height: 18px; border-radius: 9px;
                         background: refresh-touch.has-hover ? Theme.accent-subtle : transparent;
                         border-width: refresh-touch.has-focus ? 2px : 0px;
                         border-color: Theme.accent;
@@ -325,38 +334,38 @@ export component QuickPanelWindow inherits Window {
                         accessible-label: "刷新天气";
                         accessible-action-default => { if (!root.weather-refreshing) { root.refresh-weather(); } }
                         forward-focus: refresh-touch;
-                        SvgIcon { x: 4px; y: 4px; size: 12px; source: Icons.reload; tint: root.weather-refreshing ? Theme.text-3 : Theme.accent; }
+                        SvgIcon { x: 3px; y: 3px; size: 12px; source: Icons.reload; tint: root.weather-refreshing ? Theme.text-3 : Theme.accent; }
                         refresh-touch := FocusTouchArea { width: 100%; height: 100%; enabled: !root.weather-refreshing; clicked => { root.refresh-weather(); } }
                     }
                 }
-                HeaderButton { x: parent.width - 76px; y: 8px; icon: Icons.gear; label: "打开设置"; clicked => { root.open-settings(); } }
-                HeaderButton { x: parent.width - 40px; y: 8px; icon: Icons.close; label: "关闭面板"; danger: true; clicked => { root.close-requested(); } }
+                HeaderButton { x: parent.width - 68px; y: 6px; icon: Icons.gear; label: "打开设置"; clicked => { root.open-settings(); } }
+                HeaderButton { x: parent.width - 36px; y: 6px; icon: Icons.close; label: "关闭面板"; danger: true; clicked => { root.close-requested(); } }
             }
 
             Rectangle {
-                height: 332px;
+                height: 302px;
                 background: Theme.bg-surface;
                 VerticalLayout {
                     padding-left: 16px;
                     padding-right: 16px;
-                    padding-top: 8px;
-                    padding-bottom: 8px;
+                    padding-top: 6px;
+                    padding-bottom: 6px;
                     spacing: 2px;
                     HorizontalLayout {
-                        height: 32px;
+                        height: 28px;
                         spacing: 4px;
-                        Text { text: root.month-title; color: Theme.text-1; font-size: Theme.font-15; font-weight: 700; vertical-alignment: center; horizontal-stretch: 1; }
+                        Text { text: root.month-title; color: Theme.text-1; font-size: Theme.font-14; font-weight: 600; vertical-alignment: center; horizontal-stretch: 1; }
                         MonthButton { icon: Icons.left; label: ""; clicked => { root.prev-month(); } }
                         MonthButton { icon: Icons.today; label: "今天"; clicked => { root.goto-today(); } }
                         MonthButton { icon: Icons.right; label: ""; clicked => { root.next-month(); } }
                     }
                     HorizontalLayout {
-                        height: 22px;
+                        height: 20px;
                         spacing: 0px;
                         for label[i] in ["一", "二", "三", "四", "五", "六", "日"]: WeekdayCell { label: label; weekend: i >= 5; }
                     }
                     for week in 6: HorizontalLayout {
-                        height: 40px;
+                        height: 38px;
                         spacing: 0px;
                         for col in 7: CalendarDayCell {
                             day: root.days[week * 7 + col];
@@ -372,39 +381,38 @@ export component QuickPanelWindow inherits Window {
                 vertical-stretch: 1;
                 padding-left: 16px;
                 padding-right: 16px;
-                padding-top: 10px;
-                padding-bottom: 10px;
+                padding-top: 8px;
+                padding-bottom: 8px;
                 spacing: 8px;
                 HorizontalLayout {
                     height: 20px;
-                    Text { text: "今日概览"; color: Theme.text-1; font-size: Theme.font-13; font-weight: 700; vertical-alignment: center; }
+                    Text { text: "今日概览"; color: Theme.text-1; font-size: Theme.font-13; font-weight: 600; vertical-alignment: center; }
                     Rectangle { horizontal-stretch: 1; }
-                    Text { text: events.length + todos.length == 0 ? "今天很轻松" : "安排得井井有条"; color: Theme.text-2; font-size: Theme.font-11; font-weight: 500; vertical-alignment: center; }
+                    Text { text: events.length + todos.length == 0 ? "今天暂无安排" : events.length + " 项日程 · " + todos.length + " 项待办"; color: Theme.text-3; font-size: Theme.font-10; font-weight: 500; vertical-alignment: center; }
                 }
                 HorizontalLayout {
                     spacing: 6px;
                     OverviewCard { icon: Icons.calendar; value: events.length + " 项"; label: "日程安排"; tint: Theme.accent; clicked => { root.open-view(2); } }
                     OverviewCard { icon: Icons.check; value: todos.length + " 项"; label: "待办任务"; tint: Theme.success; clicked => { root.open-view(4); } }
-                    OverviewCard { icon: Icons.timer; value: root.countdown-count + " 项"; label: "重要倒数"; tint: Theme.warning; clicked => { root.open-view(8); } }
+                    OverviewCard { icon: Icons.timer; value: root.countdown-count + " 项"; label: "倒数日"; tint: Theme.warning; clicked => { root.open-view(8); } }
                 }
             }
 
             Rectangle {
-                height: 64px;
-                background: Theme.bg-surface-2;
-                border-width: 1px;
-                border-color: Theme.border-subtle;
+                height: 56px;
+                background: Theme.bg-surface;
+                Rectangle { x: 0px; y: 0px; width: 100%; height: 1px; background: Theme.border-subtle; }
                 HorizontalLayout {
                     width: 100%;
                     height: 100%;
                     padding-left: 8px;
                     padding-right: 8px;
-                    padding-top: 4px;
-                    padding-bottom: 4px;
+                    padding-top: 5px;
+                    padding-bottom: 5px;
                     spacing: 4px;
                     BottomNavButton { icon: Icons.today; label: "今天"; active: root.active-view == 2 || root.active-view == 3; clicked => { root.open-view(2); } }
                     BottomNavButton { icon: Icons.calendar; label: "日历"; active: root.active-view == 0 || root.active-view == 1 || root.active-view == 5; clicked => { root.open-view(0); } }
-                    Rectangle { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; AddButton { x: (parent.width - self.width) / 2; y: 4px; clicked => { root.new-event(); } } }
+                    Rectangle { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; AddButton { x: (parent.width - self.width) / 2; y: 3px; clicked => { root.new-event(); } } }
                     BottomNavButton { icon: Icons.check; label: "待办"; active: root.active-view == 4; clicked => { root.open-view(4); } }
                     BottomNavButton { icon: Icons.gear; label: "设置"; active: false; clicked => { root.open-settings(); } }
                 }

@@ -126,7 +126,7 @@ mod tests {
             right: 1920,
             bottom: 1080,
         };
-        assert_eq!(taskbar_panel_position(taskbar, 3, 460, 640, 8), (1452, 392));
+        assert_eq!(taskbar_panel_position(taskbar, 3, 424, 580, 0), (1496, 460));
     }
 
     #[test]
@@ -137,8 +137,8 @@ mod tests {
             right: 48,
             bottom: 1080,
         };
-        assert_eq!(taskbar_panel_position(taskbar, 0, 460, 640, 8), (56, 432));
-        assert_eq!(taskbar_panel_position(taskbar, 2, 460, 640, 8), (-468, 432));
+        assert_eq!(taskbar_panel_position(taskbar, 0, 424, 580, 0), (48, 500));
+        assert_eq!(taskbar_panel_position(taskbar, 2, 424, 580, 0), (-424, 500));
     }
 
     #[test]

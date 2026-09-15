@@ -375,4 +375,20 @@ mod tests {
             .github_download
             .ends_with(&format!("/v{}/TimeHub.exe", info.version)));
     }
+
+    #[test]
+    #[ignore = "requires a public release newer than v0.2.1 on both mirrors"]
+    fn released_v021_detects_v022_on_both_mirrors() {
+        let result = check("0.2.1").expect("v0.2.1 public update check");
+        let CheckResult::Available(info) = result else {
+            panic!("v0.2.1 did not detect a newer public release");
+        };
+        assert!(parse_version(&info.version).unwrap() > Version::new(0, 2, 1));
+        assert!(info
+            .github_download
+            .ends_with(&format!("/v{}/TimeHub.exe", info.version)));
+        assert!(info
+            .gitee_download
+            .ends_with(&format!("/v{}/TimeHub.exe", info.version)));
+    }
 }

@@ -136,6 +136,18 @@ try {
     $quickMonitor = Assert-InWorkArea $quick $monitors
     $notificationMonitor = Assert-InWorkArea $notification $monitors
 
+    $quickHorizontalGap = [Math]::Min(
+        [Math]::Abs($quick.Rect.Left - $quickMonitor.Work.Left),
+        [Math]::Abs($quickMonitor.Work.Right - $quick.Rect.Right)
+    )
+    $quickVerticalGap = [Math]::Min(
+        [Math]::Abs($quick.Rect.Top - $quickMonitor.Work.Top),
+        [Math]::Abs($quickMonitor.Work.Bottom - $quick.Rect.Bottom)
+    )
+    if ($quickHorizontalGap -gt 2 -or $quickVerticalGap -gt 2) {
+        throw "Quick panel is not flush with the work-area corner (horizontal=$quickHorizontalGap, vertical=$quickVerticalGap)."
+    }
+
     $rightGap = $notificationMonitor.Work.Right - $notification.Rect.Right
     $bottomGap = $notificationMonitor.Work.Bottom - $notification.Rect.Bottom
     if ($rightGap -gt 96 -or $bottomGap -gt 96) {

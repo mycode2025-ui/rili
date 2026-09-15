@@ -298,9 +298,23 @@ pub(crate) fn position_quick_panel_at_taskbar(quick: &QuickPanelWindow) {
 
 pub(crate) fn position_quick_panel_at_rect(quick: &QuickPanelWindow, taskbar: TaskbarRect) {
     let scale = taskbar.scale;
-    let panel_width = (460.0 * scale).round() as i32;
-    let panel_height = (640.0 * scale).round() as i32;
-    let gap = (8.0 * scale).round() as i32;
+    // Use the actual native window size instead of duplicating the Slint size
+    // here. The duplicated 460x640 values left a large false gap after the
+    // panel was made smaller, especially at 150% DPI.
+    let panel_size = quick.window().size();
+    let panel_width = if panel_size.width > 0 {
+        panel_size.width as i32
+    } else {
+        (424.0 * scale).round() as i32
+    };
+    let panel_height = if panel_size.height > 0 {
+        panel_size.height as i32
+    } else {
+        (580.0 * scale).round() as i32
+    };
+    // The window itself already has a transparent shadow inset, so an
+    // additional external gap makes it look detached from the screen edge.
+    let gap = 0;
     let (x, y) = rili::window_policy::taskbar_panel_position(
         rili::window_policy::ScreenRect {
             left: taskbar.left,

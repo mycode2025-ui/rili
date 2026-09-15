@@ -74,8 +74,15 @@ try {
     if ($LASTEXITCODE -ne 0) { throw '渲染失败：NotesPreview light' }
     & slint-viewer tests\visual\notes-preview.slint --component NotesPreview --load-data tests\visual\notes-dark.json --screenshot (Join-Path $currentDir 'NotesPreview-dark.png')
     if ($LASTEXITCODE -ne 0) { throw '渲染失败：NotesPreview dark' }
+    $quickData = Get-Content -LiteralPath 'tests\visual\quick-panel.json' -Raw | ConvertFrom-Json
+    $quickDarkData = [ordered]@{}
+    foreach ($property in $quickData.PSObject.Properties) {
+        $quickDarkData['preview-' + $property.Name] = $property.Value
+    }
+    $quickDarkDataPath = Join-Path $currentDir 'quick-panel-dark-data.json'
+    $quickDarkData | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $quickDarkDataPath -Encoding utf8
     $env:SLINT_SCALE_FACTOR = '1.5'
-    & slint-viewer tests\visual\quick-panel-dark-preview.slint --component QuickPanelDarkPreview --screenshot (Join-Path $currentDir 'QuickPanelPreview-dark-15.png')
+    & slint-viewer tests\visual\quick-panel-dark-preview.slint --component QuickPanelDarkPreview --load-data $quickDarkDataPath --screenshot (Join-Path $currentDir 'QuickPanelPreview-dark-15.png')
     if ($LASTEXITCODE -ne 0) { throw '渲染失败：QuickPanelPreview dark @ 1.5' }
 } finally {
     Remove-Item Env:SLINT_SCALE_FACTOR -ErrorAction SilentlyContinue

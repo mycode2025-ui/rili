@@ -1,7 +1,46 @@
 import { QuickPanelWindow, Theme } from "../../ui/quick-panel.slint";
+import { CalendarDay } from "../../ui/calendar-view.slint";
+import { EventItem, TodoItem } from "../../ui/side-panel.slint";
 
 export component QuickPanelDarkPreview inherits QuickPanelWindow {
+    // slint-viewer does not expose inherited properties to --load-data.
+    // Explicit preview aliases let the dark regression use the same complete
+    // 42-day model as the production panel instead of rendering empty zeros.
+    in property <[CalendarDay]> preview-days;
+    in property <[EventItem]> preview-events;
+    in property <[TodoItem]> preview-todos;
+    in property <string> preview-time-text;
+    in property <string> preview-weather-city;
+    in property <string> preview-weather-temperature;
+    in property <string> preview-weather-description;
+    in property <string> preview-weather-icon-kind;
+    in property <string> preview-weather-updated;
+    in property <string> preview-weather-provider;
+    in property <string> preview-date-title;
+    in property <string> preview-weekday-text;
+    in property <string> preview-lunar-text;
+    in property <string> preview-month-title;
+
+    days: preview-days;
+    events: preview-events;
+    todos: preview-todos;
+    time-text: preview-time-text;
+    weather-city: preview-weather-city;
+    weather-temperature: preview-weather-temperature;
+    weather-description: preview-weather-description;
+    weather-icon-kind: preview-weather-icon-kind;
+    weather-updated: preview-weather-updated;
+    weather-provider: preview-weather-provider;
+    date-title: preview-date-title;
+    weekday-text: preview-weekday-text;
+    lunar-text: preview-lunar-text;
+    month-title: preview-month-title;
+
     init => {
         Theme.theme-mode = 2;
+        Theme.font-family = "Microsoft YaHei UI";
+        Theme.font-delta = 3;
+        Theme.density-mode = 0;
+        Theme.accent = #65a30d;
     }
 }

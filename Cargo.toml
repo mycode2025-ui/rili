@@ -1,6 +1,6 @@
 [package]
 name = "rili"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 description = "本地优先的桌面日历 / 待办 / 便签工具，使用 Rust + Slint 构建"
 
