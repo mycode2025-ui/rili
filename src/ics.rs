@@ -6,11 +6,11 @@
 //!   这样导入方软件自己就能正确展开重复日程，不需要我们预先展开成几百条记录。
 //! - 导入：只解析 VEVENT 里最常见的 SUMMARY / DTSTART / RRULE（FREQ + 简单 BYDAY），
 //!   足够覆盖"从 Outlook/Google 导出后再导入回来"和大多数第三方日历导出文件的典型格式；
-//!   遇到解析不了的复杂 RRULE（如 BYMONTHDAY、EXDATE 例外等）会退化成"只导入这一天"，不会报错崩溃。
+//!   无法无损表达的复杂 RRULE 会明确报错，避免把长期会议静默变成单次会议。
 
 use crate::recurrence::RepeatRule;
 use anyhow::{Context, Result};
-use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+use chrono::{LocalResult, NaiveDate, NaiveDateTime, NaiveTime, TimeZone};
 
 /// 星期几从我们内部编码（0=周一..6=周日）转成 RFC 5545 的两字母代码。
 fn weekday_code(w: u8) -> &'static str {
@@ -52,7 +52,7 @@ fn repeat_rule_to_rrule(rule: &RepeatRule) -> Option<String> {
 
 /// 反过来把 RRULE 值解析回内部重复规则，并保留 UNTIL 截止日。
 /// COUNT 和非 1 的 INTERVAL 暂不展开，安全退化为单次事件，避免制造无限重复。
-fn parse_rrule(rrule: &str) -> (RepeatRule, Option<NaiveDate>) {
+fn parse_rrule(rrule: &str) -> Result<(RepeatRule, Option<NaiveDate>)> {
     let mut freq = None;
     let mut byday: Option<&str> = None;
     let mut until = None;
@@ -62,24 +62,26 @@ fn parse_rrule(rrule: &str) -> (RepeatRule, Option<NaiveDate>) {
         match (kv.next(), kv.next()) {
             (Some("FREQ"), Some(v)) => freq = Some(v),
             (Some("BYDAY"), Some(v)) => byday = Some(v),
-            (Some("UNTIL"), Some(v)) => until = parse_rrule_until(v),
+            (Some("UNTIL"), Some(v)) => {
+                until = Some(parse_rrule_until(v).context("日历 RRULE 的 UNTIL 日期无效")?)
+            }
             (Some("COUNT"), Some(_)) => unsupported = true,
             (Some("INTERVAL"), Some(v)) if v != "1" => unsupported = true,
-            _ => {}
+            (Some("INTERVAL"), Some("1")) => {}
+            (Some("WKST"), Some("MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU")) => {}
+            _ => unsupported = true,
         }
     }
     if unsupported {
-        return (RepeatRule::None, None);
+        anyhow::bail!("暂不支持此日历重复规则：{rrule}");
     }
     let rule = match (freq, byday) {
-        (Some("DAILY"), _) => RepeatRule::Daily,
+        (Some("DAILY"), None) => RepeatRule::Daily,
         (Some("WEEKLY"), Some(days)) => {
-            let parsed: Vec<u8> = days.split(',').filter_map(weekday_from_code).collect();
-            if parsed.is_empty() {
-                RepeatRule::Weekly
-            } else {
-                RepeatRule::WeeklyOn(parsed)
-            }
+            let parsed: Option<Vec<u8>> = days.split(',').map(weekday_from_code).collect();
+            let parsed = parsed.context("日历 RRULE 的 BYDAY 无效")?;
+            anyhow::ensure!(!parsed.is_empty(), "日历 RRULE 的 BYDAY 为空");
+            RepeatRule::WeeklyOn(parsed)
         }
         (Some("WEEKLY"), None) => RepeatRule::Weekly,
         (Some("MONTHLY"), Some(spec)) => {
@@ -90,14 +92,15 @@ fn parse_rrule(rrule: &str) -> (RepeatRule, Option<NaiveDate>) {
             let (n_part, code_part) = spec.split_at(digits_end);
             match (n_part.parse::<u8>().ok(), weekday_from_code(code_part)) {
                 (Some(n), Some(w)) if (1..=5).contains(&n) => RepeatRule::MonthlyNth(n, w),
-                _ => RepeatRule::Monthly,
+                _ => anyhow::bail!("暂不支持此日历重复规则：{rrule}"),
             }
         }
         (Some("MONTHLY"), None) => RepeatRule::Monthly,
-        (Some("YEARLY"), _) => RepeatRule::Yearly,
+        (Some("YEARLY"), None) => RepeatRule::Yearly,
         _ => RepeatRule::None,
     };
-    (rule, until)
+    anyhow::ensure!(rule != RepeatRule::None, "暂不支持此日历重复规则：{rrule}");
+    Ok((rule, until))
 }
 
 fn parse_rrule_until(value: &str) -> Option<NaiveDate> {
@@ -196,6 +199,8 @@ pub struct ImportedEvent {
     pub repeat_rule: RepeatRule,
     /// RRULE 的 UNTIL（含当天）；用于阻止已结束的外部周期事件无限延伸。
     pub repeat_until: Option<NaiveDate>,
+    /// EXDATE 中明确排除的发生日期（已换算到本地日期）。
+    pub exception_dates: Vec<NaiveDate>,
     /// RFC 5545 的 STATUS:CANCELLED，或 Outlook 导出时使用的“已取消:”标题。
     pub cancelled: bool,
 }
@@ -224,6 +229,7 @@ pub fn parse_ics(content: &str) -> Result<Vec<ImportedEvent>> {
     let mut url = String::new();
     let mut repeat_rule = RepeatRule::None;
     let mut repeat_until = None;
+    let mut exception_dates = Vec::new();
     let mut cancelled = false;
     let mut start: Option<NaiveDateTime> = None;
     let mut end: Option<NaiveDateTime> = None;
@@ -242,6 +248,7 @@ pub fn parse_ics(content: &str) -> Result<Vec<ImportedEvent>> {
             url.clear();
             repeat_rule = RepeatRule::None;
             repeat_until = None;
+            exception_dates.clear();
             cancelled = false;
             start = None;
             end = None;
@@ -268,6 +275,7 @@ pub fn parse_ics(content: &str) -> Result<Vec<ImportedEvent>> {
                             .unwrap_or(60),
                         repeat_rule: repeat_rule.clone(),
                         repeat_until,
+                        exception_dates: exception_dates.clone(),
                         cancelled: cancelled || title_marks_cancelled(&summary),
                     });
                 }
@@ -291,51 +299,82 @@ pub fn parse_ics(content: &str) -> Result<Vec<ImportedEvent>> {
             "URL" => url = unescape_text(value),
             "DURATION" => explicit_duration = parse_duration_minutes(value),
             "RRULE" => {
-                (repeat_rule, repeat_until) = parse_rrule(value);
+                (repeat_rule, repeat_until) = parse_rrule(value)?;
             }
+            "EXDATE" => {
+                for excluded in value.split(',') {
+                    let (excluded_date, _, _) =
+                        parse_ics_datetime(key_part, excluded)?.context("日历 EXDATE 日期无效")?;
+                    exception_dates.push(excluded_date);
+                }
+            }
+            "RECURRENCE-ID" => anyhow::bail!("暂不支持日历单次重排覆盖，已保留原有同步数据"),
             "STATUS" => cancelled = value.eq_ignore_ascii_case("CANCELLED"),
             "DTSTART" => {
-                if let Some((parsed_date, parsed_time, parsed_start)) = parse_ics_datetime(value) {
+                if let Some((parsed_date, parsed_time, parsed_start)) =
+                    parse_ics_datetime(key_part, value)?
+                {
                     date = Some(parsed_date);
                     time = parsed_time;
                     start = parsed_start;
                 }
             }
-            "DTEND" => end = parse_ics_datetime(value).and_then(|(_, _, value)| value),
+            "DTEND" => end = parse_ics_datetime(key_part, value)?.and_then(|(_, _, value)| value),
             _ => {}
         }
     }
     Ok(events)
 }
 
-fn parse_ics_datetime(value: &str) -> Option<(NaiveDate, Option<String>, Option<NaiveDateTime>)> {
+type ParsedIcsDateTime = (NaiveDate, Option<String>, Option<NaiveDateTime>);
+
+fn parse_ics_datetime(key: &str, value: &str) -> Result<Option<ParsedIcsDateTime>> {
     let digits: String = value
         .chars()
         .filter(|c| c.is_ascii_digit())
         .take(14)
         .collect();
     if digits.len() < 8 {
-        return None;
+        return Ok(None);
     }
-    let date = NaiveDate::parse_from_str(&digits[0..8], "%Y%m%d").ok()?;
+    let Some(date) = NaiveDate::parse_from_str(&digits[0..8], "%Y%m%d").ok() else {
+        return Ok(None);
+    };
     if !value.contains('T') || digits.len() < 12 {
-        return Some((date, None, None));
+        return Ok(Some((date, None, None)));
     }
     let candidate = format!("{}:{}", &digits[8..10], &digits[10..12]);
     let Ok(parsed_time) = NaiveTime::parse_from_str(&candidate, "%H:%M") else {
-        return Some((date, None, None));
+        return Ok(Some((date, None, None)));
     };
     let start = date.and_time(parsed_time);
     let local = if value.ends_with('Z') {
         start.and_utc().with_timezone(&chrono::Local).naive_local()
+    } else if let Some(tzid) = key.split(';').find_map(|part| part.strip_prefix("TZID=")) {
+        let name = tzid.trim_matches('"');
+        let canonical = match name {
+            "China Standard Time" => "Asia/Shanghai",
+            "Eastern Standard Time" => "America/New_York",
+            "Pacific Standard Time" => "America/Los_Angeles",
+            "Central European Standard Time" => "Europe/Berlin",
+            _ => name,
+        };
+        let timezone: chrono_tz::Tz = canonical
+            .parse()
+            .map_err(|_| anyhow::anyhow!("不支持的日历时区：{name}"))?;
+        let zoned = match timezone.from_local_datetime(&start) {
+            LocalResult::Single(value) => value,
+            _ => anyhow::bail!("日历时间处于夏令时切换的歧义区间：{name} {start}"),
+        };
+        zoned.with_timezone(&chrono::Local).naive_local()
     } else {
         start
     };
-    Some((
+    Ok(Some((
         local.date(),
         Some(local.format("%H:%M").to_string()),
         Some(local),
-    ))
+    )))
 }
 
 /// 解析会议导出常见的 ISO 8601 时长，如 PT45M、PT1H30M。
@@ -404,9 +443,10 @@ mod tests {
 
     #[test]
     fn unsupported_recurrence_count_does_not_repeat_forever() {
-        let (rule, until) = parse_rrule("FREQ=WEEKLY;COUNT=4;BYDAY=MO");
-        assert_eq!(rule, RepeatRule::None);
-        assert_eq!(until, None);
+        assert!(parse_rrule("FREQ=WEEKLY;COUNT=4;BYDAY=MO").is_err());
+        assert!(parse_rrule("FREQ=WEEKLY;BYDAY=MO,XX").is_err());
+        assert!(parse_rrule("FREQ=YEARLY;BYDAY=MO").is_err());
+        assert!(parse_rrule("FREQ=DAILY;UNTIL=not-a-date").is_err());
     }
 
     #[test]
@@ -481,5 +521,44 @@ mod tests {
             "SUMMARY:钉钉培训\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
         );
         assert_eq!(parse_ics(content).unwrap()[0].duration_minutes, 75);
+    }
+
+    #[test]
+    fn converts_named_timezone_and_rejects_unknown_timezone() {
+        let content = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:ny-meeting\r\nDTSTART;TZID=America/New_York:20260930T090000\r\nSUMMARY:纽约会议\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+        let event = &parse_ics(content).unwrap()[0];
+        let source = NaiveDate::from_ymd_opt(2026, 9, 30)
+            .unwrap()
+            .and_hms_opt(9, 0, 0)
+            .unwrap();
+        let expected = chrono_tz::America::New_York
+            .from_local_datetime(&source)
+            .single()
+            .unwrap()
+            .with_timezone(&chrono::Local);
+        assert_eq!(event.date, expected.date_naive());
+        assert_eq!(
+            event.time.as_deref(),
+            Some(expected.format("%H:%M").to_string().as_str())
+        );
+        assert!(parse_ics(&content.replace("America/New_York", "Unknown/Zone")).is_err());
+    }
+
+    #[test]
+    fn imports_exdates_and_rejects_unrepresentable_recurrence() {
+        let content = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:weekly\r\nDTSTART;VALUE=DATE:20260930\r\nRRULE:FREQ=WEEKLY\r\nEXDATE;VALUE=DATE:20261007,20261014\r\nSUMMARY:例会\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+        let parsed = parse_ics(content).unwrap();
+        assert_eq!(parsed[0].exception_dates.len(), 2);
+        assert_eq!(
+            parsed[0].exception_dates[0],
+            NaiveDate::from_ymd_opt(2026, 10, 7).unwrap()
+        );
+        assert!(
+            parse_ics(&content.replace("RRULE:FREQ=WEEKLY", "RRULE:FREQ=WEEKLY;INTERVAL=2"))
+                .is_err()
+        );
+        assert!(
+            parse_ics(&content.replace("EXDATE;VALUE=DATE", "RECURRENCE-ID;VALUE=DATE")).is_err()
+        );
     }
 }

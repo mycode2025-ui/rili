@@ -1,7 +1,7 @@
 //! 界面字体选择与运行时自定义字体注册。
 
 use anyhow::{bail, Context, Result};
-use slint::fontique_010::{fontique, shared_collection};
+use slint::fontique_011::{fontique, shared_collection};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 

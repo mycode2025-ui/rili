@@ -213,8 +213,8 @@ export component CourseView inherits Rectangle {
                 Flickable {
                     vertical-stretch: 1;
                     interactive: true;
-                    viewport-width: self.width;
-                    viewport-height: 12 * 58px;
+                    content-width: self.width;
+                    content-height: 12 * 58px;
                     timetable := Rectangle {
                         x: 0px; y: 0px;
                         width: parent.width;

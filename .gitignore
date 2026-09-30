@@ -1,3 +1,6 @@
 /target
 /.workbuddy
 /dist
+vendor/slint/**/.cargo-ok
+vendor/slint/**/.cargo_vcs_info.json
+vendor/slint/**/Cargo.lock

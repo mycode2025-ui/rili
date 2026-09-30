@@ -32,6 +32,9 @@ pub fn safe_error(message: &str) -> String {
 
 fn http_agent() -> ureq::Agent {
     ureq::AgentBuilder::new()
+        // Never forward CalDAV Basic credentials or tokenized ICS URLs to an
+        // unrelated host through an automatic redirect.
+        .redirects(0)
         .timeout_connect(Duration::from_secs(HTTP_TIMEOUT_SECS))
         .timeout_read(Duration::from_secs(HTTP_TIMEOUT_SECS))
         .timeout_write(Duration::from_secs(HTTP_TIMEOUT_SECS))
@@ -66,8 +69,9 @@ fn sync_subscription_inner(
     conn: &rusqlite::Connection,
     subscription: &db::Subscription,
 ) -> Result<SubscriptionSyncResult> {
-    let content = if subscription.source_type == "caldav" {
-        fetch_caldav(subscription)?
+    let caldav_bounds = (subscription.source_type == "caldav").then(caldav_range);
+    let content = if let Some(range) = caldav_bounds {
+        fetch_caldav(subscription, range)?
     } else {
         http_agent()
             .get(&subscription.url)
@@ -164,11 +168,15 @@ fn sync_subscription_inner(
             },
         )?;
         db::set_subscribed_event_repeat_until(conn, event_id, event.repeat_until)?;
+        db::set_subscribed_event_exdates(conn, event_id, &event.exception_dates)?;
         imported += 1;
     }
     // ICS URL is a complete snapshot. CalDAV REPORT is time-bounded: absence
     // there must not remove historic/out-of-range meetings.
-    if subscription.source_type != "caldav" {
+    if let Some((start, end)) = caldav_bounds {
+        removed_cancelled +=
+            db::reconcile_caldav_missing(conn, subscription.id, &seen, start, end)?;
+    } else {
         let mut stmt =
             conn.prepare("SELECT external_uid FROM event_sources WHERE subscription_id = ?1")?;
         let existing = stmt
@@ -186,12 +194,9 @@ fn sync_subscription_inner(
     })
 }
 
-fn caldav_query() -> String {
+fn caldav_query(start: chrono::NaiveDate, end: chrono::NaiveDate) -> String {
     // 部分 CalDAV 服务（包括钉钉）不会为无时间范围的 REPORT 返回事件。
     // 覆盖过去两年到未来三年，既能导入近期历史，也能包含长期会议安排。
-    let today = chrono::Utc::now().date_naive();
-    let start = today - chrono::Duration::days(366 * 2);
-    let end = today + chrono::Duration::days(366 * 3);
     format!(
         r#"<?xml version="1.0" encoding="utf-8" ?>
 <cal:calendar-query xmlns:d="DAV:" xmlns:cal="urn:ietf:params:xml:ns:caldav">
@@ -200,6 +205,14 @@ fn caldav_query() -> String {
 </cal:calendar-query>"#,
         start.format("%Y%m%d"),
         end.format("%Y%m%d")
+    )
+}
+
+fn caldav_range() -> (chrono::NaiveDate, chrono::NaiveDate) {
+    let today = chrono::Utc::now().date_naive();
+    (
+        today - chrono::Duration::days(366 * 2),
+        today + chrono::Duration::days(366 * 3),
     )
 }
 
@@ -215,10 +228,13 @@ struct DavDiscovery {
     calendars: Vec<String>,
 }
 
-fn fetch_caldav(subscription: &db::Subscription) -> Result<String> {
+fn fetch_caldav(
+    subscription: &db::Subscription,
+    range: (chrono::NaiveDate, chrono::NaiveDate),
+) -> Result<String> {
     let password = secret_store::unprotect(&subscription.secret)?;
     let calendar_urls = discover_calendar_urls(subscription, &password)?;
-    let query = caldav_query();
+    let query = caldav_query(range.0, range.1);
     let mut calendars = Vec::new();
     for calendar_url in calendar_urls {
         let xml = caldav_request(

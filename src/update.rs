@@ -215,17 +215,10 @@ fn parse_version(value: &str) -> Result<Version, String> {
 }
 
 fn select_windows_asset(assets: &[ApiAsset]) -> Option<&ApiAsset> {
-    assets
-        .iter()
-        .find(|asset| {
-            let name = asset.name.to_ascii_lowercase();
-            (name.starts_with("timehub-setup-") || name == "timehub.exe") && name.ends_with(".exe")
-        })
-        .or_else(|| {
-            assets
-                .iter()
-                .find(|asset| asset.name.to_ascii_lowercase().ends_with(".exe"))
-        })
+    assets.iter().find(|asset| {
+        let name = asset.name.to_ascii_lowercase();
+        (name.starts_with("timehub-setup-") || name == "timehub.exe") && name.ends_with(".exe")
+    })
 }
 
 fn compact_notes(notes: &str) -> String {

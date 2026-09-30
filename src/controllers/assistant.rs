@@ -20,14 +20,64 @@ pub(crate) fn register_assistant_callbacks(
         let widget_weak = widget.as_weak();
         let state = state.clone();
         ui.on_move_todo_status(move |id, status| {
-            {
+            let result = {
                 let s = state.borrow();
-                if let Err(e) = db::set_todo_status(&s.conn, id as i64, status.as_str()) {
-                    error_reporter::report("移动看板卡片失败", &e);
-                }
+                (|| -> Result<Option<String>> {
+                    let previous = db::get_todo(&s.conn, id as i64)?.context("待办不存在")?;
+                    let target = if status == "restore" {
+                        previous.resume_status.as_str()
+                    } else {
+                        status.as_str()
+                    };
+                    db::set_todo_status(&s.conn, id as i64, target)?;
+                    Ok((target == "done").then_some(previous.status))
+                })()
+            };
+            if let Err(e) = &result {
+                error_reporter::report("移动看板卡片失败", e);
             }
             if let (Some(ui), Some(widget)) = (ui_weak.upgrade(), widget_weak.upgrade()) {
+                if let Ok(previous) = result {
+                    if let Some(previous) = previous {
+                        ui.set_todo_undo_id(id);
+                        ui.set_todo_undo_status(previous.into());
+                    } else {
+                        ui.set_todo_undo_id(0);
+                    }
+                }
                 refresh_todos(&ui, &widget, &state);
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let state = state.clone();
+        ui.on_open_todo_detail(move |id| {
+            let result = db::get_todo(&state.borrow().conn, id as i64);
+            match result {
+                Ok(Some(todo)) => {
+                    if let Some(ui) = ui_weak.upgrade() {
+                        ui.set_todo_detail_id(id);
+                        ui.set_todo_detail_title(todo.title.into());
+                        ui.set_todo_detail_due(
+                            todo.due_date
+                                .map(|d| d.to_string())
+                                .unwrap_or_else(|| "未设置截止日期".into())
+                                .into(),
+                        );
+                        ui.set_todo_detail_status(
+                            match todo.status.as_str() {
+                                "doing" => "进行中",
+                                "done" => "已完成",
+                                _ => "待办",
+                            }
+                            .into(),
+                        );
+                        ui.set_todo_detail_open(true);
+                    }
+                }
+                Ok(None) => {}
+                Err(e) => error_reporter::report("读取待办详情失败", &e),
             }
         });
     }

@@ -283,7 +283,7 @@ export component TodayView inherits Rectangle {
                     padding: Theme.space-4; spacing: Theme.space-4;
                     if countdowns.length > 0: ScrollView {
                         height: 110px;
-                        viewport-width: max(self.visible-width, countdowns.length * 232px);
+                        content-width: max(self.visible-width, countdowns.length * 232px);
                         HorizontalLayout {
                             spacing: Theme.space-3;
                             for item in countdowns: CountdownCard { min-width: 220px; item: item; clicked => { root.open-countdown(); } }

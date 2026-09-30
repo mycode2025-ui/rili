@@ -7,6 +7,7 @@ use crate::db;
 use anyhow::{Context, Result};
 use serde::Serialize;
 use std::time::Duration;
+use url::Url;
 
 const ENDPOINT_KEY: &str = "sync_endpoint";
 const ACCOUNT_KEY: &str = "sync_account";
@@ -46,13 +47,32 @@ pub fn status(conn: &rusqlite::Connection) -> SyncStatus {
 
 pub fn configure(conn: &rusqlite::Connection, endpoint: &str, account: &str) -> Result<SyncStatus> {
     let endpoint = endpoint.trim();
-    anyhow::ensure!(
-        endpoint.starts_with("https://") || endpoint.starts_with("http://"),
-        "同步地址必须是 http:// 或 https:// URL"
-    );
+    validate_endpoint(endpoint)?;
     db::set_setting(conn, ENDPOINT_KEY, endpoint).context("保存同步地址失败")?;
     db::set_setting(conn, ACCOUNT_KEY, account.trim()).context("保存同步账号失败")?;
     Ok(status(conn))
+}
+
+fn validate_endpoint(endpoint: &str) -> Result<()> {
+    let parsed = Url::parse(endpoint).context("同步地址不是有效 URL")?;
+    let local_http = parsed.scheme() == "http"
+        && matches!(
+            parsed.host_str(),
+            Some("localhost" | "127.0.0.1" | "[::1]" | "::1")
+        );
+    anyhow::ensure!(
+        parsed.scheme() == "https" || local_http,
+        "同步地址必须使用 HTTPS；仅本机回环地址允许 HTTP"
+    );
+    anyhow::ensure!(
+        parsed.username().is_empty() && parsed.password().is_none(),
+        "同步地址不能包含账号密码"
+    );
+    anyhow::ensure!(
+        parsed.query().is_none() && parsed.fragment().is_none(),
+        "同步地址不能包含查询参数或片段"
+    );
+    Ok(())
 }
 
 pub fn clear(conn: &rusqlite::Connection) -> Result<SyncStatus> {
@@ -62,7 +82,7 @@ pub fn clear(conn: &rusqlite::Connection) -> Result<SyncStatus> {
 }
 
 pub fn protocol_description() -> &'static str {
-    "rili-sync/v1：GET/PUT 服务端快照；请求体为 LocalBackup JSON；服务端必须返回 format_version=1；冲突应由服务端按版本/updated_at 处理；token 不进入普通备份。"
+    "rili-sync/v1：仅 HTTPS（本机回环地址可用 HTTP）；GET/PUT 服务端快照；PUT 响应须含 X-Rili-Protocol: rili-sync/v1 和 JSON {format_version:1,accepted:true}；冲突由服务端处理；token 不进入普通备份。"
 }
 
 fn endpoint(conn: &rusqlite::Connection) -> Result<String> {
@@ -71,11 +91,13 @@ fn endpoint(conn: &rusqlite::Connection) -> Result<String> {
         !endpoint.trim().is_empty(),
         "未配置同步地址，请先执行 sync configure"
     );
+    validate_endpoint(&endpoint)?;
     Ok(format!("{}/snapshot", endpoint.trim_end_matches('/')))
 }
 
 fn agent() -> ureq::Agent {
     ureq::AgentBuilder::new()
+        .redirects(0)
         .timeout_connect(Duration::from_secs(12))
         .timeout_read(Duration::from_secs(12))
         .timeout_write(Duration::from_secs(12))
@@ -101,16 +123,38 @@ pub fn push(conn: &rusqlite::Connection) -> Result<SyncTransfer> {
         .set("X-Rili-Protocol", "rili-sync/v1")
         .send_string(&payload)
         .with_context(|| format!("上传同步快照失败：{url}"))?;
+    verify_push_response(response)?;
+    Ok(SyncTransfer {
+        endpoint: url,
+        status: "已确认接收".to_string(),
+        bytes: payload.len(),
+    })
+}
+
+fn verify_push_response(response: ureq::Response) -> Result<()> {
     anyhow::ensure!(
         (200..300).contains(&response.status()),
         "同步服务返回 HTTP {}",
         response.status()
     );
-    Ok(SyncTransfer {
-        endpoint: url,
-        status: format!("HTTP {}", response.status()),
-        bytes: payload.len(),
-    })
+    anyhow::ensure!(
+        response.header("X-Rili-Protocol") == Some("rili-sync/v1"),
+        "同步服务未确认 rili-sync/v1 协议，不能判定上传成功"
+    );
+    let acknowledgement: serde_json::Value =
+        response.into_json().context("同步服务未返回 JSON 确认")?;
+    anyhow::ensure!(
+        acknowledgement
+            .get("format_version")
+            .and_then(|value| value.as_u64())
+            == Some(1)
+            && acknowledgement
+                .get("accepted")
+                .and_then(|value| value.as_bool())
+                == Some(true),
+        "同步服务未确认接收快照，不能判定上传成功"
+    );
+    Ok(())
 }
 
 /// 拉取远端快照。为防止误操作，调用方必须显式确认 `append=true`，导入采用本地数据库的追加策略。
@@ -129,4 +173,44 @@ pub fn pull(conn: &mut rusqlite::Connection, append: bool) -> Result<db::ImportS
     );
     let backup: db::LocalBackup = response.into_json().context("解析远端同步快照失败")?;
     db::import_backup(conn, &backup)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+
+    #[test]
+    fn sync_endpoint_requires_tls_except_loopback() {
+        assert!(validate_endpoint("https://sync.example.test/api").is_ok());
+        assert!(validate_endpoint("http://127.0.0.1:8080/api").is_ok());
+        assert!(validate_endpoint("http://localhost:8080/api").is_ok());
+        assert!(validate_endpoint("http://sync.example.test/api").is_err());
+        assert!(validate_endpoint("https://name:password@sync.example.test/api").is_err());
+        assert!(validate_endpoint("https://sync.example.test/api?token=secret").is_err());
+    }
+
+    #[test]
+    fn html_login_page_is_not_a_successful_upload_acknowledgement() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let server = std::thread::spawn(move || {
+            for (header, body) in [
+                ("Content-Type: text/html\r\n", "<html>Sign in</html>"),
+                (
+                    "Content-Type: application/json\r\nX-Rili-Protocol: rili-sync/v1\r\n",
+                    "{\"format_version\":1,\"accepted\":true}",
+                ),
+            ] {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut request = [0u8; 1024];
+                let _ = stream.read(&mut request).unwrap();
+                write!(stream, "HTTP/1.1 200 OK\r\n{header}Content-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+            }
+        });
+        assert!(verify_push_response(agent().get(&url).call().unwrap()).is_err());
+        assert!(verify_push_response(agent().get(&url).call().unwrap()).is_ok());
+        server.join().unwrap();
+    }
 }

@@ -42,6 +42,7 @@ pub fn open() -> Result<Connection> {
             priority    INTEGER NOT NULL DEFAULT 0,
             important   INTEGER NOT NULL DEFAULT 0,   -- 四象限视图的"重要"维度；"紧急"维度由 due_date 是否临近自动推算
             status      TEXT NOT NULL DEFAULT 'todo',  -- todo/doing/done，供看板视图使用
+            resume_status TEXT NOT NULL DEFAULT 'todo', -- 完成前所在列，撤销完成时恢复
             created_at  TEXT NOT NULL,
             updated_at  TEXT NOT NULL
         );
@@ -112,6 +113,7 @@ pub fn open() -> Result<Connection> {
             event_id         INTEGER PRIMARY KEY,
             subscription_id  INTEGER NOT NULL,
             external_uid     TEXT NOT NULL,
+            missing_syncs    INTEGER NOT NULL DEFAULT 0,
             UNIQUE(subscription_id, external_uid)
         );
         CREATE INDEX IF NOT EXISTS idx_event_sources_subscription ON event_sources(subscription_id);
@@ -293,6 +295,16 @@ fn migrate_add_columns(conn: &Connection) -> Result<()> {
         "UPDATE events SET source_kind = 'subscription' WHERE id IN (SELECT event_id FROM event_sources)",
         [],
     )?;
+    let mut stmt = conn.prepare("PRAGMA table_info(event_sources)")?;
+    let source_columns: Vec<String> = stmt
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    if !source_columns.iter().any(|c| c == "missing_syncs") {
+        conn.execute(
+            "ALTER TABLE event_sources ADD COLUMN missing_syncs INTEGER NOT NULL DEFAULT 0",
+            [],
+        )?;
+    }
 
     let mut stmt = conn.prepare("PRAGMA table_info(todos)")?;
     let existing: Vec<String> = stmt
@@ -311,6 +323,12 @@ fn migrate_add_columns(conn: &Connection) -> Result<()> {
         )?;
         // 老数据：已完成的待办直接映射到看板"已完成"列，保持视图间数据一致。
         conn.execute("UPDATE todos SET status = 'done' WHERE done = 1", [])?;
+    }
+    if !existing.iter().any(|c| c == "resume_status") {
+        conn.execute(
+            "ALTER TABLE todos ADD COLUMN resume_status TEXT NOT NULL DEFAULT 'todo'",
+            [],
+        )?;
     }
     Ok(())
 }
@@ -652,6 +670,10 @@ pub fn upsert_subscribed_event(conn: &Connection, subscribed: SubscribedEvent<'_
             },
         )?;
         set_event_source_kind(conn, event_id, "subscription")?;
+        conn.execute(
+            "UPDATE event_sources SET missing_syncs = 0 WHERE event_id = ?1",
+            params![event_id],
+        )?;
         event_id
     } else {
         let reminder = default_event_reminder(conn)?;
@@ -710,6 +732,26 @@ pub fn set_subscribed_event_repeat_until(
     Ok(())
 }
 
+pub fn set_subscribed_event_exdates(
+    conn: &Connection,
+    event_id: i64,
+    dates: &[NaiveDate],
+) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+    tx.execute(
+        "DELETE FROM event_exceptions WHERE event_id = ?1 AND occurrence_date NOT LIKE 'from:%'",
+        params![event_id],
+    )?;
+    for date in dates {
+        tx.execute(
+            "INSERT OR IGNORE INTO event_exceptions (event_id, occurrence_date) VALUES (?1, ?2)",
+            params![event_id, date.to_string()],
+        )?;
+    }
+    tx.commit()?;
+    Ok(())
+}
+
 /// 删除订阅源明确标记为已取消的事件。删除映射与本地镜像记录必须在同一事务中完成，
 /// 避免日历里留下一个仍可点击、但来源状态已经失效的孤立条目。
 pub fn delete_subscribed_event(
@@ -744,6 +786,41 @@ pub fn delete_subscribed_event(
     )?;
     tx.commit()?;
     Ok(true)
+}
+
+/// Reconcile a bounded CalDAV REPORT only for events whose start dates lie
+/// inside that REPORT's window. Two consecutive complete snapshots
+/// must omit a UID before its local mirror is removed.
+pub fn reconcile_caldav_missing(
+    conn: &Connection,
+    subscription_id: i64,
+    seen: &std::collections::HashSet<String>,
+    start: NaiveDate,
+    end: NaiveDate,
+) -> Result<usize> {
+    let mut stmt = conn.prepare(
+        "SELECT es.external_uid, es.missing_syncs FROM event_sources es \
+         JOIN events e ON e.id = es.event_id \
+         WHERE es.subscription_id = ?1 AND e.date >= ?2 AND e.date < ?3",
+    )?;
+    let existing = stmt
+        .query_map(
+            params![subscription_id, start.to_string(), end.to_string()],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
+        )?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    let mut removed = 0;
+    for (uid, misses) in existing {
+        if seen.contains(&uid) {
+            continue;
+        }
+        if misses >= 1 {
+            removed += usize::from(delete_subscribed_event(conn, subscription_id, &uid)?);
+        } else {
+            conn.execute("UPDATE event_sources SET missing_syncs = missing_syncs + 1 WHERE subscription_id = ?1 AND external_uid = ?2", params![subscription_id, uid])?;
+        }
+    }
+    Ok(removed)
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1333,6 +1410,19 @@ pub fn delete_event_from_occurrence(
 }
 
 /// 记录一条提醒已经发送过，返回 false 表示这条提醒之前已经发送过（本次应跳过）。
+pub fn reminder_was_sent(
+    conn: &Connection,
+    event_id: i64,
+    occurrence_date: &str,
+    offset_minutes: i64,
+) -> Result<bool> {
+    Ok(conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM reminder_log WHERE event_id = ?1 AND occurrence_date = ?2 AND offset_minutes = ?3)",
+        params![event_id, occurrence_date, offset_minutes],
+        |row| row.get::<_, bool>(0),
+    )?)
+}
+
 pub fn mark_reminder_sent(
     conn: &Connection,
     event_id: i64,
@@ -1357,6 +1447,8 @@ pub struct Todo {
     pub priority: i64,
     pub important: bool,
     pub status: String,
+    #[serde(default = "default_resume_status")]
+    pub resume_status: String,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -1370,13 +1462,18 @@ fn row_to_todo(row: &rusqlite::Row) -> rusqlite::Result<Todo> {
         priority: row.get(4)?,
         important: row.get::<_, i64>(5)? != 0,
         status: row.get(6)?,
-        created_at: row.get(7)?,
-        updated_at: row.get(8)?,
+        resume_status: row.get(7)?,
+        created_at: row.get(8)?,
+        updated_at: row.get(9)?,
     })
 }
 
 const TODO_COLUMNS: &str =
-    "id, title, done, due_date, priority, important, status, created_at, updated_at";
+    "id, title, done, due_date, priority, important, status, resume_status, created_at, updated_at";
+
+fn default_resume_status() -> String {
+    "todo".to_string()
+}
 
 pub fn list_todos(
     conn: &Connection,
@@ -1436,11 +1533,15 @@ pub fn create_todo(
 }
 
 pub fn set_todo_done(conn: &Connection, id: i64, done: bool) -> Result<Todo> {
-    conn.execute(
-        "UPDATE todos SET done = ?1, status = ?2, updated_at = ?3 WHERE id = ?4",
-        params![done as i64, if done { "done" } else { "todo" }, now(), id],
-    )?;
-    get_todo(conn, id)?.context("更新后的待办读取失败")
+    let existing = get_todo(conn, id)?.context("待办不存在")?;
+    let status = if done {
+        "done"
+    } else if existing.resume_status == "doing" {
+        "doing"
+    } else {
+        "todo"
+    };
+    set_todo_status(conn, id, status)
 }
 
 pub fn toggle_todo(conn: &Connection, id: i64) -> Result<Todo> {
@@ -1464,10 +1565,20 @@ pub fn set_todo_status(conn: &Connection, id: i64, status: &str) -> Result<Todo>
         matches!(status, "todo" | "doing" | "done"),
         "无效的待办状态：{status}（应为 todo、doing 或 done）"
     );
+    let existing = get_todo(conn, id)?.context("待办不存在")?;
     let done = status == "done";
+    let resume_status = if done {
+        if existing.status == "doing" {
+            "doing"
+        } else {
+            existing.resume_status.as_str()
+        }
+    } else {
+        status
+    };
     conn.execute(
-        "UPDATE todos SET status = ?1, done = ?2, updated_at = ?3 WHERE id = ?4",
-        params![status, done as i64, now(), id],
+        "UPDATE todos SET status = ?1, done = ?2, resume_status = ?3, updated_at = ?4 WHERE id = ?5",
+        params![status, done as i64, resume_status, now(), id],
     )?;
     get_todo(conn, id)?.context("更新后的待办读取失败")
 }
@@ -1985,6 +2096,7 @@ mod tests {
                 priority INTEGER NOT NULL DEFAULT 0,
                 important INTEGER NOT NULL DEFAULT 0,
                 status TEXT NOT NULL DEFAULT 'todo',
+                 resume_status TEXT NOT NULL DEFAULT 'todo',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
              );
@@ -2009,6 +2121,46 @@ mod tests {
         assert_eq!(todos[0].title, todo_text);
         assert_eq!(notes[0].title, note_title);
         assert_eq!(notes[0].content, note_content);
+        let todo_id = todos[0].id;
+        assert_eq!(
+            set_todo_status(&conn, todo_id, "doing").unwrap().status,
+            "doing"
+        );
+        assert_eq!(toggle_todo(&conn, todo_id).unwrap().status, "done");
+        assert_eq!(toggle_todo(&conn, todo_id).unwrap().status, "doing");
+    }
+
+    #[test]
+    fn caldav_absence_needs_two_snapshots_and_respects_window() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE events (id INTEGER PRIMARY KEY, date TEXT NOT NULL, repeat_rule TEXT NOT NULL);
+             CREATE TABLE event_sources (event_id INTEGER PRIMARY KEY, subscription_id INTEGER NOT NULL, external_uid TEXT NOT NULL, missing_syncs INTEGER NOT NULL DEFAULT 0);
+             CREATE TABLE event_exceptions (event_id INTEGER, occurrence_date TEXT);
+             CREATE TABLE reminder_log (event_id INTEGER, occurrence_date TEXT, offset_minutes INTEGER);
+             INSERT INTO events VALUES (1, '2026-09-30', 'none');
+             INSERT INTO events VALUES (2, '2020-01-01', 'none');
+             INSERT INTO events VALUES (3, '2026-09-30', 'daily');
+             INSERT INTO event_sources(event_id, subscription_id, external_uid) VALUES (1, 7, 'missing'), (2, 7, 'old'), (3, 7, 'repeat');",
+        ).unwrap();
+        let seen = std::collections::HashSet::new();
+        let start = NaiveDate::from_ymd_opt(2026, 1, 1).unwrap();
+        let end = NaiveDate::from_ymd_opt(2027, 1, 1).unwrap();
+        assert_eq!(
+            reconcile_caldav_missing(&conn, 7, &seen, start, end).unwrap(),
+            0
+        );
+        assert_eq!(get_event_source_count_for_test(&conn), 3);
+        assert_eq!(
+            reconcile_caldav_missing(&conn, 7, &seen, start, end).unwrap(),
+            2
+        );
+        assert_eq!(get_event_source_count_for_test(&conn), 1);
+    }
+
+    fn get_event_source_count_for_test(conn: &Connection) -> i64 {
+        conn.query_row("SELECT COUNT(*) FROM event_sources", [], |row| row.get(0))
+            .unwrap()
     }
 
     #[test]

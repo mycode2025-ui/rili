@@ -259,8 +259,8 @@ pub fn import_backup(conn: &mut Connection, backup: &LocalBackup) -> Result<Impo
         };
         let done = status == "done" || todo.done;
         tx.execute(
-            "INSERT INTO todos (title, done, due_date, priority, important, status, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            params![todo.title, done as i64, todo.due_date, todo.priority, todo.important as i64, if done { "done" } else { status }, todo.created_at, todo.updated_at],
+            "INSERT INTO todos (title, done, due_date, priority, important, status, resume_status, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![todo.title, done as i64, todo.due_date, todo.priority, todo.important as i64, if done { "done" } else { status }, if todo.resume_status == "doing" { "doing" } else { "todo" }, todo.created_at, todo.updated_at],
         )?;
         todo_count += 1;
     }

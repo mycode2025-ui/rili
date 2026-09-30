@@ -104,7 +104,7 @@ export component NewEventDialog inherits Rectangle {
     pure function pad-two(value: int) -> string { return value < 10 ? "0" + value : value; }
     pure function format-date(year: int, month: int, day: int) -> string { return year + "-" + root.pad-two(month) + "-" + root.pad-two(day); }
     pure function format-time(hour: int, minute: int) -> string { return root.pad-two(hour) + ":" + root.pad-two(minute); }
-    width: 480px; height: root.more-open ? 600px : 520px;
+    width: 480px; height: root.more-open ? 568px : 488px;
     background: Theme.bg-surface;
     border-radius: Theme.r-xl;
     drop-shadow-color: Theme.shadow-3-color-a; drop-shadow-blur: Theme.shadow-3-blur-a; drop-shadow-offset-y: Theme.shadow-3-y-a;
@@ -124,7 +124,7 @@ export component NewEventDialog inherits Rectangle {
             }
         }
         VerticalLayout {
-            padding-left: 18px; padding-right: 18px; padding-top: 14px; spacing: 10px;
+            padding-left: 18px; padding-right: 18px; padding-top: 14px; spacing: 7px;
             Rectangle {
                 height: 40px; border-radius: Theme.r-md; border-width: 1px;
                 border-color: title-edit.has-focus ? Theme.accent : Theme.border-default;
@@ -182,9 +182,11 @@ export component NewEventDialog inherits Rectangle {
             Rectangle { vertical-stretch: 1; }
         }
         Rectangle {
-            height: 60px; border-width: 1px; border-color: Theme.border-subtle; background: Theme.bg-surface-2;
+            height: 50px; border-width: 1px; border-color: Theme.border-subtle; background: Theme.bg-surface-2;
             HorizontalLayout {
+                width: 100%; height: 100%;
                 padding-left: 18px; padding-right: 18px; spacing: Theme.space-2;
+                cross-axis-alignment: center;
                 if root.editing && root.can-delete: Rectangle {
                     width: 58px; height: 30px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.danger; background: Theme.bg-surface;
                     Text { text: "删除"; color: Theme.danger; font-size: Theme.font-12-5; horizontal-alignment: center; vertical-alignment: center; }

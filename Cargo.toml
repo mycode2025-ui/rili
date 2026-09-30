@@ -4,6 +4,9 @@ version = "0.2.2"
 edition = "2021"
 description = "本地优先的桌面日历 / 待办 / 便签工具，使用 Rust + Slint 构建"
 
+[workspace]
+exclude = ["vendor/slint/i-slint-core", "vendor/slint/i-slint-backend-winit"]
+
 [lib]
 path = "src/lib.rs"
 
@@ -14,9 +17,10 @@ test = false
 bench = false
 
 [dependencies]
-slint = { version = "1.17.1", default-features = false, features = ["std", "compat-1-2", "backend-winit", "unstable-winit-030", "unstable-fontique-010", "renderer-software", "renderer-femtovg", "accessibility"] }
+slint = { version = "=1.18.0", default-features = false, features = ["std", "compat-1-18", "backend-winit", "unstable-winit-030", "unstable-fontique-011", "renderer-software", "renderer-femtovg", "accessibility"] }
 rusqlite = { version = "0.40", features = ["bundled"] }
 chrono = "0.4"
+chrono-tz = "=0.8.6"
 chinese-lunisolar-calendar = "0.2"
 lunar_rust = "1.0.1"
 clap = { version = "4.6", features = ["derive"] }
@@ -36,7 +40,11 @@ winrt-toast = "0.1"
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Cryptography"] }
 
 [build-dependencies]
-slint-build = "1.17.1"
+slint-build = "=1.18.0"
+
+[patch.crates-io]
+i-slint-core = { path = "vendor/slint/i-slint-core" }
+i-slint-backend-winit = { path = "vendor/slint/i-slint-backend-winit" }
 
 [target.'cfg(windows)'.build-dependencies]
 winresource = "0.1"

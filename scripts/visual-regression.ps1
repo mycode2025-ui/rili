@@ -89,13 +89,36 @@ try {
     Pop-Location
 }
 
+# The software renderer's clip is rectangular even when a Rectangle has a
+# border radius. Guard against child layers painting square corners over the
+# quick panel frame; the usual 2% image threshold is too loose for four pixels.
+Add-Type -AssemblyName System.Drawing
+foreach ($scale in $scales) {
+    $tag = $scale.Replace('.', '')
+    $corner = [int][Math]::Ceiling(5 * [double]::Parse($scale, [System.Globalization.CultureInfo]::InvariantCulture))
+    $bitmap = [System.Drawing.Bitmap]::FromFile((Join-Path $currentDir "QuickPanelWindow-$tag.png"))
+    try {
+        foreach ($point in @(
+            @($corner, $corner),
+            @(($bitmap.Width - 1 - $corner), $corner),
+            @($corner, ($bitmap.Height - 1 - $corner)),
+            @(($bitmap.Width - 1 - $corner), ($bitmap.Height - 1 - $corner))
+        )) {
+            if ($bitmap.GetPixel($point[0], $point[1]).A -gt 40) {
+                throw "快速栏圆角被直角子层覆盖：$tag DPI ($($point[0]),$($point[1]))"
+            }
+        }
+    } finally {
+        $bitmap.Dispose()
+    }
+}
+
 if ($UpdateBaselines) {
     Copy-Item (Join-Path $currentDir '*.png') $baselineDir -Force
     Write-Host "已更新 $((Get-ChildItem -LiteralPath $currentDir -Filter '*.png').Count) 张视觉基线；仍需另行运行比较验证。"
     exit 0
 }
 
-Add-Type -AssemblyName System.Drawing
 $failures = [System.Collections.Generic.List[string]]::new()
 foreach ($current in Get-ChildItem $currentDir -Filter '*.png') {
     $baselinePath = Join-Path $baselineDir $current.Name

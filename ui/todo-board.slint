@@ -23,19 +23,14 @@ component BoardTask inherits Rectangle {
     in property <TodoBoardItem> item;
     in property <color> accent;
     callback toggle();
+    callback open-detail(int);
     min-height: 38px;
     border-radius: Theme.r-md;
     border-width: 1px;
-    border-color: touch.has-hover ? Theme.border-default : Theme.border-subtle;
+    border-color: check-touch.has-hover || detail-touch.has-hover ? Theme.border-default : Theme.border-subtle;
     background: Theme.bg-surface;
-    drop-shadow-color: touch.has-hover ? Theme.shadow-2-color-a : transparent;
-    drop-shadow-blur: touch.has-hover ? Theme.shadow-2-blur-a : 0px;
-    accessible-role: checkbox;
-    accessible-label: item.title;
-    accessible-checked: item.status == "done";
-    accessible-action-default => { root.toggle(); }
-    forward-focus: touch;
-    touch := FocusTouchArea { clicked => { toggle(); } }
+    drop-shadow-color: check-touch.has-hover || detail-touch.has-hover ? Theme.shadow-2-color-a : transparent;
+    drop-shadow-blur: check-touch.has-hover || detail-touch.has-hover ? Theme.shadow-2-blur-a : 0px;
     HorizontalLayout {
         padding-left: 10px; padding-right: 10px; spacing: Theme.space-2;
         cross-axis-alignment: center;
@@ -59,6 +54,26 @@ component BoardTask inherits Rectangle {
             }
         }
     }
+    Rectangle {
+        x: 4px; y: 2px; width: 34px; height: parent.height - 4px;
+        background: transparent;
+        border-width: check-touch.has-focus ? 1px : 0px; border-color: Theme.accent;
+        accessible-role: checkbox;
+        accessible-label: "完成任务 " + item.title;
+        accessible-checked: item.status == "done";
+        accessible-action-default => { root.toggle(); }
+        forward-focus: check-touch;
+        check-touch := FocusTouchArea { clicked => { root.toggle(); } }
+    }
+    Rectangle {
+        x: 38px; y: 0px; width: parent.width - 38px; height: parent.height;
+        background: transparent;
+        accessible-role: button;
+        accessible-label: "查看任务 " + item.title;
+        accessible-action-default => { root.open-detail(item.id); }
+        forward-focus: detail-touch;
+        detail-touch := FocusTouchArea { clicked => { root.open-detail(item.id); } }
+    }
 }
 
 component QuadrantCell inherits Rectangle {
@@ -67,6 +82,7 @@ component QuadrantCell inherits Rectangle {
     in property <color> accent;
     in property <[TodoBoardItem]> items;
     callback toggle-item(int, string);
+    callback open-item(int);
     callback add-item();
     background: Theme.bg-surface;
     border-radius: Theme.r-lg;
@@ -100,6 +116,7 @@ component QuadrantCell inherits Rectangle {
             for item in items: BoardTask {
                 item: item; accent: root.accent;
                 toggle => { root.toggle-item(item.id, item.status == "done" ? "todo" : "done"); }
+                open-detail(id) => { root.open-item(id); }
             }
             Rectangle {
                 height: 38px; border-radius: Theme.r-md; border-width: 1.5px;
@@ -117,6 +134,7 @@ export component QuadrantView inherits Rectangle {
     in property <[TodoBoardItem]> urgent-not-important;
     in property <[TodoBoardItem]> not-urgent-not-important;
     callback move-to(int, string);
+    callback open-item(int);
     callback delete-item(int);
     callback add-item(string);
     background: Theme.bg-app;
@@ -127,14 +145,14 @@ export component QuadrantView inherits Rectangle {
         HorizontalLayout {
             spacing: Theme.space-3;
             height: (root.height - Theme.space-8 - Theme.space-3) / 2;
-            QuadrantCell { horizontal-stretch: 1; vertical-stretch: 1; title: "I 立即做 · 重要且紧急"; hint: "立即做"; accent: Theme.danger; items: urgent-important; toggle-item(id, status) => { root.move-to(id, status); } add-item => { root.add-item("urgent-important"); } }
-            QuadrantCell { horizontal-stretch: 1; vertical-stretch: 1; title: "II 计划做 · 重要不紧急"; hint: "计划做"; accent: Theme.warning; items: not-urgent-important; toggle-item(id, status) => { root.move-to(id, status); } add-item => { root.add-item("important"); } }
+            QuadrantCell { horizontal-stretch: 1; vertical-stretch: 1; title: "I 立即做 · 重要且紧急"; hint: "立即做"; accent: Theme.danger; items: urgent-important; toggle-item(id, status) => { root.move-to(id, status); } open-item(id) => { root.open-item(id); } add-item => { root.add-item("urgent-important"); } }
+            QuadrantCell { horizontal-stretch: 1; vertical-stretch: 1; title: "II 计划做 · 重要不紧急"; hint: "计划做"; accent: Theme.warning; items: not-urgent-important; toggle-item(id, status) => { root.move-to(id, status); } open-item(id) => { root.open-item(id); } add-item => { root.add-item("important"); } }
         }
         HorizontalLayout {
             spacing: Theme.space-3;
             height: (root.height - Theme.space-8 - Theme.space-3) / 2;
-            QuadrantCell { horizontal-stretch: 1; vertical-stretch: 1; title: "III 委派 · 紧急不重要"; hint: "委派"; accent: Theme.accent; items: urgent-not-important; toggle-item(id, status) => { root.move-to(id, status); } add-item => { root.add-item("urgent"); } }
-            QuadrantCell { horizontal-stretch: 1; vertical-stretch: 1; title: "IV 减少 · 不重要不紧急"; hint: "减少"; accent: Theme.success; items: not-urgent-not-important; toggle-item(id, status) => { root.move-to(id, status); } add-item => { root.add-item("normal"); } }
+            QuadrantCell { horizontal-stretch: 1; vertical-stretch: 1; title: "III 委派 · 紧急不重要"; hint: "委派"; accent: Theme.accent; items: urgent-not-important; toggle-item(id, status) => { root.move-to(id, status); } open-item(id) => { root.open-item(id); } add-item => { root.add-item("urgent"); } }
+            QuadrantCell { horizontal-stretch: 1; vertical-stretch: 1; title: "IV 减少 · 不重要不紧急"; hint: "减少"; accent: Theme.success; items: not-urgent-not-important; toggle-item(id, status) => { root.move-to(id, status); } open-item(id) => { root.open-item(id); } add-item => { root.add-item("normal"); } }
         }
     }
 }
@@ -144,6 +162,7 @@ component KanbanColumn inherits Rectangle {
     in property <color> accent;
     in property <[TodoBoardItem]> items;
     callback move-item(int, string);
+    callback open-item(int);
     callback add-item();
     background: Theme.bg-surface;
     border-radius: Theme.r-lg;
@@ -161,7 +180,7 @@ component KanbanColumn inherits Rectangle {
                 add-touch := TouchArea { mouse-cursor: pointer; clicked => { root.add-item(); } }
             }
         }
-        for item in items: BoardTask { item: item; accent: root.accent; toggle => { root.move-item(item.id, item.status == "done" ? "todo" : "done"); } }
+        for item in items: BoardTask { item: item; accent: root.accent; toggle => { root.move-item(item.id, item.status == "done" ? "restore" : "done"); } open-detail(id) => { root.open-item(id); } }
     }
 }
 
@@ -170,6 +189,7 @@ export component KanbanView inherits Rectangle {
     in property <[TodoBoardItem]> doing-items;
     in property <[TodoBoardItem]> done-items;
     callback move-to(int, string);
+    callback open-item(int);
     callback delete-item(int);
     callback add-item(string);
     background: Theme.bg-app;
@@ -177,9 +197,9 @@ export component KanbanView inherits Rectangle {
         width: parent.width;
         height: parent.height;
         padding: Theme.space-4; spacing: Theme.space-3;
-        KanbanColumn { horizontal-stretch: 1; title: "待办"; accent: Theme.accent; items: todo-items; move-item(id, status) => { root.move-to(id, status); } add-item => { root.add-item("todo"); } }
-        KanbanColumn { horizontal-stretch: 1; title: "进行中"; accent: Theme.warning; items: doing-items; move-item(id, status) => { root.move-to(id, status); } add-item => { root.add-item("doing"); } }
-        KanbanColumn { horizontal-stretch: 1; title: "已完成"; accent: Theme.success; items: done-items; move-item(id, status) => { root.move-to(id, status); } add-item => { root.add-item("done"); } }
+        KanbanColumn { horizontal-stretch: 1; title: "待办"; accent: Theme.accent; items: todo-items; move-item(id, status) => { root.move-to(id, status); } open-item(id) => { root.open-item(id); } add-item => { root.add-item("todo"); } }
+        KanbanColumn { horizontal-stretch: 1; title: "进行中"; accent: Theme.warning; items: doing-items; move-item(id, status) => { root.move-to(id, status); } open-item(id) => { root.open-item(id); } add-item => { root.add-item("doing"); } }
+        KanbanColumn { horizontal-stretch: 1; title: "已完成"; accent: Theme.success; items: done-items; move-item(id, status) => { root.move-to(id, status); } open-item(id) => { root.open-item(id); } add-item => { root.add-item("done"); } }
     }
 }
 

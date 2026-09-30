@@ -1,0 +1,15 @@
+{
+  "view-mode": 4,
+  "todo-board-mode": 0,
+  "board-todo-items": [
+    { "id": 1, "title": "检查季度报告", "due-text": "今天到期", "is-urgent": true, "status": "todo" }
+  ],
+  "board-doing-items": [
+    { "id": 2, "title": "整理客户反馈", "due-text": "明天", "is-urgent": false, "status": "doing" }
+  ],
+  "board-done-items": [
+    { "id": 3, "title": "完成测试", "due-text": "", "is-urgent": false, "status": "done" }
+  ],
+  "todo-undo-id": 2,
+  "todo-undo-status": "doing"
+}

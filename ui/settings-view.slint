@@ -373,8 +373,8 @@ export component SettingsView inherits Rectangle {
                         HorizontalLayout {
                             height: 28px; cross-axis-alignment: center; spacing: Theme.space-2;
                             SettingInfo {
-                                title: root.update-state == 0 ? "自动更新" : (root.update-state == 1 ? "正在检查更新" : (root.update-state == 2 ? "当前已是最新版本" : (root.update-state == 3 ? "可用版本 v" + root.update-version : "更新检查失败")));
-                                description: root.update-state == 0 ? "每次启动自动检查 GitHub 与 Gitee" : (root.update-state == 1 ? "正在连接两个发布源…" : (root.update-state == 2 ? "启动时仍会继续自动检查" : (root.update-state == 3 ? "选择可用镜像下载新版 Windows 程序" : root.update-error)));
+                                title: root.update-state == 0 ? "自动检查更新" : (root.update-state == 1 ? "正在检查更新" : (root.update-state == 2 ? "当前已是最新版本" : (root.update-state == 3 ? "可用版本 v" + root.update-version : "更新检查失败")));
+                                description: root.update-state == 0 ? "启动时检查 GitHub 与 Gitee；下载后需自行安装" : (root.update-state == 1 ? "正在连接两个发布源…" : (root.update-state == 2 ? "启动时仍会继续自动检查" : (root.update-state == 3 ? "选择镜像下载；安装不会在后台自动执行" : root.update-error)));
                                 horizontal-stretch: 1;
                             }
                         }

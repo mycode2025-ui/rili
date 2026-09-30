@@ -150,10 +150,10 @@ export component WeekView inherits Rectangle {
         Flickable {
             vertical-stretch: 1;
             interactive: true;
-            viewport-width: max(self.width, WeekConstants.hour-label-width + 7 * 110px);
-            viewport-height: WeekConstants.hour-height * 24;
+            content-width: max(self.width, WeekConstants.hour-label-width + 7 * 110px);
+            content-height: WeekConstants.hour-height * 24;
             // 默认从工作日开始时间展示，仍可向上滚动查看凌晨时段。
-            viewport-y: -8 * WeekConstants.hour-height;
+            content-y: -8 * WeekConstants.hour-height;
             timeline := Rectangle {
                 width: max(parent.width, WeekConstants.hour-label-width + 7 * 110px);
                 height: WeekConstants.hour-height * 24;

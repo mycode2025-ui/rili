@@ -93,6 +93,41 @@ export component TodoAddDialog inherits Rectangle {
     }
 }
 
+export component TodoDetailDialog inherits Rectangle {
+    in-out property <bool> open: false;
+    in property <string> title;
+    in property <string> due;
+    in property <string> status;
+    callback move-to(string);
+    visible: open;
+    background: Theme.bg-scrim;
+    TouchArea { clicked => { root.open = false; } }
+    Rectangle {
+        x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+        width: 420px; height: 214px; border-radius: Theme.r-xl;
+        border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface;
+        TouchArea { }
+        VerticalLayout {
+            padding: Theme.space-4; spacing: Theme.space-3;
+            HorizontalLayout {
+                height: 30px;
+                Text { text: "任务详情"; color: Theme.text-1; font-size: Theme.font-15; font-weight: 700; horizontal-stretch: 1; }
+                IconButton { icon: Icons.close; size: 28px; borderless: true; clicked => { root.open = false; } }
+            }
+            Text { text: root.title; color: Theme.text-1; font-size: Theme.font-15; overflow: elide; }
+            Text { text: "状态：" + root.status + "    截止：" + root.due; color: Theme.text-3; font-size: Theme.font-12; overflow: elide; }
+            Rectangle { vertical-stretch: 1; }
+            HorizontalLayout {
+                height: 34px; spacing: Theme.space-2;
+                GhostButton { text: "待办"; clicked => { root.move-to("todo"); } }
+                GhostButton { text: "进行中"; clicked => { root.move-to("doing"); } }
+                Rectangle { horizontal-stretch: 1; }
+                PrimaryButton { text: root.status == "已完成" ? "恢复" : "完成"; clicked => { root.move-to(root.status == "已完成" ? "restore" : "done"); } }
+            }
+        }
+    }
+}
+
 export component CalendarAddDialog inherits Rectangle {
     in-out property <bool> open: false;
     in-out property <string> name;

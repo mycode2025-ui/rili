@@ -22,7 +22,7 @@ import { FocusTouchArea, GhostButton, DangerGhostButton, Dropdown, ThemeCheckBox
 import { Icons, SvgIcon } from "icons.slint";
 import { Palette, ScrollView } from "std-widgets.slint";
 import { MainWindowDragArea, MiniDay, ToolbarButton, SidebarQuickAction, OverviewMetricCard, DesktopWidgetManagerItem } from "app-shell-components.slint";
-import { WidgetManagerDialog, TodoAddDialog, CalendarAddDialog, EventDeleteDialog } from "app-dialogs.slint";
+import { WidgetManagerDialog, TodoAddDialog, TodoDetailDialog, CalendarAddDialog, EventDeleteDialog } from "app-dialogs.slint";
 import { AppSettingsOverlay } from "app-settings-overlay.slint";
 
 export { CalendarDay, EventItem, TodoItem, NoteItem, HabitItem, CalendarItem, WeekDayItem, TimelineDay, TimelineEvent, TodoBoardItem, YearMonth, SearchItem, RecordItem, ShiftTypeItem, ShiftAssignmentItem, CourseItem, SubscriptionItem, CountdownItem, WeatherDayItem, WidgetWindow, CalendarWidgetWindow, EventsWidgetWindow, CountdownWidgetWindow, ClockWidgetWindow, WeatherWidgetWindow, FocusWidgetWindow, TodoWidgetWindow, NotesWidgetWindow, DailyQuoteWidgetWindow, AlmanacWidgetWindow, WidgetAppearanceWindow, QuickPanelWindow, NotificationWindow, NewEventWindow, ThemeComparisonWindow, Theme }
@@ -232,6 +232,13 @@ export component AppWindow inherits Window {
     in-out property <bool> todo-add-open: false;
     in-out property <string> todo-add-target: "normal";
     in-out property <string> todo-draft-title: "";
+    in-out property <bool> todo-detail-open: false;
+    in-out property <int> todo-detail-id: 0;
+    in-out property <string> todo-detail-title: "";
+    in-out property <string> todo-detail-due: "";
+    in-out property <string> todo-detail-status: "";
+    in-out property <int> todo-undo-id: 0;
+    in-out property <string> todo-undo-status: "todo";
     in-out property <bool> calendar-add-open: false;
     in-out property <string> calendar-draft-name: "";
     in-out property <bool> event-delete-open: false;
@@ -288,6 +295,7 @@ export component AppWindow inherits Window {
     callback refresh-external-data();
     callback set-todo-board-mode(int);
     callback move-todo-status(int, string);
+    callback open-todo-detail(int);
     callback add-todo-target(string, string);
     callback add-event(string, string, string, string, int);
     callback delete-event-occurrence(int, string, string);
@@ -622,14 +630,6 @@ export component AppWindow inherits Window {
                             ToolbarButton { label: "今天"; button-width: 52px; clicked => { root.goto-today(); } }
                             IconButton { icon: Icons.right; accessible-name: "下一页"; size: 30px; borderless: true; clicked => { if (view-mode == 0) { root.next-month(); } else if (view-mode == 1) { root.next-week(); } else if (view-mode == 5) { root.next-year(); } else { root.next-timeline(); } } }
                             Text { text: view-mode == 0 ? month-title : (view-mode == 1 ? week-title : (view-mode == 5 ? calendar-year + "年" : timeline-title)); color: Theme.text-primary; font-size: Theme.font-lg; font-weight: 700; vertical-alignment: center; horizontal-stretch: 1; }
-                            if view-mode == 0: PrimaryButton {
-                                width: 108px;
-                                height: 32px;
-                                text: "新建日程";
-                                icon: Icons.plus;
-                                show-icon: true;
-                                clicked => { root.open-new-event-editor(); }
-                            }
                             Rectangle {
                                 width: 206px; height: 32px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface-2;
                                 HorizontalLayout {
@@ -814,6 +814,7 @@ export component AppWindow inherits Window {
                                 doing-items: board-doing-items;
                                 done-items: board-done-items;
                                 move-to(id, s) => { move-todo-status(id, s); }
+                                open-item(id) => { open-todo-detail(id); }
                                 delete-item(id) => { delete-todo(id); }
                                 add-item(target) => { root.todo-add-target = target; root.todo-draft-title = ""; root.todo-add-open = true; }
                             }
@@ -824,6 +825,7 @@ export component AppWindow inherits Window {
                                 urgent-not-important: board-urgent-not-important;
                                 not-urgent-not-important: board-not-urgent-not-important;
                                 move-to(id, s) => { move-todo-status(id, s); }
+                                open-item(id) => { open-todo-detail(id); }
                                 delete-item(id) => { delete-todo(id); }
                                 add-item(target) => { root.todo-add-target = target; root.todo-draft-title = ""; root.todo-add-open = true; }
                             }
@@ -1140,6 +1142,27 @@ export component AppWindow inherits Window {
         title <=> root.todo-draft-title;
         target: root.todo-add-target;
         add(title, target) => { root.add-todo-target(title, target); }
+    }
+    TodoDetailDialog {
+        width: parent.width; height: parent.height;
+        open <=> root.todo-detail-open;
+        title: root.todo-detail-title;
+        due: root.todo-detail-due;
+        status: root.todo-detail-status;
+        move-to(status) => { root.move-todo-status(root.todo-detail-id, status); root.todo-detail-open = false; }
+    }
+    if root.view-mode == 4 && root.todo-undo-id > 0 && !root.todo-detail-open && !root.todo-add-open: Rectangle {
+        x: (parent.width - self.width) / 2; y: parent.height - self.height - 28px;
+        width: 280px; height: 44px; border-radius: Theme.r-md;
+        background: Theme.bg-surface-2; border-width: 1px; border-color: Theme.border-default;
+        HorizontalLayout {
+            width: 100%; height: 100%;
+            padding-left: 12px; padding-right: 8px; spacing: 8px;
+            cross-axis-alignment: center;
+            Text { text: "任务已完成"; color: Theme.text-1; font-size: Theme.font-13; vertical-alignment: center; horizontal-stretch: 1; }
+            GhostButton { text: "撤销"; clicked => { root.move-todo-status(root.todo-undo-id, root.todo-undo-status); root.todo-undo-id = 0; } }
+            IconButton { icon: Icons.close; size: 24px; borderless: true; clicked => { root.todo-undo-id = 0; } }
+        }
     }
     CalendarAddDialog {
         width: parent.width; height: parent.height;

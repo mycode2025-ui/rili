@@ -263,8 +263,8 @@ export component NotesView inherits Rectangle {
                 x: Theme.space-4; y: 114px;
                 width: parent.width - Theme.space-4 * 2;
                 height: parent.height - 172px;
-                viewport-width: self.visible-width;
-                viewport-height: max(self.visible-height, content-input.preferred-height);
+                content-width: self.visible-width;
+                content-height: max(self.visible-height, content-input.preferred-height);
                 content-input := TextInput {
                     x: 0px; y: 0px;
                     width: body-scroll.visible-width;
@@ -277,10 +277,10 @@ export component NotesView inherits Rectangle {
                     selection-background-color: Theme.accent;
                     edited => { root.auto-save-current(); }
                     cursor-position-changed(pos) => {
-                        if pos.y + body-scroll.viewport-y < 0px {
-                            body-scroll.viewport-y = -pos.y;
-                        } else if pos.y + body-scroll.viewport-y > body-scroll.visible-height - 24px {
-                            body-scroll.viewport-y = min(0px, body-scroll.visible-height - pos.y - 24px);
+                        if pos.y + body-scroll.content-y < 0px {
+                            body-scroll.content-y = -pos.y;
+                        } else if pos.y + body-scroll.content-y > body-scroll.visible-height - 24px {
+                            body-scroll.content-y = min(0px, body-scroll.visible-height - pos.y - 24px);
                         }
                     }
                 }
