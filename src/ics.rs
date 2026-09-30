@@ -507,7 +507,20 @@ mod tests {
             "URL:https://meeting.dingtalk.com/example\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
         );
         let event = parse_ics(content).unwrap().remove(0);
-        assert_eq!(event.time.as_deref(), Some("09:30"));
+        let source = NaiveDate::from_ymd_opt(2026, 9, 5)
+            .unwrap()
+            .and_hms_opt(9, 30, 0)
+            .unwrap();
+        let expected = chrono_tz::Asia::Shanghai
+            .from_local_datetime(&source)
+            .single()
+            .unwrap()
+            .with_timezone(&chrono::Local);
+        assert_eq!(event.date, expected.date_naive());
+        assert_eq!(
+            event.time.as_deref(),
+            Some(expected.format("%H:%M").to_string().as_str())
+        );
         assert_eq!(event.duration_minutes, 90);
         assert_eq!(event.location, "三楼会议室");
         assert_eq!(event.url, "https://meeting.dingtalk.com/example");

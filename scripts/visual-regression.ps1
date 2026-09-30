@@ -62,6 +62,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw '渲染失败：CoursePreview dark' }
     & slint-viewer tests\visual\subscription-states-preview.slint --screenshot (Join-Path $currentDir 'SubscriptionStates-dark.png')
     if ($LASTEXITCODE -ne 0) { throw '渲染失败：SubscriptionStates dark' }
+    & slint-viewer tests\visual\settings-appearance-preview.slint --component SettingsAppearancePreview --screenshot (Join-Path $currentDir 'SettingsAppearance-dark.png')
+    if ($LASTEXITCODE -ne 0) { throw '渲染失败：SettingsAppearance dark' }
     & slint-viewer tests\visual\today-preview.slint --component TodayPreview --screenshot (Join-Path $currentDir 'TodayPreview-light.png')
     if ($LASTEXITCODE -ne 0) { throw '渲染失败：TodayPreview light' }
     & slint-viewer tests\visual\today-preview.slint --component TodayPreview --load-data tests\visual\today-dark.json --screenshot (Join-Path $currentDir 'TodayPreview-dark.png')

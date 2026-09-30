@@ -52,10 +52,11 @@ component SettingInfo inherits VerticalLayout {
     in property <string> title;
     in property <string> description;
     spacing: 2px;
+    height: 42px;
     min-width: 220px;
     preferred-width: 400px;
-    Text { width: 100%; text: root.title; color: Theme.text-1; font-size: Theme.font-13; overflow: elide; }
-    Text { width: 100%; text: root.description; color: Theme.text-3; font-size: Theme.font-11-5; overflow: elide; }
+    Text { width: 100%; height: 20px; text: root.title; color: Theme.text-1; font-size: Theme.font-13; vertical-alignment: center; overflow: elide; }
+    Text { width: 100%; height: 18px; text: root.description; color: Theme.text-3; font-size: Theme.font-11-5; vertical-alignment: center; overflow: elide; }
 }
 
 component SmallChoice inherits Rectangle {
@@ -172,6 +173,7 @@ export component SettingsView inherits Rectangle {
             HorizontalLayout {
                 visible: root.selected-section == 0;
                 height: root.selected-section == 0 ? 134px : 0px; spacing: Theme.space-4;
+                cross-axis-alignment: center;
                 SettingInfo { title: "主题"; description: "选择界面配色方案，可跟随系统"; horizontal-stretch: 1; }
                 ThemeCard { label: "浅色"; mode: 1; selected: visual-theme == 1; choose(mode) => { visual-theme = mode; Theme.theme-mode = mode; Palette.color-scheme = ColorScheme.light; root.set-visual-theme(mode); } }
                 ThemeCard { label: "深色"; mode: 2; selected: visual-theme == 2; choose(mode) => { visual-theme = mode; Theme.theme-mode = mode; Palette.color-scheme = ColorScheme.dark; root.set-visual-theme(mode); } }
@@ -247,6 +249,7 @@ export component SettingsView inherits Rectangle {
             HorizontalLayout {
                 visible: root.selected-section == 0;
                 height: root.selected-section == 0 ? 114px : 0px;
+                cross-axis-alignment: center;
                 SettingInfo { title: "界面字号"; description: "统一调整主窗口、弹窗、快速面板与桌面挂件字号"; horizontal-stretch: 1; }
                 Rectangle {
                     width: 104px; height: 30px; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface;
@@ -266,6 +269,7 @@ export component SettingsView inherits Rectangle {
             HorizontalLayout {
                 visible: root.selected-section == 0;
                 height: root.selected-section == 0 ? 72px : 0px;
+                cross-axis-alignment: center;
                 SettingInfo { title: "界面密度"; description: "控制日程与列表的行高"; horizontal-stretch: 1; }
                 HorizontalLayout { spacing: Theme.space-2; SmallChoice { label: "紧凑"; selected: root.interface-density == 0; clicked => { root.set-interface-density(0); } } SmallChoice { label: "标准"; selected: root.interface-density == 1; clicked => { root.set-interface-density(1); } } SmallChoice { label: "宽松"; selected: root.interface-density == 2; clicked => { root.set-interface-density(2); } } }
             }
@@ -273,6 +277,7 @@ export component SettingsView inherits Rectangle {
             HorizontalLayout {
                 visible: root.selected-section == 0;
                 height: root.selected-section == 0 ? 72px : 0px;
+                cross-axis-alignment: center;
                 SettingInfo { title: "减淡动效"; description: "关闭视图切换动画与弹入效果"; horizontal-stretch: 1; }
                 Switch { checked: root.reduce-motion; toggled(value) => { root.set-reduce-motion(value); } }
             }
@@ -280,6 +285,7 @@ export component SettingsView inherits Rectangle {
             HorizontalLayout {
                 visible: root.selected-section == 0;
                 height: root.selected-section == 0 ? 72px : 0px;
+                cross-axis-alignment: center;
                 SettingInfo { title: "快速面板"; description: "固定显示在系统时钟上方，可选窗口置顶"; horizontal-stretch: 1; }
                 Switch { checked: root.quick-panel-pinned; toggled(value) => { root.set-quick-panel-pinned(value); } }
             }
