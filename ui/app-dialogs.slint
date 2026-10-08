@@ -24,11 +24,11 @@ export component WidgetManagerDialog inherits Rectangle {
     TouchArea { clicked => { root.open = false; } }
     Rectangle {
         x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
-        width: 620px; height: 564px; border-radius: Theme.r-xl;
+        width: Math.min(620px, parent.width - 32px); height: manager-content.preferred-height; border-radius: Theme.r-xl;
         border-width: 1px; border-color: Theme.border-default; background: Theme.bg-surface;
         drop-shadow-color: Theme.shadow-3-color-a; drop-shadow-blur: Theme.shadow-3-blur-a; drop-shadow-offset-y: Theme.shadow-3-y-a;
-        VerticalLayout {
-            padding: Theme.space-5; spacing: Theme.space-3;
+        manager-content := VerticalLayout {
+            padding: Theme.space-5; padding-bottom: Theme.space-3; spacing: Theme.space-3;
             HorizontalLayout {
                 height: 36px; cross-axis-alignment: center;
                 VerticalLayout { horizontal-stretch: 1; spacing: 1px;

@@ -17,6 +17,8 @@ pub enum RepeatRule {
     Weekly,
     /// 每周固定在多个星期几重复（0=周一 .. 6=周日）。
     WeeklyOn(Vec<u8>),
+    /// Every N weeks, with explicit weekdays and RFC WKST (0 = Monday).
+    WeeklyInterval(u32, Vec<u8>, u8),
     /// 简单每月重复：固定在与基准日期相同的"日"。
     Monthly,
     /// 每月第 N 个星期几（nth: 1..=5，weekday: 0=周一 .. 6=周日）。
@@ -30,6 +32,23 @@ pub const WEEKDAY_LABELS: [&str; 7] = ["一", "二", "三", "四", "五", "六",
 impl RepeatRule {
     pub fn parse(s: &str) -> Self {
         let s = s.trim();
+        if let Some(rest) = s.strip_prefix("weekly-interval:") {
+            let parts: Vec<_> = rest.split(':').collect();
+            if parts.len() == 3 {
+                if let (Ok(interval), Ok(wkst)) = (parts[0].parse::<u32>(), parts[1].parse::<u8>())
+                {
+                    let days: Option<Vec<u8>> = parts[2]
+                        .split(',')
+                        .map(|d| d.parse::<u8>().ok().filter(|d| *d < 7))
+                        .collect();
+                    if interval > 0 && wkst < 7 {
+                        if let Some(days) = days.filter(|days| !days.is_empty()) {
+                            return Self::WeeklyInterval(interval, days, wkst);
+                        }
+                    }
+                }
+            }
+        }
         if let Some(rest) = s.strip_prefix("weekly:") {
             let days: Vec<u8> = rest
                 .split(',')
@@ -78,6 +97,11 @@ impl fmt::Display for RepeatRule {
             RepeatRule::Monthly => f.write_str("monthly"),
             RepeatRule::MonthlyNth(n, w) => write!(f, "monthly-nth:{n}:{w}"),
             RepeatRule::Yearly => f.write_str("yearly"),
+            RepeatRule::WeeklyInterval(n, days, wkst) => write!(
+                f,
+                "weekly-interval:{n}:{wkst}:{}",
+                days.iter().map(u8::to_string).collect::<Vec<_>>().join(",")
+            ),
         }
     }
 }
@@ -101,6 +125,7 @@ pub fn describe(rule: &RepeatRule) -> String {
             format!("每月第{n}个周{}重复", WEEKDAY_LABELS[*w as usize % 7])
         }
         RepeatRule::Yearly => "每年重复".to_string(),
+        RepeatRule::WeeklyInterval(n, _, _) => format!("每隔{n}周重复"),
     }
 }
 
@@ -159,6 +184,28 @@ pub fn occurrences_in_range(
                 }
                 if d >= base
                     && d >= start
+                    && days.contains(&(d.weekday().num_days_from_monday() as u8))
+                {
+                    out.push(d);
+                }
+                let Some(next) = d.succ_opt() else {
+                    break;
+                };
+                d = next;
+            }
+        }
+        RepeatRule::WeeklyInterval(interval, days, wkst) => {
+            if interval == 0 || wkst > 6 {
+                return out;
+            }
+            let offset = (base.weekday().num_days_from_monday() + 7 - u32::from(wkst)) % 7;
+            let mut d = base.max(start);
+            for _ in 0..(365 * 20) {
+                if d > end {
+                    break;
+                }
+                let week = ((d - base).num_days() + i64::from(offset)) / 7;
+                if week % i64::from(interval) == 0
                     && days.contains(&(d.weekday().num_days_from_monday() as u8))
                 {
                     out.push(d);
@@ -253,5 +300,50 @@ fn nth_weekday_of_month(year: i32, month: u32, nth: u8, weekday: u8) -> Option<N
         Some(candidate)
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod interval_tests {
+    use super::*;
+
+    #[test]
+    fn week_start_changes_interval_boundary_and_late_queries_keep_anchor() {
+        let base = NaiveDate::from_ymd_opt(2026, 9, 2).unwrap();
+        let end = NaiveDate::from_ymd_opt(2026, 9, 20).unwrap();
+        let monday = occurrences_in_range(
+            base,
+            RepeatRule::WeeklyInterval(2, vec![2, 6], 0),
+            base,
+            end,
+        );
+        let sunday = occurrences_in_range(
+            base,
+            RepeatRule::WeeklyInterval(2, vec![2, 6], 6),
+            base,
+            end,
+        );
+        assert_eq!(
+            monday.iter().map(|d| d.day()).collect::<Vec<_>>(),
+            vec![2, 6, 16, 20]
+        );
+        assert_eq!(
+            sunday.iter().map(|d| d.day()).collect::<Vec<_>>(),
+            vec![2, 13, 16]
+        );
+        let late_start = NaiveDate::from_ymd_opt(2026, 9, 10).unwrap();
+        assert_eq!(
+            occurrences_in_range(
+                base,
+                RepeatRule::WeeklyInterval(2, vec![2, 6], 6),
+                late_start,
+                end
+            ),
+            sunday
+                .into_iter()
+                .filter(|d| *d >= late_start)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(RepeatRule::parse("weekly-interval:0:0:2"), RepeatRule::None);
     }
 }

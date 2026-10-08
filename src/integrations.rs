@@ -8,10 +8,17 @@ use anyhow::{Context, Result};
 use quick_xml::events::Event as XmlEvent;
 use quick_xml::Reader;
 use serde::Serialize;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::Duration;
 
-const HTTP_TIMEOUT_SECS: u64 = 12;
+static SYNC_REVISION: AtomicU64 = AtomicU64::new(0);
+
+pub fn sync_revision() -> u64 {
+    SYNC_REVISION.load(Ordering::Acquire)
+}
+
+const HTTP_TIMEOUT_SECS: u64 = 20;
 const SUBSCRIPTION_REFRESH_SECS: u64 = 30 * 60;
 
 /// Subscription URLs may contain bearer tokens, paths or userinfo. Never show
@@ -35,10 +42,51 @@ fn http_agent() -> ureq::Agent {
         // Never forward CalDAV Basic credentials or tokenized ICS URLs to an
         // unrelated host through an automatic redirect.
         .redirects(0)
+        .timeout(Duration::from_secs(HTTP_TIMEOUT_SECS))
         .timeout_connect(Duration::from_secs(HTTP_TIMEOUT_SECS))
         .timeout_read(Duration::from_secs(HTTP_TIMEOUT_SECS))
         .timeout_write(Duration::from_secs(HTTP_TIMEOUT_SECS))
         .build()
+}
+
+fn retryable_http_error(error: &ureq::Error) -> bool {
+    match error {
+        ureq::Error::Transport(error) => matches!(
+            error.kind(),
+            ureq::ErrorKind::Dns
+                | ureq::ErrorKind::ConnectionFailed
+                | ureq::ErrorKind::Io
+                | ureq::ErrorKind::ProxyConnect
+        ),
+        ureq::Error::Status(status, _) => matches!(status, 408 | 429 | 500..=599),
+    }
+}
+
+fn fetch_ics(url: &str) -> Result<String> {
+    let agent = http_agent();
+    for attempt in 0..3 {
+        match agent.get(url).call() {
+            Ok(response) => match response.into_string() {
+                Ok(content) => return Ok(content),
+                Err(error) if attempt == 2 || error.kind() == std::io::ErrorKind::InvalidData => {
+                    return Err(error).context("读取 ICS 响应失败")
+                }
+                Err(_) => {}
+            },
+            Err(error) => {
+                if !retryable_http_error(&error) || attempt == 2 {
+                    let context = if retryable_http_error(&error) {
+                        "暂时连接失败（已尝试3次），保留上次同步数据"
+                    } else {
+                        "订阅请求失败，请检查地址或权限"
+                    };
+                    return Err(error).context(context);
+                }
+            }
+        }
+        thread::sleep(Duration::from_secs(attempt + 1));
+    }
+    unreachable!()
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -73,12 +121,7 @@ fn sync_subscription_inner(
     let content = if let Some(range) = caldav_bounds {
         fetch_caldav(subscription, range)?
     } else {
-        http_agent()
-            .get(&subscription.url)
-            .call()
-            .with_context(|| format!("拉取 ICS 订阅失败：{}", subscription.url))?
-            .into_string()
-            .context("读取 ICS 订阅响应失败")?
+        fetch_ics(&subscription.url)?
     };
     // A successful HTTP response may actually be a login page. Never interpret
     // malformed content as an authoritative empty calendar.
@@ -485,11 +528,14 @@ pub fn sync_ics_subscription_with_result(
         Ok(result) => {
             let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
             db::set_subscription_result(conn, subscription.id, Some(&timestamp), None)?;
+            SYNC_REVISION.fetch_add(1, Ordering::Release);
             Ok(result)
         }
         Err(error) => {
-            let message = safe_error(&error.to_string());
+            let message = safe_error(&format!("{error:#}"));
+            crate::error_reporter::record("日历订阅同步失败（已保留原数据）", &message);
             let _ = db::set_subscription_result(conn, subscription.id, None, Some(&message));
+            SYNC_REVISION.fetch_add(1, Ordering::Release);
             Err(anyhow::anyhow!(message))
         }
     }
@@ -565,26 +611,63 @@ pub fn get_or_create_dingtalk_calendar(conn: &rusqlite::Connection) -> Result<db
 /// 后台订阅刷新：启动时尝试一次，之后每 30 分钟执行；网络错误只写入订阅状态，不影响 GUI。
 pub fn spawn() {
     thread::spawn(|| loop {
+        let mut refresh_after = SUBSCRIPTION_REFRESH_SECS;
         match db::open() {
             Ok(conn) => {
                 let local_only = db::get_setting(&conn, "local_only", "0")
                     .unwrap_or_else(|_| "0".to_string())
                     == "1";
                 if !local_only {
-                    if let Err(error) = sync_all_ics(&conn) {
-                        crate::error_reporter::report("外部日历刷新失败", &error);
+                    match sync_all_ics(&conn) {
+                        Ok(report)
+                            if report
+                                .errors
+                                .iter()
+                                .any(|error| error.contains("暂时连接失败")) =>
+                        {
+                            refresh_after = 120
+                        }
+                        Err(error) => crate::error_reporter::report("外部日历刷新失败", &error),
+                        _ => {}
                     }
                 }
             }
             Err(error) => crate::error_reporter::report("外部日历无法打开数据库", &error),
         }
-        thread::sleep(Duration::from_secs(SUBSCRIPTION_REFRESH_SECS));
+        thread::sleep(Duration::from_secs(refresh_after));
     });
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn transient_http_failures_retry_but_permission_errors_do_not() {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/calendar.ics", listener.local_addr().unwrap());
+        let server = thread::spawn(move || {
+            for status in [503, 429, 200, 403] {
+                let (mut stream, _) = listener.accept().unwrap();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(5)))
+                    .unwrap();
+                let mut request = [0; 4096];
+                stream.read(&mut request).unwrap();
+                write!(
+                    stream,
+                    "HTTP/1.1 {status} Test\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"
+                )
+                .unwrap();
+            }
+        });
+        assert_eq!(fetch_ics(&url).unwrap(), "ok");
+        let error = fetch_ics(&url).unwrap_err();
+        assert!(format!("{error:#}").contains("403"));
+        server.join().unwrap();
+    }
 
     #[test]
     fn dingtalk_discovers_all_calendars_from_the_user_collection() {

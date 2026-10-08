@@ -25,6 +25,7 @@ fn sync_snapshot_removal_and_invalid_response_are_not_reported_as_success() {
         "SUMMARY:QA meeting",
         "SUMMARY:QA meeting\r\nSTATUS:CANCELLED",
     );
+    let series = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:qa-series\r\nDTSTART;VALUE=DATE:20260930\r\nRRULE:FREQ=WEEKLY;INTERVAL=15;BYDAY=WE;WKST=SU\r\nSUMMARY:Series\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:qa-series\r\nRECURRENCE-ID;VALUE=DATE:20270113\r\nDTSTART;VALUE=DATE:20270114\r\nSUMMARY:Moved\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
     let responses = [
         event.to_owned(),
         event.to_owned(),
@@ -33,6 +34,21 @@ fn sync_snapshot_removal_and_invalid_response_are_not_reported_as_success() {
         "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n".to_owned(),
         event.to_owned(),
         "<html>Sign in required</html>".to_owned(),
+        series.to_owned(),
+        series.to_owned(),
+        series.replace("20270114", "20270115"),
+        series.replace(
+            "DTSTART;VALUE=DATE:20270114",
+            "DTSTART;VALUE=DATE:20270114\r\nSTATUS:CANCELLED",
+        ),
+        series.to_owned(),
+        series.replace("INTERVAL=15", "COUNT=3"),
+        series
+            .split("BEGIN:VEVENT\r\nUID:qa-series\r\nRECURRENCE-ID")
+            .next()
+            .unwrap()
+            .to_owned()
+            + "END:VCALENDAR\r\n",
     ];
     let server = std::thread::spawn(move || {
         for body in responses {
@@ -77,7 +93,6 @@ fn sync_snapshot_removal_and_invalid_response_are_not_reported_as_success() {
         .last_sync;
     let invalid_rejected =
         integrations::sync_ics_subscription_with_result(&conn, &subscription).is_err();
-    server.join().unwrap();
     assert_eq!(
         db::list_all_events(&conn)
             .unwrap()
@@ -103,4 +118,56 @@ fn sync_snapshot_removal_and_invalid_response_are_not_reported_as_success() {
         removed && invalid_rejected,
         "QA-SYNC-01/02: 远端删除后清理本地={removed}, 拒绝HTML伪日历={invalid_rejected}"
     );
+    let start = chrono::NaiveDate::from_ymd_opt(2027, 1, 13).unwrap();
+    let end = chrono::NaiveDate::from_ymd_opt(2027, 1, 15).unwrap();
+    for expected_day in [14, 14, 15] {
+        integrations::sync_ics_subscription_with_result(&conn, &subscription).unwrap();
+        assert_eq!(
+            db::list_all_events(&conn).unwrap().len(),
+            3,
+            "local + master + one override; no duplicates"
+        );
+        let occurrences = db::list_event_occurrences(&conn, start, end).unwrap();
+        assert_eq!(occurrences.len(), 1, "original occurrence must be excluded");
+        assert_eq!(
+            occurrences[0].occurrence_date,
+            chrono::NaiveDate::from_ymd_opt(2027, 1, expected_day)
+                .unwrap()
+                .to_string()
+        );
+    }
+    integrations::sync_ics_subscription_with_result(&conn, &subscription).unwrap();
+    assert!(
+        db::list_event_occurrences(&conn, start, end)
+            .unwrap()
+            .is_empty(),
+        "cancelled override excludes only its original occurrence"
+    );
+    integrations::sync_ics_subscription_with_result(&conn, &subscription).unwrap();
+    let error = integrations::sync_ics_subscription_with_result(&conn, &subscription)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        error.contains("COUNT=3"),
+        "specific parsing cause is retained"
+    );
+    assert_eq!(
+        db::list_event_occurrences(&conn, start, end).unwrap().len(),
+        1,
+        "invalid snapshot preserves existing data"
+    );
+    integrations::sync_ics_subscription_with_result(&conn, &subscription).unwrap();
+    let restored = db::list_event_occurrences(&conn, start, end).unwrap();
+    assert_eq!(restored.len(), 1);
+    assert_eq!(
+        restored[0].occurrence_date,
+        start.to_string(),
+        "removed override restores original occurrence"
+    );
+    assert_eq!(
+        db::list_all_events(&conn).unwrap().len(),
+        2,
+        "obsolete override is removed, local event remains"
+    );
+    server.join().unwrap();
 }

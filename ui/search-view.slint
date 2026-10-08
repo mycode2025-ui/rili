@@ -73,16 +73,17 @@ export component SearchView inherits Rectangle {
             }
         }
         if query == "": Text {
-            text: "支持搜索日程标题/备注、待办标题、便签标题/内容";
+            text: "搜索日程与备注、待办、便签和课程";
             color: Theme.text-muted;
-            font-size: Theme.font-md;
+            font-size: Theme.font-sm;
+            wrap: word-wrap;
         }
         if query != "" && results.length == 0: Text {
             text: "没有找到匹配内容";
             color: Theme.text-muted;
             font-size: Theme.font-md;
         }
-        ScrollView {
+        if query != "" && results.length > 0: ScrollView {
             vertical-stretch: 1;
             VerticalLayout {
                 spacing: Theme.gap-sm;

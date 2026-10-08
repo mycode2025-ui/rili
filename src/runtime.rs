@@ -8,7 +8,7 @@ use crate::system_tray::{build_tray_icon, TrayHandles};
 use crate::windowing::*;
 use crate::{AppWindow, NotificationWindow, QuickPanelWindow, WidgetWindow};
 use chrono::{Local, Timelike};
-use rili::{error_reporter, reminders, system_theme, weather};
+use rili::{error_reporter, integrations, reminders, system_theme, weather};
 use slint::winit_030::WinitWindowAccessor;
 use slint::{ComponentHandle, SharedString};
 use std::cell::{Cell, RefCell};
@@ -353,6 +353,7 @@ pub(crate) fn start_realtime_runtime(
     let state = state.clone();
     let desktop_widgets = desktop_widgets.clone();
     let weather_revision = Rc::new(Cell::new(weather::cache_revision()));
+    let sync_revision = Rc::new(Cell::new(integrations::sync_revision()));
     let system_dark = Rc::new(Cell::new(system_theme::apps_use_dark_mode()));
 
     update_tool_status(ui, widget, &state);
@@ -435,6 +436,11 @@ pub(crate) fn start_realtime_runtime(
                 }
             }
             if realtime_visible || maintenance_tick {
+                let latest_sync = integrations::sync_revision();
+                if latest_sync != sync_revision.get() {
+                    sync_revision.set(latest_sync);
+                    ui.invoke_refresh_external_data();
+                }
                 let latest_revision = weather::cache_revision();
                 if latest_revision != weather_revision.get() {
                     weather_revision.set(latest_revision);

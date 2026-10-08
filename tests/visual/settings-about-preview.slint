@@ -1,0 +1,25 @@
+import { SettingsView } from "../../ui/settings-view.slint";
+import { Theme } from "../../ui/theme.slint";
+import { Palette } from "std-widgets.slint";
+
+export component SettingsAboutPreview inherits Window {
+    width: 960px; height: 640px;
+    in property <bool> dark: false;
+    in property <int> update-state: 2;
+    SettingsView {
+        width: 100%; height: 100%; selected-section: 7;
+        app-version: "0.2.4"; update-state: root.update-state;
+        update-version: "0.2.5";
+        update-error: "网络暂时不可用，请稍后重试";
+        update-github-url: "https://github.com/mycode2025-ui/rili/releases";
+        update-gitee-url: "https://gitee.com/mycode2025-ui/rili/releases";
+    }
+    init => {
+        Theme.theme-mode = root.dark ? 2 : 1;
+        Palette.color-scheme = root.dark ? ColorScheme.dark : ColorScheme.light;
+    }
+    changed dark => {
+        Theme.theme-mode = root.dark ? 2 : 1;
+        Palette.color-scheme = root.dark ? ColorScheme.dark : ColorScheme.light;
+    }
+}

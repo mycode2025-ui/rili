@@ -29,13 +29,15 @@ component HeaderButton inherits Rectangle {
     width: 22px;
     height: 22px;
     border-radius: 6px;
-    background: selected ? Theme.widget-accent-bg : (touch.has-hover ? (root.danger ? Theme.danger-bg : (root.accent-hover ? Theme.widget-accent-bg : Theme.widget-glass-hover)) : transparent);
+    border-width: 1px;
+    border-color: selected ? Theme.widget-accent : Theme.widget-glass-border.transparentize(touch.has-hover ? 0 : 0.45);
+    background: selected ? Theme.widget-accent-bg : (touch.has-hover ? (root.danger ? Theme.danger-bg : (root.accent-hover ? Theme.widget-accent-bg : Theme.widget-glass-hover)) : Theme.widget-glass-hover.transparentize(0.55));
     SvgIcon {
         source: root.icon;
-        size: 13px;
-        tint: root.danger ? Theme.widget-danger : (selected ? Theme.widget-text-1 : (touch.has-hover ? (root.accent-hover ? Theme.widget-accent : Theme.widget-text-1) : Theme.widget-text-3));
-        x: 4.5px;
-        y: 4.5px;
+        size: 14px;
+        tint: root.danger && touch.has-hover ? Theme.widget-danger : (selected ? Theme.widget-accent : (touch.has-hover ? (root.accent-hover ? Theme.widget-accent : Theme.widget-text-1) : Theme.widget-text-2));
+        x: 4px;
+        y: 4px;
     }
     touch := TouchArea { mouse-cursor: pointer; }
 }

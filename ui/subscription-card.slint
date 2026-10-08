@@ -26,11 +26,13 @@ export component SubscriptionCard inherits Rectangle {
         padding: 12px; spacing: 8px;
         HorizontalLayout {
             height: 24px;
+            cross-axis-alignment: center;
             Text { text: root.item.name; color: Theme.text-1; font-weight: 600; font-size: Theme.font-md; overflow: elide; horizontal-stretch: 1; }
             Text { text: root.item.status; color: root.item.has-error ? Theme.danger : Theme.text-2; font-size: Theme.font-sm; }
         }
         HorizontalLayout {
             height: 32px; spacing: 8px;
+            cross-axis-alignment: center;
             Text { text: root.item.calendar-name + " · " + root.item.event-count + " 条"; color: Theme.text-2; font-size: Theme.font-sm; overflow: elide; horizontal-stretch: 1; }
             GhostButton { text: root.expanded ? "收起" : "详情"; clicked => { root.expanded = !root.expanded; } }
             GhostButton { text: "同步"; enabled: !root.busy; clicked => { root.retry(root.item.id); } }
@@ -50,6 +52,7 @@ export component SubscriptionCard inherits Rectangle {
             password-box := LineEdit { visible: root.item.kind == "caldav"; height: root.item.kind == "caldav" ? 34px : 0px; input-type: InputType.password; placeholder-text: "新专用密码（留空保留原密码）"; }
             HorizontalLayout {
                 spacing: 8px;
+                cross-axis-alignment: center;
                 Text { text: "更换服务器或账号请新建连接"; color: Theme.text-2; font-size: Theme.font-sm; wrap: word-wrap; horizontal-stretch: 1; }
                 GhostButton { text: "保存"; enabled: !root.busy; clicked => { if root.save(root.item.id, name-box.text, password-box.text) { password-box.text = ""; root.editing = false; } } }
                 GhostButton { text: "取消"; clicked => { root.editing = false; } }
@@ -60,6 +63,7 @@ export component SubscriptionCard inherits Rectangle {
             Text { width: root.width - 24px; height: self.preferred-height; text: "删除“" + root.item.name + "”连接，并清空“" + root.item.calendar-name + "”中此来源的 " + root.item.event-count + " 条同步日程？本地事项和其他来源保留。"; color: Theme.danger; font-size: Theme.font-sm; wrap: word-wrap; }
             HorizontalLayout {
                 spacing: 8px;
+                cross-axis-alignment: center;
                 DangerGhostButton { text: "确认删除"; enabled: !root.busy; clicked => { root.remove(root.item.id); } }
                 GhostButton { text: "取消"; clicked => { root.confirming = false; } }
             }

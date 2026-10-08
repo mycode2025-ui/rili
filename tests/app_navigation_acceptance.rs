@@ -71,5 +71,23 @@ fn main_navigation_and_search_accept_mouse_input_at_minimum_size() {
     assert!(!ui.get_search_visible(), "点击搜索外部关闭");
     click(&ui, 70., 378.);
     assert!(ui.get_settings_visible(), "设置入口");
+    for _ in 0..3 {
+        ui.window().dispatch_event(WindowEvent::KeyPressed {
+            text: slint::platform::Key::Tab.into(),
+        });
+        ui.window().dispatch_event(WindowEvent::KeyReleased {
+            text: slint::platform::Key::Tab.into(),
+        });
+    }
+    ui.window().dispatch_event(WindowEvent::KeyPressed {
+        text: slint::platform::Key::Escape.into(),
+    });
+    ui.window().dispatch_event(WindowEvent::KeyReleased {
+        text: slint::platform::Key::Escape.into(),
+    });
+    assert!(
+        !ui.get_settings_visible(),
+        "设置内部控件获得焦点后 Esc 仍应关闭弹层"
+    );
     assert!(escape_closes_search, "QA-UI-02: Esc 关闭搜索");
 }

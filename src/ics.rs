@@ -10,7 +10,7 @@
 
 use crate::recurrence::RepeatRule;
 use anyhow::{Context, Result};
-use chrono::{LocalResult, NaiveDate, NaiveDateTime, NaiveTime, TimeZone};
+use chrono::{Datelike, LocalResult, NaiveDate, NaiveDateTime, NaiveTime, TimeZone};
 
 /// 星期几从我们内部编码（0=周一..6=周日）转成 RFC 5545 的两字母代码。
 fn weekday_code(w: u8) -> &'static str {
@@ -47,16 +47,26 @@ fn repeat_rule_to_rrule(rule: &RepeatRule) -> Option<String> {
         RepeatRule::Monthly => Some("FREQ=MONTHLY".to_string()),
         RepeatRule::MonthlyNth(n, w) => Some(format!("FREQ=MONTHLY;BYDAY={n}{}", weekday_code(*w))),
         RepeatRule::Yearly => Some("FREQ=YEARLY".to_string()),
+        RepeatRule::WeeklyInterval(n, days, wkst) => Some(format!(
+            "FREQ=WEEKLY;INTERVAL={n};BYDAY={};WKST={}",
+            days.iter()
+                .map(|d| weekday_code(*d))
+                .collect::<Vec<_>>()
+                .join(","),
+            weekday_code(*wkst)
+        )),
     }
 }
 
 /// 反过来把 RRULE 值解析回内部重复规则，并保留 UNTIL 截止日。
-/// COUNT 和非 1 的 INTERVAL 暂不展开，安全退化为单次事件，避免制造无限重复。
+/// 支持周重复间隔和 WKST；无法表达的规则明确拒绝，避免静默改变日程。
 fn parse_rrule(rrule: &str) -> Result<(RepeatRule, Option<NaiveDate>)> {
     let mut freq = None;
     let mut byday: Option<&str> = None;
     let mut until = None;
     let mut unsupported = false;
+    let mut interval = 1u32;
+    let mut wkst = 0u8;
     for part in rrule.split(';') {
         let mut kv = part.splitn(2, '=');
         match (kv.next(), kv.next()) {
@@ -66,15 +76,24 @@ fn parse_rrule(rrule: &str) -> Result<(RepeatRule, Option<NaiveDate>)> {
                 until = Some(parse_rrule_until(v).context("日历 RRULE 的 UNTIL 日期无效")?)
             }
             (Some("COUNT"), Some(_)) => unsupported = true,
-            (Some("INTERVAL"), Some(v)) if v != "1" => unsupported = true,
-            (Some("INTERVAL"), Some("1")) => {}
-            (Some("WKST"), Some("MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU")) => {}
+            (Some("INTERVAL"), Some(v)) => {
+                interval = v
+                    .parse()
+                    .ok()
+                    .filter(|n| *n > 0)
+                    .context("日历重复间隔无效")?;
+            }
+            (Some("WKST"), Some(v)) => wkst = weekday_from_code(v).context("日历 WKST 无效")?,
             _ => unsupported = true,
         }
     }
     if unsupported {
         anyhow::bail!("暂不支持此日历重复规则：{rrule}");
     }
+    anyhow::ensure!(
+        interval == 1 || freq == Some("WEEKLY"),
+        "暂不支持非周重复间隔"
+    );
     let rule = match (freq, byday) {
         (Some("DAILY"), None) => RepeatRule::Daily,
         (Some("WEEKLY"), Some(days)) => {
@@ -100,6 +119,16 @@ fn parse_rrule(rrule: &str) -> Result<(RepeatRule, Option<NaiveDate>)> {
         _ => RepeatRule::None,
     };
     anyhow::ensure!(rule != RepeatRule::None, "暂不支持此日历重复规则：{rrule}");
+    let rule = if interval > 1 {
+        let days = match rule {
+            RepeatRule::WeeklyOn(days) => days,
+            RepeatRule::Weekly => Vec::new(),
+            _ => unreachable!(),
+        };
+        RepeatRule::WeeklyInterval(interval, days, wkst)
+    } else {
+        rule
+    };
     Ok((rule, until))
 }
 
@@ -234,6 +263,8 @@ pub fn parse_ics(content: &str) -> Result<Vec<ImportedEvent>> {
     let mut start: Option<NaiveDateTime> = None;
     let mut end: Option<NaiveDateTime> = None;
     let mut explicit_duration: Option<i64> = None;
+    let mut recurrence_id: Option<(NaiveDate, String)> = None;
+    let mut overrides = Vec::new();
 
     for line in unfolded.lines() {
         let line = line.trim_end_matches('\r');
@@ -253,11 +284,24 @@ pub fn parse_ics(content: &str) -> Result<Vec<ImportedEvent>> {
             start = None;
             end = None;
             explicit_duration = None;
+            recurrence_id = None;
             continue;
         }
         if line == "END:VEVENT" {
             if in_event {
-                if let Some(d) = date {
+                if let Some(d) = date.or_else(|| recurrence_id.as_ref().map(|(d, _)| *d)) {
+                    if let RepeatRule::WeeklyInterval(_, days, _) = &mut repeat_rule {
+                        if days.is_empty() {
+                            days.push(d.weekday().num_days_from_monday() as u8);
+                        }
+                    }
+                    if let Some((original_date, identity)) = &recurrence_id {
+                        anyhow::ensure!(!uid.is_empty(), "单次改期缺少 UID");
+                        overrides.push((uid.clone(), *original_date));
+                        uid = format!("{uid}#recurrence:{identity}");
+                        repeat_rule = RepeatRule::None;
+                        repeat_until = None;
+                    }
                     events.push(ImportedEvent {
                         uid: uid.clone(),
                         title: summary.clone(),
@@ -308,7 +352,16 @@ pub fn parse_ics(content: &str) -> Result<Vec<ImportedEvent>> {
                     exception_dates.push(excluded_date);
                 }
             }
-            "RECURRENCE-ID" => anyhow::bail!("暂不支持日历单次重排覆盖，已保留原有同步数据"),
+            "RECURRENCE-ID" => {
+                anyhow::ensure!(!value.contains(','), "单次改期原始时间必须为单个值");
+                anyhow::ensure!(
+                    !key_part.contains("RANGE="),
+                    "暂不支持从本次起整体改期，已保留原有数据"
+                );
+                let (d, t, _) =
+                    parse_ics_datetime(key_part, value)?.context("单次改期原始时间无效")?;
+                recurrence_id = Some((d, format!("{d}T{}", t.unwrap_or_else(|| "date".into()))));
+            }
             "STATUS" => cancelled = value.eq_ignore_ascii_case("CANCELLED"),
             "DTSTART" => {
                 if let Some((parsed_date, parsed_time, parsed_start)) =
@@ -321,6 +374,13 @@ pub fn parse_ics(content: &str) -> Result<Vec<ImportedEvent>> {
             }
             "DTEND" => end = parse_ics_datetime(key_part, value)?.and_then(|(_, _, value)| value),
             _ => {}
+        }
+    }
+    for (parent_uid, original_date) in overrides {
+        if let Some(parent) = events.iter_mut().find(|event| event.uid == parent_uid) {
+            parent.exception_dates.push(original_date);
+            parent.exception_dates.sort_unstable();
+            parent.exception_dates.dedup();
         }
     }
     Ok(events)
@@ -566,12 +626,51 @@ mod tests {
             parsed[0].exception_dates[0],
             NaiveDate::from_ymd_opt(2026, 10, 7).unwrap()
         );
-        assert!(
+        assert!(matches!(
             parse_ics(&content.replace("RRULE:FREQ=WEEKLY", "RRULE:FREQ=WEEKLY;INTERVAL=2"))
-                .is_err()
-        );
+                .unwrap()[0]
+                .repeat_rule,
+            RepeatRule::WeeklyInterval(2, _, 0)
+        ));
         assert!(
             parse_ics(&content.replace("EXDATE;VALUE=DATE", "RECURRENCE-ID;VALUE=DATE")).is_err()
         );
+    }
+
+    #[test]
+    fn outlook_override_excludes_original_and_keeps_distinct_identity() {
+        let content = "BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:series\nDTSTART;VALUE=DATE:20260930\nRRULE:FREQ=WEEKLY;INTERVAL=15;BYDAY=WE;WKST=SU\nEND:VEVENT\nBEGIN:VEVENT\nUID:series\nRECURRENCE-ID;VALUE=DATE:20270113\nDTSTART;VALUE=DATE:20270114\nSUMMARY:Moved\nEND:VEVENT\nBEGIN:VEVENT\nUID:series\nRECURRENCE-ID;VALUE=DATE:20260401\nSTATUS:CANCELLED\nEND:VEVENT\nEND:VCALENDAR\n";
+        let events = parse_ics(content).unwrap();
+        assert_eq!(events.len(), 3);
+        assert_eq!(events[0].uid, "series");
+        assert_eq!(events[0].exception_dates.len(), 2);
+        assert_eq!(
+            events[1].date,
+            NaiveDate::from_ymd_opt(2027, 1, 14).unwrap()
+        );
+        assert_eq!(events[1].repeat_rule, RepeatRule::None);
+        assert_ne!(events[1].uid, events[0].uid);
+        assert!(events[2].cancelled);
+        let dates = crate::recurrence::occurrences_in_range(
+            events[0].date,
+            events[0].repeat_rule.clone(),
+            events[0].date,
+            NaiveDate::from_ymd_opt(2027, 5, 1).unwrap(),
+        );
+        assert_eq!(
+            dates,
+            vec![
+                events[0].date,
+                NaiveDate::from_ymd_opt(2027, 1, 13).unwrap(),
+                NaiveDate::from_ymd_opt(2027, 4, 28).unwrap()
+            ]
+        );
+        let encoded = events[0].repeat_rule.to_string();
+        assert_eq!(RepeatRule::parse(&encoded), events[0].repeat_rule);
+        assert!(parse_ics(&content.replace(
+            "RECURRENCE-ID;VALUE=DATE",
+            "RECURRENCE-ID;RANGE=THISANDFUTURE;VALUE=DATE"
+        ))
+        .is_err());
     }
 }

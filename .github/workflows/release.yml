@@ -37,4 +37,12 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create $env:GITHUB_REF_NAME dist/TimeHub.exe dist/SHA256SUMS.txt --generate-notes --verify-tag
+        run: |
+          # A locally verified release may be published before this build ends.
+          # Keep its tested assets; never overwrite them with a second build.
+          gh release view $env:GITHUB_REF_NAME *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release already exists; preserving published assets."
+            exit 0
+          }
+          gh release create $env:GITHUB_REF_NAME dist/TimeHub.exe dist/SHA256SUMS.txt --generate-notes --verify-tag

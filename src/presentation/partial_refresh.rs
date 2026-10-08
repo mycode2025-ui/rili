@@ -208,7 +208,23 @@ pub(crate) fn refresh_subscriptions(ui: &AppWindow, state: &Rc<RefCell<AppState>
                 .unwrap_or_else(|| "服务器".into());
             let has_error = subscription.last_error.is_some();
             let (status, detail) = if let Some(error) = subscription.last_error {
-                ("同步失败".to_string(), integrations::safe_error(&error))
+                let status = if error.contains("暂时连接失败") {
+                    "暂时连接失败"
+                } else {
+                    "同步失败"
+                };
+                (
+                    status.to_string(),
+                    format!(
+                        "{}\n{}",
+                        integrations::safe_error(&error),
+                        if last_sync.is_empty() {
+                            "尚未成功同步".to_string()
+                        } else {
+                            format!("上次成功同步 {last_sync}，原有日程已保留")
+                        }
+                    ),
+                )
             } else if let Some(last_sync) = subscription.last_sync {
                 ("已同步".to_string(), format!("上次同步 {last_sync}"))
             } else {

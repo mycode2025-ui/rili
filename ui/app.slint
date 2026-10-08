@@ -98,6 +98,8 @@ export component AppWindow inherits Window {
     in-out property <int> widget-style-accent: -1;
     in-out property <int> settings-section: 0;
     in-out property <bool> settings-open: false;
+    changed settings-open => { if !root.settings-open { shortcut-scope.focus(); } }
+    changed search-open => { if !root.search-open { shortcut-scope.focus(); } }
     /// 0=月 1=周 2=日 3=三日 4=待办 5=年 6=工具 7=搜索 8=记录 9=排班 11=便签 12=课程表
     in property <int> view-mode: 0;
     in property <string> week-title;
@@ -1063,10 +1065,10 @@ export component AppWindow inherits Window {
     }
     if search-open: SearchView {
         close-requested => { root.search-open = false; }
-        x: search-box.absolute-position.x;
+        x: Math.min(search-box.absolute-position.x, parent.width - self.width - 16px);
         y: Theme.titlebar-height + Theme.space-1;
-        width: 520px;
-        height: 380px;
+        width: Math.min(420px, parent.width - 32px);
+        height: Math.min(parent.height - self.y - 16px, root.search-query == "" || root.search-results.length == 0 ? 144px : Math.min(360px, 108px + root.search-results.length * 62px));
         query <=> root.search-query;
         focus-request: root.search-focus-request;
         results: root.search-results;

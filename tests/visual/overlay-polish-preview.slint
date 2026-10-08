@@ -1,0 +1,32 @@
+import { SearchView } from "../../ui/search-view.slint";
+import { WidgetManagerDialog } from "../../ui/app-dialogs.slint";
+import { Theme } from "../../ui/theme.slint";
+import { NotesWidgetWindow } from "../../ui/desktop-widgets.slint";
+
+export component HeaderActionsDarkPreview inherits NotesWidgetWindow {
+    init => { Theme.theme-mode = 2; }
+}
+
+export component SearchEmptyPreview inherits Window {
+    width: 960px; height: 640px; background: Theme.bg;
+    init => { Theme.theme-mode = 2; }
+    SearchView { x: 160px; y: 48px; width: 420px; height: 144px; }
+}
+export component SearchResultsPreview inherits Window {
+    width: 960px; height: 640px; background: Theme.bg;
+    init => { Theme.theme-mode = 2; }
+    SearchView {
+        x: 160px; y: 48px; width: 420px; height: 294px;
+        query: "会议";
+        results: [
+            { id: 1, kind: "日程", title: "产品研发会议", meta: "明天 15:00 · 会议室 5", date: "2026-10-09" },
+            { id: 2, kind: "待办", title: "准备会议资料", meta: "今天到期", date: "" },
+            { id: 3, kind: "便签", title: "会议记录", meta: "讨论下一阶段计划", date: "" }
+        ];
+    }
+}
+export component WidgetManagerPreview inherits Window {
+    width: 960px; height: 640px; background: Theme.bg;
+    init => { Theme.theme-mode = 2; }
+    WidgetManagerDialog { width: 100%; height: 100%; open: true; }
+}

@@ -465,14 +465,15 @@ export component ToolsView inherits Rectangle {
             connection-layout := VerticalLayout {
                 padding: Theme.gap-md;
                 spacing: Theme.gap-sm;
-                HorizontalLayout { height: 26px; cross-axis-alignment: center;
+                HorizontalLayout { height: 44px; cross-axis-alignment: center;
+                    padding-right: Theme.gap-sm; spacing: Theme.gap-sm;
                     VerticalLayout { spacing: 1px;
                         Text { text: "连接与同步"; color: Theme.text-primary; font-size: Theme.font-md; font-weight: 700; }
                         Text { text: "统一管理 ICS、CalDAV 与常用办公日历"; color: Theme.text-secondary; font-size: Theme.font-xs; }
                     }
                     Rectangle { horizontal-stretch: 1; }
                     Text { text: subscriptions.length + " 个日历订阅"; color: Theme.text-muted; font-size: Theme.font-sm; vertical-alignment: center; }
-                    GhostButton { width: 92px; text: "全部同步"; enabled: subscriptions.length > 0 && !root.sync-busy; clicked => { sync-subscriptions(); } }
+                    GhostButton { width: 112px; text: "全部同步"; enabled: subscriptions.length > 0 && !root.sync-busy; clicked => { sync-subscriptions(); } }
                 }
                 IntegrationConnector {
                     title: "Outlook / ICS";
@@ -485,6 +486,7 @@ export component ToolsView inherits Rectangle {
                     border-width: 1px; border-color: Theme.panel-border;
                     HorizontalLayout {
                         padding-left: Theme.gap-sm; padding-right: Theme.gap-sm; spacing: Theme.gap-sm;
+                        cross-axis-alignment: center;
                         subscription-name-box := LineEdit { text: subscription-name; placeholder-text: "订阅名称"; width: root.compact ? 112px : 156px; horizontal-stretch: 0; }
                         subscription-url-box := LineEdit { text: subscription-url; placeholder-text: "ICS URL（http/https）"; horizontal-stretch: 1; }
                         PrimaryButton { width: 116px; text: "添加并同步"; clicked => { add-subscription(subscription-name-box.text, subscription-url-box.text); } }

@@ -58,6 +58,16 @@ try {
     }
 
     $env:SLINT_SCALE_FACTOR = '1.0'
+    foreach ($state in @(2, 3, 4)) {
+        foreach ($theme in @('light', 'dark')) {
+            @{ dark = ($theme -eq 'dark'); 'update-state' = $state } | ConvertTo-Json -Compress | & slint-viewer tests\visual\settings-about-preview.slint --load-data - --screenshot (Join-Path $currentDir "SettingsAbout-$state-$theme.png")
+            if ($LASTEXITCODE -ne 0) { throw "渲染失败：SettingsAbout $state $theme" }
+        }
+    }
+    foreach ($component in @('SearchEmptyPreview', 'SearchResultsPreview', 'WidgetManagerPreview', 'HeaderActionsDarkPreview')) {
+        & slint-viewer tests\visual\overlay-polish-preview.slint --component $component --screenshot (Join-Path $currentDir "$component-dark.png")
+        if ($LASTEXITCODE -ne 0) { throw "渲染失败：$component dark" }
+    }
     & slint-viewer tests\visual\main-review-preview.slint --load-data tests\visual\main-course-dark.json --screenshot (Join-Path $currentDir 'CoursePreview-dark.png')
     if ($LASTEXITCODE -ne 0) { throw '渲染失败：CoursePreview dark' }
     & slint-viewer tests\visual\subscription-states-preview.slint --screenshot (Join-Path $currentDir 'SubscriptionStates-dark.png')

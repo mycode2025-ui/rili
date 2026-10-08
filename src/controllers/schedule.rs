@@ -107,10 +107,13 @@ pub(crate) fn register_schedule_callbacks(
                     }
                     let date = parse_ui_date(date.as_str()).map_err(anyhow::Error::msg)?;
                     let time = (!time.trim().is_empty()).then_some(time.trim().to_string());
-                    let repeat = match repeat.as_str() {
-                        "daily" | "weekly" | "monthly" | "yearly" => repeat.as_str(),
-                        _ => "none",
-                    };
+                    let repeat = repeat.as_str();
+                    anyhow::ensure!(
+                        repeat == "none"
+                            || recurrence::RepeatRule::parse(repeat)
+                                != recurrence::RepeatRule::None,
+                        "重复规则无效，未修改日程"
+                    );
                     let calendar_id = {
                         let s = state.borrow();
                         db::list_calendars(&s.conn)?

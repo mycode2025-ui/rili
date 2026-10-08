@@ -58,6 +58,19 @@ export component AppSettingsOverlay inherits Rectangle {
     background: Theme.bg-scrim;
     animate opacity { duration: root.reduce-motion ? 0ms : 160ms; }
 
+    forward-focus: settings-keys;
+    changed open => { if root.open { settings-keys.focus(); } }
+    settings-keys := FocusScope {
+    width: 100%; height: 100%;
+    enabled: root.open;
+    capture-key-pressed(event) => {
+        if root.open && event.text == Key.Escape {
+            root.open = false;
+            return accept;
+        }
+        return reject;
+    }
+
     if root.open: TouchArea { clicked => { root.open = false; } }
 
     Rectangle {
@@ -129,5 +142,6 @@ export component AppSettingsOverlay inherits Rectangle {
                 settings-action(action) => { root.settings-action(action); }
             }
         }
+    }
     }
 }
