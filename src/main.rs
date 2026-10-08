@@ -75,7 +75,11 @@ fn main() -> Result<()> {
     if cli.command.is_some() {
         return cli::run(cli);
     }
-    run_gui(cli.startup)
+    let result = run_gui(cli.startup);
+    if let Err(error) = &result {
+        error_reporter::record("GUI 启动或运行失败", &format!("{error:#}"));
+    }
+    result
 }
 
 #[cfg(target_os = "windows")]

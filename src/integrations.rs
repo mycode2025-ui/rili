@@ -644,7 +644,7 @@ mod tests {
 
     #[test]
     fn transient_http_failures_retry_but_permission_errors_do_not() {
-        use std::io::{Read, Write};
+        use std::io::{BufRead, BufReader, Write};
         use std::net::TcpListener;
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}/calendar.ics", listener.local_addr().unwrap());
@@ -654,8 +654,16 @@ mod tests {
                 stream
                     .set_read_timeout(Some(Duration::from_secs(5)))
                     .unwrap();
-                let mut request = [0; 4096];
-                stream.read(&mut request).unwrap();
+                // TCP can split the request anywhere. Consume the complete GET
+                // headers, rather than treating one read as a complete request.
+                let mut reader = BufReader::new(&stream);
+                loop {
+                    let mut line = String::new();
+                    assert!(reader.read_line(&mut line).unwrap() > 0);
+                    if line == "\r\n" {
+                        break;
+                    }
+                }
                 write!(
                     stream,
                     "HTTP/1.1 {status} Test\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"

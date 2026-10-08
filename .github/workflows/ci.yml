@@ -41,6 +41,12 @@ jobs:
       - name: Compare 100–200% DPI screenshots
         shell: pwsh
         run: ./scripts/visual-regression.ps1
+      - name: Upload visual diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-regression-diagnostics
+          path: target/visual-regression/current
 
   windows-native-smoke:
     runs-on: windows-latest
@@ -52,3 +58,9 @@ jobs:
       - name: Exercise native windows and event handlers
         shell: pwsh
         run: ./scripts/windows-native-smoke.ps1
+      - name: Upload native diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-smoke-diagnostics
+          path: target/native-smoke-data-*/timehub.log

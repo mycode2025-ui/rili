@@ -81,6 +81,10 @@ function Wait-Window([int]$ProcessId, [string]$Title) {
     do {
         $match = Get-TimeHubWindows $ProcessId | Where-Object Title -eq $Title | Select-Object -First 1
         if ($null -ne $match) { return $match }
+        $running = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+        if ($null -eq $running) {
+            throw "TimeHub exited before window '$Title' appeared. See native-smoke diagnostics."
+        }
         Start-Sleep -Milliseconds 150
     } while ([DateTime]::UtcNow -lt $deadline)
     throw "Timed out waiting for native window '$Title'."
@@ -116,7 +120,13 @@ $env:TIMEHUB_NATIVE_SMOKE = '1'
 $env:TIMEHUB_SMOKE_DATA_DIR = Join-Path $projectRoot ('target\native-smoke-data-' + [Guid]::NewGuid().ToString('N'))
 $process = $null
 try {
-    $process = Start-Process -FilePath $resolvedExe -WorkingDirectory $projectRoot -WindowStyle Hidden -PassThru
+    # Hide the console, not the GUI. STARTUPINFO's SW_HIDE can suppress the
+    # first native window on Windows Server even when Slint calls show().
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new($resolvedExe)
+    $startInfo.WorkingDirectory = $projectRoot
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $process = [System.Diagnostics.Process]::Start($startInfo)
     $main = Wait-Window $process.Id '日历'
     $quick = Wait-Window $process.Id 'TimeHub 快速面板'
     $notification = Wait-Window $process.Id 'TimeHub 通知'
@@ -185,6 +195,19 @@ try {
     }
 
     Write-Output "Windows native smoke passed: tray handler, taskbar-clock handler, screen notification placement, single instance; multi-monitor $crossMonitor."
+}
+catch {
+    Write-Host "Native smoke executable: $resolvedExe"
+    Write-Host "Isolated data: $env:TIMEHUB_SMOKE_DATA_DIR"
+    Write-Host "SLINT_BACKEND: $env:SLINT_BACKEND"
+    if ($null -ne $process) {
+        Write-Host "Process exited: $($process.HasExited)"
+        if ($process.HasExited) { Write-Host "Exit code: $($process.ExitCode)" }
+        else { Get-TimeHubWindows $process.Id | Format-List Title,Rect | Out-Host }
+    }
+    $logPath = Join-Path $env:TIMEHUB_SMOKE_DATA_DIR 'timehub.log'
+    if (Test-Path -LiteralPath $logPath) { Get-Content -LiteralPath $logPath | Out-Host }
+    throw
 }
 finally {
     if ($null -ne $process -and -not $process.HasExited) {

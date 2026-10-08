@@ -38,7 +38,9 @@ export component QuickPanelDarkPreview inherits QuickPanelWindow {
 
     init => {
         Theme.theme-mode = 2;
-        Theme.font-family = "Microsoft YaHei UI";
+        // Use the bundled font on both developer machines and CI; retain the
+        // larger text size as the compact panel's accessibility stress case.
+        Theme.font-family = "Noto Sans SC";
         Theme.font-delta = 3;
         Theme.density-mode = 0;
         Theme.accent = #65a30d;

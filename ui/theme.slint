@@ -1,6 +1,10 @@
 // TimeHub V4 design tokens extracted from designV4/mockup.html.
 // This is the only Slint file allowed to contain literal color values.
 
+// Register the same licensed font in native builds and headless previews.
+// Do not depend on a developer's Windows font installation or CI fallbacks.
+import "../assets/fonts/NotoSansSC-VF.ttf";
+
 export global Theme {
     // 0 = follow system, 1 = light, 2 = dark. Rust updates this preference.
     in-out property <int> theme-mode: 1;

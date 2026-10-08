@@ -170,7 +170,8 @@ foreach ($current in Get-ChildItem $currentDir -Filter '*.png') {
 }
 
 if ($failures.Count -gt 0) {
-    $failures | ForEach-Object { Write-Error $_ }
+    # Report every mismatch, not just the first one under Stop preference.
+    $failures | ForEach-Object { Write-Error $_ -ErrorAction Continue }
     throw "视觉回归失败，共 $($failures.Count) 项。"
 }
 Write-Host "视觉回归通过：$((Get-ChildItem -LiteralPath $currentDir -Filter '*.png').Count) 张截图，含主窗口四页的明暗主题及四档 DPI。"
