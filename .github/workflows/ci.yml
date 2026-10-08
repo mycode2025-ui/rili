@@ -57,6 +57,10 @@ jobs:
         run: cargo build -j 1
       - name: Exercise native windows and event handlers
         shell: pwsh
+        # Hosted Windows runners have no usable OpenGL driver. Exercise real
+        # Win32 windows with the application's compiled-in software renderer.
+        env:
+          SLINT_BACKEND: winit-software
         run: ./scripts/windows-native-smoke.ps1
       - name: Upload native diagnostics
         if: always()

@@ -3,6 +3,7 @@ import { Theme } from "../../ui/theme.slint";
 import { Palette } from "std-widgets.slint";
 
 export component TodayPreview inherits Window {
+    default-font-family: Theme.font-family;
     width: 1100px;
     height: 800px;
     in property <bool> dark: false;

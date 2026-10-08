@@ -3,6 +3,7 @@ import { Theme } from "../../ui/theme.slint";
 import { Palette } from "std-widgets.slint";
 
 export component NotesPreview inherits Window {
+    default-font-family: Theme.font-family;
     width: 1180px;
     height: 720px;
     in property <bool> dark: false;

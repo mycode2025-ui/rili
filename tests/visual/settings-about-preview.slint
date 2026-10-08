@@ -3,6 +3,7 @@ import { Theme } from "../../ui/theme.slint";
 import { Palette } from "std-widgets.slint";
 
 export component SettingsAboutPreview inherits Window {
+    default-font-family: Theme.font-family;
     width: 960px; height: 640px;
     in property <bool> dark: false;
     in property <int> update-state: 2;

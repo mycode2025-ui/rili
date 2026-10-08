@@ -3,6 +3,7 @@ import { Theme } from "../../ui/theme.slint";
 import { Palette } from "std-widgets.slint";
 
 export component SettingsAppearancePreview inherits Window {
+    default-font-family: Theme.font-family;
     width: 1180px;
     height: 900px;
     SettingsView { width: 100%; height: 100%; selected-section: 0; }

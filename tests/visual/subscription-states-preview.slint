@@ -3,6 +3,7 @@ import { Theme } from "../../ui/theme.slint";
 import { Palette } from "std-widgets.slint";
 
 export component SubscriptionStatesPreview inherits Window {
+    default-font-family: Theme.font-family;
     width: 480px; height: 940px;
     background: Theme.bg-app;
     init => { Theme.theme-mode = 2; Palette.color-scheme = ColorScheme.dark; }

@@ -8,11 +8,13 @@ export component HeaderActionsDarkPreview inherits NotesWidgetWindow {
 }
 
 export component SearchEmptyPreview inherits Window {
+    default-font-family: Theme.font-family;
     width: 960px; height: 640px; background: Theme.bg;
     init => { Theme.theme-mode = 2; }
     SearchView { x: 160px; y: 48px; width: 420px; height: 144px; }
 }
 export component SearchResultsPreview inherits Window {
+    default-font-family: Theme.font-family;
     width: 960px; height: 640px; background: Theme.bg;
     init => { Theme.theme-mode = 2; }
     SearchView {
@@ -26,6 +28,7 @@ export component SearchResultsPreview inherits Window {
     }
 }
 export component WidgetManagerPreview inherits Window {
+    default-font-family: Theme.font-family;
     width: 960px; height: 640px; background: Theme.bg;
     init => { Theme.theme-mode = 2; }
     WidgetManagerDialog { width: 100%; height: 100%; open: true; }
